@@ -39,6 +39,6 @@ func TestGetUrisInSubjectAltName(t *testing.T) {
 	}
 
 	if (len(uris) > 0) {
-		t.Fatalf("Expected to have no URIs but got %v URIs", golden, len(uris))
+		t.Fatalf("Expected to have no URIs but got %v URIs", len(uris))
 	}
 }
