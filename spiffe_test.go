@@ -1,8 +1,8 @@
 package spiffe
 
 import (
-	"testing"
 	"io/ioutil"
+	"testing"
 )
 
 func getCertificateFromFile(t *testing.T, certFilePath string) string {
@@ -11,7 +11,7 @@ func getCertificateFromFile(t *testing.T, certFilePath string) string {
 		t.Fatal(err)
 	}
 
-	return string(certificateString);
+	return string(certificateString)
 }
 
 func TestGetUrisInSubjectAltName(t *testing.T) {
@@ -19,26 +19,26 @@ func TestGetUrisInSubjectAltName(t *testing.T) {
 
 	var golden = "spiffe://dev.acme.com/path/service"
 
-	uris, err := GetUrisInSubjectAltName(string(certPEM))
+	uris, err := GetUrisInSubjectAltNameEncoded(string(certPEM))
 	if err != nil {
-		t.Error(err);
+		t.Error(err)
 	}
 
-	if (len(uris) == 1) {
-		if (uris[0] != golden) {
+	if len(uris) == 1 {
+		if uris[0] != golden {
 			t.Fatalf("Expected '%v' but got '%v'", golden, uris[0])
 		}
-	} else 	{
+	} else {
 		t.Fatalf("Expected 1 URI but got '%v'", len(uris))
 	}
 
 	certPEM = getCertificateFromFile(t, "testdata/intermediate.cert.pem")
-	uris, err = GetUrisInSubjectAltName(string(certPEM))
+	uris, err = GetUrisInSubjectAltNameEncoded(string(certPEM))
 	if err == nil {
 		t.Fatal("Expected to fail")
 	}
 
-	if (len(uris) > 0) {
+	if len(uris) > 0 {
 		t.Fatalf("Expected to have no URIs but got %v URIs", len(uris))
 	}
 }
