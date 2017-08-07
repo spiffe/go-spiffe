@@ -2,15 +2,15 @@ package spiffe
 
 import (
 	"crypto/x509"
-	"encoding/pem"
-	"encoding/asn1"
 	"crypto/x509/pkix"
+	"encoding/asn1"
+	"encoding/pem"
 	"errors"
 )
 
 var oidExtensionSubjectAltName = asn1.ObjectIdentifier{2, 5, 29, 17}
 
-func getUrisFromSANExtension(sanExtension []byte) (uris []string, err error) {
+func getURINamesFromSANExtension(sanExtension []byte) (uris []string, err error) {
 	// RFC 5280, 4.2.1.6
 
 	// SubjectAltName ::= GeneralNames
@@ -67,9 +67,21 @@ func getExtensionsFromAsn1ObjectIdentifier(certificate *x509.Certificate, id asn
 	return extensions
 }
 
-// GetUrisInSubjectAltName parses an X.509 certificate in PEM format and gets the URIs from the SAN extension
-func GetUrisInSubjectAltName(certificateString string) (uris []string, err error) {
-	block, _ := pem.Decode([]byte(certificateString))
+// GetUrisInSubjectAltName takes a parsed X.509 certificate and gets the URIs from the SAN extension.
+func GetURINamesFromCertificate(cert *x509.Certificate) (uris []string, err error) {
+	for _, ext := range getExtensionsFromAsn1ObjectIdentifier(cert, oidExtensionSubjectAltName) {
+		uris, err = getURINamesFromSANExtension(ext.Value)
+		if err != nil {
+			return
+		}
+	}
+
+	return uris, nil
+}
+
+// GetUrisInSubjectAltNameEncoded parses a PEM-encoded X.509 certificate and gets the URIs from the SAN extension.
+func GetURINamesFromPEM(encodedCertificate string) (uris []string, err error) {
+	block, _ := pem.Decode([]byte(encodedCertificate))
 	if block == nil {
 		return uris, errors.New("failed to decode certificate PEM")
 	}
@@ -79,12 +91,5 @@ func GetUrisInSubjectAltName(certificateString string) (uris []string, err error
 		return uris, errors.New("failed to parse certificate: " + err.Error())
 	}
 
-	for _, ext := range getExtensionsFromAsn1ObjectIdentifier(cert, oidExtensionSubjectAltName) {
-		uris, err = getUrisFromSANExtension(ext.Value)
-		if err != nil {
-			return
-		}
-	}
-
-	return uris, nil
+	return GetURINamesFromCertificate(cert)
 }
