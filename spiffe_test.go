@@ -14,12 +14,12 @@ func getCertificateFromFile(t *testing.T, certFilePath string) string {
 	return string(certificateString)
 }
 
-func TestGetUrisInSubjectAltName(t *testing.T) {
+func TestGetURINamesFromPEM(t *testing.T) {
 	certPEM := getCertificateFromFile(t, "testdata/leaf.cert.pem")
 
 	var golden = "spiffe://dev.acme.com/path/service"
 
-	uris, err := GetUrisInSubjectAltNameEncoded(string(certPEM))
+	uris, err := GetURINamesFromPEM(string(certPEM))
 	if err != nil {
 		t.Error(err)
 	}
@@ -33,7 +33,7 @@ func TestGetUrisInSubjectAltName(t *testing.T) {
 	}
 
 	certPEM = getCertificateFromFile(t, "testdata/intermediate.cert.pem")
-	uris, err = GetUrisInSubjectAltNameEncoded(string(certPEM))
+	uris, err = GetURINamesFromPEM(string(certPEM))
 	if err == nil {
 		t.Fatal("Expected to fail")
 	}

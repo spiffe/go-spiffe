@@ -10,7 +10,7 @@ import (
 
 var oidExtensionSubjectAltName = asn1.ObjectIdentifier{2, 5, 29, 17}
 
-func getUrisFromSANExtension(sanExtension []byte) (uris []string, err error) {
+func getURINamesFromSANExtension(sanExtension []byte) (uris []string, err error) {
 	// RFC 5280, 4.2.1.6
 
 	// SubjectAltName ::= GeneralNames
@@ -68,9 +68,9 @@ func getExtensionsFromAsn1ObjectIdentifier(certificate *x509.Certificate, id asn
 }
 
 // GetUrisInSubjectAltName takes a parsed X.509 certificate and gets the URIs from the SAN extension.
-func GetUrisInSubjectAltName(cert *x509.Certificate) (uris []string, err error) {
+func GetURINamesFromCertificate(cert *x509.Certificate) (uris []string, err error) {
 	for _, ext := range getExtensionsFromAsn1ObjectIdentifier(cert, oidExtensionSubjectAltName) {
-		uris, err = getUrisFromSANExtension(ext.Value)
+		uris, err = getURINamesFromSANExtension(ext.Value)
 		if err != nil {
 			return
 		}
@@ -80,7 +80,7 @@ func GetUrisInSubjectAltName(cert *x509.Certificate) (uris []string, err error) 
 }
 
 // GetUrisInSubjectAltNameEncoded parses a PEM-encoded X.509 certificate and gets the URIs from the SAN extension.
-func GetUrisInSubjectAltNameEncoded(encodedCertificate string) (uris []string, err error) {
+func GetURINamesFromPEM(encodedCertificate string) (uris []string, err error) {
 	block, _ := pem.Decode([]byte(encodedCertificate))
 	if block == nil {
 		return uris, errors.New("failed to decode certificate PEM")
@@ -91,5 +91,5 @@ func GetUrisInSubjectAltNameEncoded(encodedCertificate string) (uris []string, e
 		return uris, errors.New("failed to parse certificate: " + err.Error())
 	}
 
-	return GetUrisInSubjectAltName(cert)
+	return GetURINamesFromCertificate(cert)
 }
