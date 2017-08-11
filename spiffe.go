@@ -6,6 +6,8 @@ import (
 	"encoding/asn1"
 	"encoding/pem"
 	"errors"
+	"io"
+	"io/ioutil"
 )
 
 var oidExtensionSubjectAltName = asn1.ObjectIdentifier{2, 5, 29, 17}
@@ -81,9 +83,15 @@ func GetURINamesFromCertificate(cert *x509.Certificate) (uris []string, err erro
 
 // GetUrisInSubjectAltNameEncoded parses a PEM-encoded X.509 certificate and gets the URIs from the SAN extension.
 func GetURINamesFromPEM(encodedCertificate string) (uris []string, err error) {
-	block, _ := pem.Decode([]byte(encodedCertificate))
+	return uriNamesFromPEM([]byte(encodedCertificate))
+}
+
+var errNilBlock = errors.New("failed to decode certificate PEM")
+
+func uriNamesFromPEM(encodedCertificate []byte) (uris []string, err error) {
+	block, _ := pem.Decode(encodedCertificate)
 	if block == nil {
-		return uris, errors.New("failed to decode certificate PEM")
+		return uris, errNilBlock
 	}
 
 	cert, err := x509.ParseCertificate(block.Bytes)
@@ -92,4 +100,14 @@ func GetURINamesFromPEM(encodedCertificate string) (uris []string, err error) {
 	}
 
 	return GetURINamesFromCertificate(cert)
+}
+
+// FGetURINamesFromPEM retrieves URIs from the SAN extension of a
+// PEM-encoded X.509 certificate, whose content is in the provided io.Reader.
+func FGetURINamesFromPEM(f io.Reader) (uris []string, err error) {
+	blob, err := ioutil.ReadAll(f)
+	if err != nil {
+		return nil, err
+	}
+	return uriNamesFromPEM(blob)
 }
