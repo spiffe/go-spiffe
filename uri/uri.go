@@ -1,17 +1,15 @@
-package spiffe
+package uri
 
 import (
+	"encoding/asn1"
+	"errors"
 	"crypto/x509"
 	"crypto/x509/pkix"
-	"encoding/asn1"
 	"encoding/pem"
-	"errors"
 	"io"
 	"io/ioutil"
+	"github.com/spiffe/go-spiffe/spiffe"
 )
-
-var OidExtensionSubjectAltName = asn1.ObjectIdentifier{2, 5, 29, 17}
-var OidExtensionKeyUsage = asn1.ObjectIdentifier{2, 5, 29, 15}
 
 func getURINamesFromSANExtension(sanExtension []byte) (uris []string, err error) {
 	// RFC 5280, 4.2.1.6
@@ -33,14 +31,14 @@ func getURINamesFromSANExtension(sanExtension []byte) (uris []string, err error)
 	var seq asn1.RawValue
 	var rest []byte
 	if rest, err = asn1.Unmarshal(sanExtension, &seq); err != nil {
-		return
+		return uris, err
 	} else if len(rest) != 0 {
 		err = errors.New("x509: trailing data after X.509 extension")
-		return
+		return uris, err
 	}
 	if !seq.IsCompound || seq.Tag != 16 || seq.Class != 0 {
 		err = asn1.StructuralError{Msg: "bad SAN sequence"}
-		return
+		return uris, err
 	}
 
 	rest = seq.Bytes
@@ -48,34 +46,23 @@ func getURINamesFromSANExtension(sanExtension []byte) (uris []string, err error)
 		var v asn1.RawValue
 		rest, err = asn1.Unmarshal(rest, &v)
 		if err != nil {
-			return
+			return uris, err
 		}
 		if v.Tag == 6 {
 			uris = append(uris, string(v.Bytes))
 		}
 	}
 
-	return
+	return uris, err
 }
 
-func getExtensionsFromAsn1ObjectIdentifier(certificate *x509.Certificate, id asn1.ObjectIdentifier) []pkix.Extension {
-	var extensions []pkix.Extension
-
-	for _, extension := range certificate.Extensions {
-		if extension.Id.Equal(id) {
-			extensions = append(extensions, extension)
-		}
-	}
-
-	return extensions
-}
 
 // GetURINamesFromCertificate takes a parsed X.509 certificate and gets the URIs from the SAN extension.
 func GetURINamesFromCertificate(cert *x509.Certificate) (uris []string, err error) {
-	for _, ext := range getExtensionsFromAsn1ObjectIdentifier(cert, OidExtensionSubjectAltName) {
+	for _, ext := range spiffe.GetExtensionsFromAsn1ObjectIdentifier(cert, spiffe.OidExtensionSubjectAltName) {
 		uris, err = getURINamesFromSANExtension(ext.Value)
 		if err != nil {
-			return
+			return uris, err
 		}
 	}
 
@@ -116,20 +103,15 @@ func FGetURINamesFromPEM(f io.Reader) (uris []string, err error) {
 // GetURINamesFromExtensions retrieves URIs from the SAN extension of a slice of extensions
 func GetURINamesFromExtensions(extensions *[]pkix.Extension) (uris []string, err error) {
 	for _, ext := range *extensions {
-		if ext.Id.Equal(OidExtensionSubjectAltName) {
+		if ext.Id.Equal(spiffe.OidExtensionSubjectAltName) {
 			uris, err = getURINamesFromSANExtension(ext.Value)
 			if err != nil {
-				return
+				return uris, err
 			}
 		}
 	}
 
 	return uris, nil
-}
-
-// GetKeyUsageExtensionsFromCertificate takes a parsed X.509 certificate and gets the Key Usage extensions
-func GetKeyUsageExtensionsFromCertificate(cert *x509.Certificate) (extension []pkix.Extension) {
-	return getExtensionsFromAsn1ObjectIdentifier(cert, OidExtensionKeyUsage)
 }
 
 // MarshalUriSANs takes URI strings and returns the ASN.1 structure to be used
