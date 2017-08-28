@@ -10,7 +10,8 @@ import (
 	"io/ioutil"
 )
 
-var oidExtensionSubjectAltName = asn1.ObjectIdentifier{2, 5, 29, 17}
+var OidExtensionSubjectAltName = asn1.ObjectIdentifier{2, 5, 29, 17}
+var OidExtensionKeyUsage = asn1.ObjectIdentifier{2, 5, 29, 15}
 
 func getURINamesFromSANExtension(sanExtension []byte) (uris []string, err error) {
 	// RFC 5280, 4.2.1.6
@@ -69,9 +70,9 @@ func getExtensionsFromAsn1ObjectIdentifier(certificate *x509.Certificate, id asn
 	return extensions
 }
 
-// GetUrisInSubjectAltName takes a parsed X.509 certificate and gets the URIs from the SAN extension.
+// GetURINamesFromCertificate takes a parsed X.509 certificate and gets the URIs from the SAN extension.
 func GetURINamesFromCertificate(cert *x509.Certificate) (uris []string, err error) {
-	for _, ext := range getExtensionsFromAsn1ObjectIdentifier(cert, oidExtensionSubjectAltName) {
+	for _, ext := range getExtensionsFromAsn1ObjectIdentifier(cert, OidExtensionSubjectAltName) {
 		uris, err = getURINamesFromSANExtension(ext.Value)
 		if err != nil {
 			return
@@ -81,7 +82,7 @@ func GetURINamesFromCertificate(cert *x509.Certificate) (uris []string, err erro
 	return uris, nil
 }
 
-// GetUrisInSubjectAltNameEncoded parses a PEM-encoded X.509 certificate and gets the URIs from the SAN extension.
+// GetURINamesFromPEM parses a PEM-encoded X.509 certificate and gets the URIs from the SAN extension.
 func GetURINamesFromPEM(encodedCertificate string) (uris []string, err error) {
 	return uriNamesFromPEM([]byte(encodedCertificate))
 }
@@ -110,4 +111,34 @@ func FGetURINamesFromPEM(f io.Reader) (uris []string, err error) {
 		return nil, err
 	}
 	return uriNamesFromPEM(blob)
+}
+
+// GetURINamesFromExtensions retrieves URIs from the SAN extension of a slice of extensions
+func GetURINamesFromExtensions(extensions *[]pkix.Extension) (uris []string, err error) {
+	for _, ext := range *extensions {
+		if ext.Id.Equal(OidExtensionSubjectAltName) {
+			uris, err = getURINamesFromSANExtension(ext.Value)
+			if err != nil {
+				return
+			}
+		}
+	}
+
+	return uris, nil
+}
+
+// GetKeyUsageExtensionsFromCertificate takes a parsed X.509 certificate and gets the Key Usage extensions
+func GetKeyUsageExtensionsFromCertificate(cert *x509.Certificate) (extension []pkix.Extension) {
+	return getExtensionsFromAsn1ObjectIdentifier(cert, OidExtensionKeyUsage)
+}
+
+// MarshalUriSANs takes URI strings and returns the ASN.1 structure to be used
+// in the Value field for the SAN Extension
+func MarshalUriSANs(uris []string) (derBytes []byte, err error) {
+	var rawValues []asn1.RawValue
+	for _, name := range uris {
+		rawValues = append(rawValues, asn1.RawValue{Tag: 6, Class: 2, Bytes: []byte(name)})
+	}
+
+	return asn1.Marshal(rawValues)
 }
