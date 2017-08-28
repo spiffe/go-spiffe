@@ -1,11 +1,12 @@
-package spiffe_test
+package uri
 
 import (
+	"crypto/x509/pkix"
 	"io/ioutil"
 	"strings"
 	"testing"
 
-	spiffe "github.com/spiffe/go-spiffe"
+	"github.com/spiffe/go-spiffe/spiffe"
 )
 
 func getCertificateFromFile(t *testing.T, certFilePath string) string {
@@ -20,9 +21,9 @@ func getCertificateFromFile(t *testing.T, certFilePath string) string {
 const golden = "spiffe://dev.acme.com/path/service"
 
 func TestGetURINamesFromPEM(t *testing.T) {
-	certPEM := getCertificateFromFile(t, "testdata/leaf.cert.pem")
+	certPEM := getCertificateFromFile(t, "../testdata/leaf.cert.pem")
 
-	uris, err := spiffe.GetURINamesFromPEM(string(certPEM))
+	uris, err := GetURINamesFromPEM(string(certPEM))
 	if err != nil {
 		t.Error(err)
 	}
@@ -35,8 +36,8 @@ func TestGetURINamesFromPEM(t *testing.T) {
 		t.Fatalf("Expected 1 URI but got '%v'", len(uris))
 	}
 
-	certPEM = getCertificateFromFile(t, "testdata/intermediate.cert.pem")
-	uris, err = spiffe.GetURINamesFromPEM(string(certPEM))
+	certPEM = getCertificateFromFile(t, "../testdata/intermediate.cert.pem")
+	uris, err = GetURINamesFromPEM(string(certPEM))
 	if err == nil {
 		t.Fatal("Expected to fail")
 	}
@@ -114,7 +115,7 @@ fDGmAkjHrspiorTruphHk+cymJfjAGqZ0l6il4Wi5w4R5jrxnJMhkxbjr/PG5xCS
 )
 
 func TestFGetURINamesFromPEM(t *testing.T) {
-	uris, err := spiffe.FGetURINamesFromPEM(strings.NewReader(goodCert))
+	uris, err := FGetURINamesFromPEM(strings.NewReader(goodCert))
 	if err != nil {
 		t.Error(err)
 	}
@@ -127,7 +128,7 @@ func TestFGetURINamesFromPEM(t *testing.T) {
 		t.Fatalf("Expected 1 URI but got '%v'", len(uris))
 	}
 
-	uris, err = spiffe.FGetURINamesFromPEM(strings.NewReader(badCert))
+	uris, err = FGetURINamesFromPEM(strings.NewReader(badCert))
 	if err == nil {
 		t.Fatal("Expected to fail")
 	}
@@ -136,3 +137,33 @@ func TestFGetURINamesFromPEM(t *testing.T) {
 		t.Fatalf("Expected to have no URIs but got %v URIs", len(uris))
 	}
 }
+
+func TestMarshalUriSANsAndGetURINamesFromExtensions(t *testing.T) {
+	uriSans, err := MarshalUriSANs([]string{golden})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	extensions := []pkix.Extension{
+		{
+			Id:       []int{1, 2, 3, 4},
+			Critical: false,
+			Value:    []byte{0x01, 0x01, 1, 1, 1, 1},
+		},
+		{
+			Id:       spiffe.OidExtensionSubjectAltName,
+			Value:    uriSans,
+			Critical: true,
+		},
+	}
+
+	uris, err := GetURINamesFromExtensions(&extensions)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if uris[0] != golden {
+		t.Fatalf("Expected to get: '%v' but obtained: '%v'", golden, uris[0])
+	}
+}
+
