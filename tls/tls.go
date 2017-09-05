@@ -14,9 +14,9 @@ type TLSPeer struct {
 	TrustRoots *x509.CertPool
 }
 
-// Given a slice of TLS certificates, return a SPIFFE-compatible
-// TLS configuration. We are opinionated towards mutual TLS. If you
-// don't want mutual TLS, you'll need to update the returned config
+// NewTLSConfig creates a SPIFFE-compatible TLS configuration.
+// We are opinionated towards mutual TLS. If you don't want
+// mutual TLS, you'll need to update the returned config
 func (t *TLSPeer) NewTLSConfig(certs []tls.Certificate) *tls.Config {
 	config := &tls.Config{
 		// Disable validation/verification because we perform
@@ -30,7 +30,7 @@ func (t *TLSPeer) NewTLSConfig(certs []tls.Certificate) *tls.Config {
 	return config
 }
 
-// This function serves callbacks from TLS listeners/dialers. It performs
+// verifyPeerCertificate serves callbacks from TLS listeners/dialers. It performs
 // SPIFFE-specific validation steps on behalf of the golang TLS library
 func (t *TLSPeer) verifyPeerCertificate(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) (err error) {
 	// First, parse all received certs
