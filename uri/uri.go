@@ -10,7 +10,6 @@ import (
 	"io/ioutil"
 )
 
-
 func getURINamesFromSANExtension(sanExtension []byte) (uris []string, err error) {
 	// RFC 5280, 4.2.1.6
 
@@ -55,7 +54,6 @@ func getURINamesFromSANExtension(sanExtension []byte) (uris []string, err error)
 
 	return uris, err
 }
-
 
 // GetURINamesFromCertificate takes a parsed X.509 certificate and gets the URIs from the SAN extension.
 func GetURINamesFromCertificate(cert *x509.Certificate) (uris []string, err error) {
