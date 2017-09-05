@@ -5,8 +5,6 @@ import (
 	"io/ioutil"
 	"strings"
 	"testing"
-
-	"github.com/spiffe/go-spiffe/spiffe"
 )
 
 func getCertificateFromFile(t *testing.T, certFilePath string) string {
@@ -151,7 +149,7 @@ func TestMarshalUriSANsAndGetURINamesFromExtensions(t *testing.T) {
 			Value:    []byte{0x01, 0x01, 1, 1, 1, 1},
 		},
 		{
-			Id:       spiffe.OidExtensionSubjectAltName,
+			Id:       OidExtensionSubjectAltName,
 			Value:    uriSans,
 			Critical: true,
 		},

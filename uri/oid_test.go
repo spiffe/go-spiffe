@@ -1,4 +1,4 @@
-package spiffe
+package uri
 
 import (
 	"crypto/rand"

@@ -2,28 +2,37 @@ package spiffe
 
 import (
 	"crypto/x509"
-	"crypto/x509/pkix"
-	"encoding/asn1"
+	"fmt"
+
+	"github.com/spiffe/go-spiffe/uri"
 )
 
-var OidExtensionSubjectAltName = asn1.ObjectIdentifier{2, 5, 29, 17}
-var OidExtensionKeyUsage = asn1.ObjectIdentifier{2, 5, 29, 15}
+// Tries to match a SPIFFE ID, given a certificate
+func MatchID(ids []string, cert *x509.Certificate) error {
+	parsedIDs, err := uri.GetURINamesFromCertificate(cert)
+	if err != nil {
+		return err
+	}
 
-// GetExtensionsFromAsn1ObjectIdentifier takes a parsed X.509 certificate and an OID
-// and gets the extensions that match the given OID
-func GetExtensionsFromAsn1ObjectIdentifier(certificate *x509.Certificate, id asn1.ObjectIdentifier) []pkix.Extension {
-	var extensions []pkix.Extension
-
-	for _, extension := range certificate.Extensions {
-		if extension.Id.Equal(id) {
-			extensions = append(extensions, extension)
+	for _, parsedID := range parsedIDs {
+		for _, id := range ids {
+			if parsedID == id {
+				return nil
+			}
 		}
 	}
 
-	return extensions
+	return fmt.Errorf("SPIFFE ID mismatch")
 }
 
-// GetKeyUsageExtensionsFromCertificate takes a parsed X.509 certificate and gets the Key Usage extensions
-func GetKeyUsageExtensionsFromCertificate(cert *x509.Certificate) (extension []pkix.Extension) {
-	return GetExtensionsFromAsn1ObjectIdentifier(cert, OidExtensionKeyUsage)
+// Verify a SPIFFE certificate and its certification path
+func VerifyCertificate(leaf *x509.Certificate, intermediates *x509.CertPool, roots *x509.CertPool) error {
+	verifyOpts := x509.VerifyOptions{
+		Intermediates: intermediates,
+		Roots: roots,
+	}
+
+	// TODO: SPIFFE-specific validation of leaf and verified chain
+	_, err := leaf.Verify(verifyOpts)
+	return err
 }

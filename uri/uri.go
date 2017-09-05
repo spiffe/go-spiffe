@@ -8,7 +8,6 @@ import (
 	"encoding/pem"
 	"io"
 	"io/ioutil"
-	"github.com/spiffe/go-spiffe/spiffe"
 )
 
 func getURINamesFromSANExtension(sanExtension []byte) (uris []string, err error) {
@@ -56,10 +55,9 @@ func getURINamesFromSANExtension(sanExtension []byte) (uris []string, err error)
 	return uris, err
 }
 
-
 // GetURINamesFromCertificate takes a parsed X.509 certificate and gets the URIs from the SAN extension.
 func GetURINamesFromCertificate(cert *x509.Certificate) (uris []string, err error) {
-	for _, ext := range spiffe.GetExtensionsFromAsn1ObjectIdentifier(cert, spiffe.OidExtensionSubjectAltName) {
+	for _, ext := range GetExtensionsFromAsn1ObjectIdentifier(cert, OidExtensionSubjectAltName) {
 		uris, err = getURINamesFromSANExtension(ext.Value)
 		if err != nil {
 			return uris, err
@@ -74,12 +72,10 @@ func GetURINamesFromPEM(encodedCertificate string) (uris []string, err error) {
 	return uriNamesFromPEM([]byte(encodedCertificate))
 }
 
-var errNilBlock = errors.New("failed to decode certificate PEM")
-
 func uriNamesFromPEM(encodedCertificate []byte) (uris []string, err error) {
 	block, _ := pem.Decode(encodedCertificate)
 	if block == nil {
-		return uris, errNilBlock
+		return uris, errors.New("failed to decode certificate PEM")
 	}
 
 	cert, err := x509.ParseCertificate(block.Bytes)
@@ -103,7 +99,7 @@ func FGetURINamesFromPEM(f io.Reader) (uris []string, err error) {
 // GetURINamesFromExtensions retrieves URIs from the SAN extension of a slice of extensions
 func GetURINamesFromExtensions(extensions *[]pkix.Extension) (uris []string, err error) {
 	for _, ext := range *extensions {
-		if ext.Id.Equal(spiffe.OidExtensionSubjectAltName) {
+		if ext.Id.Equal(OidExtensionSubjectAltName) {
 			uris, err = getURINamesFromSANExtension(ext.Value)
 			if err != nil {
 				return uris, err
