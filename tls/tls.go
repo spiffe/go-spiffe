@@ -43,9 +43,12 @@ func (t *TLSPeer) verifyPeerCertificate(rawCerts [][]byte, verifiedChains [][]*x
 
 		certs = append(certs, cert)
 	}
-
-	// Perform path validation
-	// Assume leaf is the first off the wire
+	/* https://tools.ietf.org/html/rfc5246#section-7.4.2
+	'''certificate_list
+		This is a sequence (chain) of certificates.  The sender's
+		certificate MUST come first in the list.  Each following
+		certificate MUST directly certify the one preceding it.'''
+*/
 	intermediates := x509.NewCertPool()
 	for _, intermediate := range certs[1:] {
 		intermediates.AddCert(intermediate)
