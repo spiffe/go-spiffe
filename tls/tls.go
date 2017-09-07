@@ -16,7 +16,10 @@ type TLSPeer struct {
 
 // NewTLSConfig creates a SPIFFE-compatible TLS configuration.
 // We are opinionated towards mutual TLS. If you don't want
-// mutual TLS, you'll need to update the returned config
+// mutual TLS, you'll need to update the returned config.
+//
+// `certs` contains one or more certificates to present to the
+// other side of the connection, leaf first.
 func (t *TLSPeer) NewTLSConfig(certs []tls.Certificate) *tls.Config {
 	config := &tls.Config{
 		// Disable validation/verification because we perform
@@ -43,12 +46,10 @@ func (t *TLSPeer) verifyPeerCertificate(rawCerts [][]byte, verifiedChains [][]*x
 
 		certs = append(certs, cert)
 	}
-	/* https://tools.ietf.org/html/rfc5246#section-7.4.2
-	'''certificate_list
-		This is a sequence (chain) of certificates.  The sender's
-		certificate MUST come first in the list.  Each following
-		certificate MUST directly certify the one preceding it.'''
-*/
+	
+	// Perform path validation
+	// Leaf is the first off the wire:
+	// https://tools.ietf.org/html/rfc5246#section-7.4.2
 	intermediates := x509.NewCertPool()
 	for _, intermediate := range certs[1:] {
 		intermediates.AddCert(intermediate)
