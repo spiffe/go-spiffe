@@ -1,6 +1,6 @@
 package tls
 
-import(
+import (
 	"crypto/tls"
 	"crypto/x509"
 
@@ -21,10 +21,10 @@ func (t *TLSPeer) NewTLSConfig(certs []tls.Certificate) *tls.Config {
 	config := &tls.Config{
 		// Disable validation/verification because we perform
 		// this step with custom logic in `verifyPeerCertificate`
-		ClientAuth: tls.RequireAnyClientCert,
-		InsecureSkipVerify: true,
-
+		ClientAuth:            tls.RequireAnyClientCert,
+		InsecureSkipVerify:    true,
 		VerifyPeerCertificate: t.verifyPeerCertificate,
+		Certificates:          certs,
 	}
 
 	return config
