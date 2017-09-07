@@ -46,7 +46,7 @@ func (t *TLSPeer) verifyPeerCertificate(rawCerts [][]byte, verifiedChains [][]*x
 
 		certs = append(certs, cert)
 	}
-	
+
 	// Perform path validation
 	// Leaf is the first off the wire:
 	// https://tools.ietf.org/html/rfc5246#section-7.4.2
