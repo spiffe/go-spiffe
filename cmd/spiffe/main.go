@@ -4,7 +4,7 @@ import (
 	"log"
 	"os"
 
-	spiffe "github.com/spiffe/go-spiffe"
+	"github.com/spiffe/go-spiffe/uri"
 )
 
 func main() {
@@ -29,7 +29,7 @@ func main() {
 			continue
 		}
 
-		uris, err := spiffe.FGetURINamesFromPEM(f)
+		uris, err := uri.FGetURINamesFromPEM(f)
 		_ = f.Close()
 
 		if err != nil {
