@@ -36,8 +36,8 @@ func TestGetURINamesFromPEM(t *testing.T) {
 
 	certPEM = getCertificateFromFile(t, "../testdata/intermediate.cert.pem")
 	uris, err = GetURINamesFromPEM(string(certPEM))
-	if err == nil {
-		t.Fatal("Expected to fail")
+	if err != nil {
+		t.Fatalf("Failed with %v", err)
 	}
 
 	if len(uris) > 0 {
@@ -127,8 +127,8 @@ func TestFGetURINamesFromPEM(t *testing.T) {
 	}
 
 	uris, err = FGetURINamesFromPEM(strings.NewReader(badCert))
-	if err == nil {
-		t.Fatal("Expected to fail")
+	if err != nil {
+		t.Fatalf("Failed with %v", err)
 	}
 
 	if len(uris) > 0 {
@@ -164,4 +164,3 @@ func TestMarshalUriSANsAndGetURINamesFromExtensions(t *testing.T) {
 		t.Fatalf("Expected to get: '%v' but obtained: '%v'", golden, uris[0])
 	}
 }
-
