@@ -2,7 +2,7 @@ package spiffe
 
 import (
 	"crypto/x509"
-	"errors"
+	"fmt"
 	"net/url"
 )
 
@@ -22,7 +22,7 @@ func ExpectAnyPeer() ExpectPeerFunc {
 func ExpectPeer(expectedID string) ExpectPeerFunc {
 	return func(peerID string, _ [][]*x509.Certificate) error {
 		if peerID != expectedID {
-			return errors.New("unexpected peer ID")
+			return fmt.Errorf("unexpected peer ID %q", peerID)
 		}
 		return nil
 	}
@@ -36,7 +36,7 @@ func ExpectPeers(expectedIDs ...string) ExpectPeerFunc {
 	}
 	return func(peerID string, _ [][]*x509.Certificate) error {
 		if _, ok := m[peerID]; !ok {
-			return errors.New("unexpected peer ID")
+			return fmt.Errorf("unexpected peer ID %q", peerID)
 		}
 		return nil
 	}
@@ -46,8 +46,8 @@ func ExpectPeers(expectedIDs ...string) ExpectPeerFunc {
 // to the provided trust domain (i.e. "domain.test")
 func ExpectPeerInDomain(expectedDomain string) ExpectPeerFunc {
 	return func(peerID string, _ [][]*x509.Certificate) error {
-		if getPeerTrustDomain(peerID) != expectedDomain {
-			return errors.New("unexpected peer trust domain")
+		if domain := getPeerTrustDomain(peerID); domain != expectedDomain {
+			return fmt.Errorf("unexpected peer trust domain %q", domain)
 		}
 		return nil
 	}

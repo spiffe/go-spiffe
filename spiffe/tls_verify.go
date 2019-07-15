@@ -3,6 +3,7 @@ package spiffe
 import (
 	"crypto/x509"
 	"errors"
+	"fmt"
 
 	"github.com/spiffe/go-spiffe/internal"
 )
@@ -22,14 +23,14 @@ func VerifyPeerCertificate(peerChain []*x509.Certificate, trustDomainRoots map[s
 	}
 
 	peer := peerChain[0]
-	peerID, trustDomainID, err := internal.GetIDsFromCertificate(peer)
+	peerID, trustDomainID, err := getIDsFromCertificate(peer)
 	if err != nil {
 		return nil, err
 	}
 
 	roots, ok := trustDomainRoots[trustDomainID]
 	if !ok {
-		return nil, errors.New("no roots for peer trust domain")
+		return nil, fmt.Errorf("no roots for peer trust domain %q", trustDomainID)
 	}
 
 	verifiedChains, err := peer.Verify(x509.VerifyOptions{

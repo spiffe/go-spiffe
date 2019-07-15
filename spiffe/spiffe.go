@@ -7,7 +7,7 @@ import (
 	"github.com/spiffe/go-spiffe/uri"
 )
 
-// Tries to match a SPIFFE ID, given a certificate
+// MatchID tries to match a SPIFFE ID, given a certificate
 func MatchID(ids []string, cert *x509.Certificate) error {
 	parsedIDs, err := uri.GetURINamesFromCertificate(cert)
 	if err != nil {
