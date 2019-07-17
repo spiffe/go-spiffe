@@ -33,7 +33,6 @@ func ValidateID(spiffeID string, mode ValidationMode) error {
 // - port is not allowed
 // - query values are not allowed
 // - fragment is not allowed
-// - path does not start with '/spire' since it is reserved for agent, server, etc.
 // In addition, the validation mode is used to control what kind of SPIFFE ID
 // is expected.
 // For more information:
@@ -116,8 +115,8 @@ func ParseID(spiffeID string, mode ValidationMode) (*url.URL, error) {
 	return normalizeURL(u), nil
 }
 
-// ValidationMode is used to validate the SPIFFE ID being parsed/validated
-// should have.
+// ValidationMode is used to control extra validation of the SPIFFE ID
+// beyond the syntax checks done during parsing/validation.
 type ValidationMode interface {
 	validationOptions() validationOptions
 }
