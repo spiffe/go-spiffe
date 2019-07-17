@@ -7,7 +7,7 @@ import (
 	"github.com/spiffe/go-spiffe/uri"
 )
 
-// Tries to match a SPIFFE ID, given a certificate
+// MatchID tries to match a SPIFFE ID, given a certificate
 func MatchID(ids []string, cert *x509.Certificate) error {
 	parsedIDs, err := uri.GetURINamesFromCertificate(cert)
 	if err != nil {
@@ -25,11 +25,13 @@ func MatchID(ids []string, cert *x509.Certificate) error {
 	return fmt.Errorf("SPIFFE ID mismatch")
 }
 
-// Verify a SPIFFE certificate and its certification path
+// Verify a SPIFFE certificate and its certification path. This function does
+// not perform rich validation and is deprecated. Use VerifyPeerCertificate()
+// instead.
 func VerifyCertificate(leaf *x509.Certificate, intermediates *x509.CertPool, roots *x509.CertPool) error {
 	verifyOpts := x509.VerifyOptions{
 		Intermediates: intermediates,
-		Roots: roots,
+		Roots:         roots,
 	}
 
 	// TODO: SPIFFE-specific validation of leaf and verified chain
