@@ -23,7 +23,7 @@ func ValidateID(spiffeID string, mode ValidationMode) error {
 	return err
 }
 
-// ValidateIDURL validates the SPIFFE ID according to the SPIFFE
+// ValidateURI validates the SPIFFE ID according to the SPIFFE
 // specification, namely:
 // - spiffe id is not empty
 // - spiffe id is a valid url
@@ -37,7 +37,7 @@ func ValidateID(spiffeID string, mode ValidationMode) error {
 // is expected.
 // For more information:
 // [https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md]
-func ValidateIDURL(id *url.URL, mode ValidationMode) error {
+func ValidateURI(id *url.URL, mode ValidationMode) error {
 	options := mode.validationOptions()
 
 	validationError := func(format string, args ...interface{}) error {
@@ -108,11 +108,11 @@ func ParseID(spiffeID string, mode ValidationMode) (*url.URL, error) {
 		return nil, fmt.Errorf("invalid SPIFFE ID: %v", err)
 	}
 
-	if err := ValidateIDURL(u, mode); err != nil {
+	if err := ValidateURI(u, mode); err != nil {
 		return nil, err
 	}
 
-	return normalizeURL(u), nil
+	return normalizeURI(u), nil
 }
 
 // ValidationMode is used to control extra validation of the SPIFFE ID
@@ -180,8 +180,9 @@ func AllowAnyTrustDomainWorkload() ValidationMode {
 	}
 }
 
-// NormalizeID normalizes the SPIFFE ID so it can be directly compared
-// for equality.
+// NormalizeID normalizes the SPIFFE ID so it can be directly compared for
+// equality. Specifically, it lower cases the scheme and host portions of the
+// URI.
 func NormalizeID(id string, mode ValidationMode) (string, error) {
 	u, err := ParseID(id, mode)
 	if err != nil {
@@ -190,16 +191,17 @@ func NormalizeID(id string, mode ValidationMode) (string, error) {
 	return u.String(), nil
 }
 
-// NormalizeURL normalizes the SPIFFE ID URL so it can be directly
-// compared for equality.
-func NormalizeURL(u *url.URL, mode ValidationMode) (*url.URL, error) {
-	if err := ValidateIDURL(u, mode); err != nil {
+// NormalizeURI normalizes the SPIFFE ID URI so it can be directly compared for
+// equality. Specifically, it lower cases the scheme and host portions of the
+// URI.
+func NormalizeURI(u *url.URL, mode ValidationMode) (*url.URL, error) {
+	if err := ValidateIDURI(u, mode); err != nil {
 		return nil, err
 	}
-	return normalizeURL(u), nil
+	return normalizeURI(u), nil
 }
 
-func normalizeURL(u *url.URL) *url.URL {
+func normalizeURI(u *url.URL) *url.URL {
 	c := *u
 	c.Scheme = strings.ToLower(c.Scheme)
 	// SPIFFE ID's can't contain ports so don't bother handling that here.
@@ -233,7 +235,7 @@ func getIDsFromCertificate(peer *x509.Certificate) (string, string, error) {
 
 	id := peer.URIs[0]
 
-	if err := ValidateIDURL(id, AllowAny()); err != nil {
+	if err := ValidateURI(id, AllowAny()); err != nil {
 		return "", "", err
 	}
 
