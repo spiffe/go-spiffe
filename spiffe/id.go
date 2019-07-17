@@ -195,7 +195,7 @@ func NormalizeID(id string, mode ValidationMode) (string, error) {
 // equality. Specifically, it lower cases the scheme and host portions of the
 // URI.
 func NormalizeURI(u *url.URL, mode ValidationMode) (*url.URL, error) {
-	if err := ValidateIDURI(u, mode); err != nil {
+	if err := ValidateURI(u, mode); err != nil {
 		return nil, err
 	}
 	return normalizeURI(u), nil
