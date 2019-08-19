@@ -1,12 +1,12 @@
 # go-spiffe library [![GoDoc](https://godoc.org/github.com/spiffe/go-spiffe?status.svg)](https://godoc.org/github.com/spiffe/go-spiffe)
 
-**Note: This library does not provide an interface to the SPIFFE Workload API. However a Go library that does provide that interface is available [as part of the SPIRE project](https://github.com/spiffe/spire/tree/master/api/workload).**
-
 ## Overview
 
-The go-spiffe library provides functionality to parse and verify SPIFFE
+The go-spiffe project provides two components:
+- a command-line utility to parse and verify SPIFFE
 identities encoded in X.509 certificates as described in the
 [SPIFFE Standards](https://github.com/spiffe/spiffe/tree/master/standards).
+- a client library that provides an interface to the SPIFFE Workload API.
 
 ## Installing it
 ```shell
