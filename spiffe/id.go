@@ -140,7 +140,7 @@ func AllowAny() ValidationMode {
 	return validationMode{}
 }
 
-// Allows a well-formed SPIFFE ID for the specific trust domain (e.g. spiffe://domain.test/workload)
+// Allows a well-formed SPIFFE ID for the specific trust domain (e.g. spiffe://domain.test)
 func AllowTrustDomain(trustDomain string) ValidationMode {
 	return validationMode{
 		options: validationOptions{
@@ -171,7 +171,7 @@ func AllowAnyTrustDomain() ValidationMode {
 	}
 }
 
-// Allows a well-formed SPIFFE ID for a workload belonging to any trust domain (e.g. spiffe://domain.test).
+// Allows a well-formed SPIFFE ID for a workload belonging to any trust domain (e.g. spiffe://domain.test/workload).
 func AllowAnyTrustDomainWorkload() ValidationMode {
 	return validationMode{
 		options: validationOptions{
