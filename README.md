@@ -15,7 +15,7 @@ go get -u -v github.com/spiffe/go-spiffe
 
 ## Importing it in your Go code
 
-See examples in [examples_test.go](./example_test.go)
+See examples in [the tests](./spiffetest)
 or visit the [GoDoc](https://godoc.org/github.com/spiffe/go-spiffe) for more information
 
 ## Installing the command line interface
