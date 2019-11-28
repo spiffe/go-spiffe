@@ -188,6 +188,14 @@ func TestNormalizeID(t *testing.T) {
 }
 
 func TestNormalizeURI(t *testing.T) {
+	t.Run("nil", func(t *testing.T) {
+		assert.NotPanics(t, func() {
+			out, err := NormalizeURI(nil, AllowAny())
+			assert.Nil(t, out)
+			assert.EqualError(t, err, `invalid SPIFFE ID "": SPIFFE ID is empty`)
+		})
+	})
+
 	t.Run("invalid", func(t *testing.T) {
 		in := &url.URL{
 			Scheme: "spOOfy",
