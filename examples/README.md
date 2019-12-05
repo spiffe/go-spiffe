@@ -1,0 +1,11 @@
+# Examples
+
+This section contains a set of standalone examples that demonstrate different use cases for the go-spiffe library.
+
+## Use cases
+
+- [SVIDs for mTLS connections](svid-mTLS/README.md): _Get automatically rotated X.509 SVIDs for your workloads and use it to establish mTLS connections between services._
+
+- [SVIDs stream](svid-watcher/README.md): _Get automatically rotated X.509 SVIDs for your workload._
+
+- [gRPC client](svid-grpc-client/README.md): _Creates a gRPC SPIFFE client and access the different methods of the API._
