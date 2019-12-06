@@ -10,7 +10,7 @@ x509SVIDClient, err := workload.NewX509SVIDClient(watcher{}, workload.WithAddr("
 
 ```
 
-After checking for errors, the client is started with the `Start` method. It opens a stream to the workload API on separated go routine.
+After checking for errors, the client is started with the `Start` method. It opens a stream to the workload API on a separated go routine.
 
 ```go
 err = x509SVIDClient.Start()
@@ -27,7 +27,12 @@ go build ./examples/svid-watcher/
 ```
 
 ## Running
-This example assumes there are a SPIRE server and agent up and running with a Unix workload attestor configured. The trust domain is `example.org` and the agent SPIFFE ID is `spiffe://example.org/host`. 
+This example assumes the following preconditions:
+- There are a SPIRE server and agent up and running.
+- There is a Unix workload attestor configured.
+- The trust domain is `example.org`
+- The agent SPIFFE ID is `spiffe://example.org/host`.
+- There is a `svid-watcher` user in the system.
 
 ### 1. Create the registration entry
 Create the registration entry for the svid-watcher workload:

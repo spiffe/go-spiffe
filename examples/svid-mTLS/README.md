@@ -18,7 +18,7 @@ conn, err := spiffe.DialTLS(ctx, "tcp", serverAddress, spiffe.ExpectPeer(serverS
 
 In both cases, a `spiffe.ExpectPeerFunc` is set to validate the workload is authorized to connect to the other peer. In this example, the `spiffe.ExpectPeer` was used to allow the client to reach the server and vice versa.
 
-That is it. The go-spiffe library fetches and automatically renews the X.509 SVIDs of both workloads according to the SPIFFE policy.
+That is it. The go-spiffe library fetches and automatically renews the X.509 SVIDs of both workloads according to the policy defined in the Workload API provider configuration. In this case, the SPIRE server configuration file.
 
 For more fine-grained control over the TLS connection, use the `spiffe.TLSPeer` type instead of `spiffe.DialTLS` and `spiffe.ListenTLS`.
 
@@ -39,7 +39,12 @@ go build
 ```
 
 ## Running
-This example assumes there are a SPIRE server and agent up and running with a Unix workload attestor configured. The trust domain is `example.org` and the agent SPIFFE ID is `spiffe://example.org/host`. 
+This example assumes the following preconditions:
+- There are a SPIRE server and agent up and running.
+- There is a Unix workload attestor configured.
+- The trust domain is `example.org`
+- The agent SPIFFE ID is `spiffe://example.org/host`.
+- There are a `server-workload` and `client-workload` users in the system.
 
 ### 1. Create the registration entries
 Create the registration entries for the client and server workloads:
@@ -70,7 +75,7 @@ Run the client with the `client-workload` user:
 sudo -u client-workload ./client
 ```
 
-The server should have get a _"Hello server"_ message and responded with a _"Hello client"_ message.
+The server should have got a _"Hello server"_ message and responded with a _"Hello client"_ message.
 
 If a workload with another SPIFFE ID tries to establish a connection, the server will reject it. 
  

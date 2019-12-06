@@ -1,8 +1,8 @@
 # gRPC SVID client 
 
-This example shows how a service can create a gRPC client to obtain X.509 and JWT SVIDs from the SPIFFE workload API.
+This example shows how a workload can create a gRPC client to obtain X.509 and JWT SVIDs from the [SPIFFE Workload API](../../proto/spiffe/workload/workload.proto).
 
-The first step is to create a SPIFFE client. It implements different methods to query the workload API. It takes a `grpc.ClientConn` containing the workload API address.
+The first step is to create a SPIFFE client. It implements different methods to query the SPIFFE Workload API. It takes a `grpc.ClientConn` containing the Workload API address.
 
 ```go
 client := workload.NewSpiffeWorkloadAPIClient(conn)
@@ -25,7 +25,12 @@ go build
 ```
 
 ## Running
-This example assumes there are a SPIRE server and agent up and running with a Unix workload attestor configured. The trust domain is `example.org` and the agent SPIFFE ID is `spiffe://example.org/host`. 
+This example assumes the following preconditions:
+- There are a SPIRE server and agent up and running.
+- There is a Unix workload attestor configured.
+- The trust domain is `example.org`
+- The agent SPIFFE ID is `spiffe://example.org/host`.
+- There is a `svid-grpc-client` user in the system.
 
 ### 1. Create the registration entry
 Create a registration entry for the svid-grpc-client workload:
