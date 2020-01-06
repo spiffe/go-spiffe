@@ -28,6 +28,16 @@ func VerifyPeerCertificate(peerChain []*x509.Certificate, trustDomainRoots map[s
 		return nil, err
 	}
 
+	if peer.IsCA {
+		return nil, errors.New("cannot validate peer which is a CA")
+	}
+	if peer.KeyUsage != x509.KeyUsageCertSign {
+		return nil, errors.New("cannot validate peer with KeyCertSign")
+	}
+	if peer.KeyUsage != x509.KeyUsageCRLSign {
+		return nil, errors.New("cannot validate peer with KeyCrlSign")
+	}
+
 	roots, ok := trustDomainRoots[trustDomainID]
 	if !ok {
 		return nil, fmt.Errorf("no roots for peer trust domain %q", trustDomainID)
