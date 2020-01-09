@@ -1,3 +1,4 @@
+// Package tls is used to build SPIFFE-compatible TLS configurations.
 package tls
 
 import (
@@ -7,10 +8,12 @@ import (
 	"github.com/spiffe/go-spiffe/spiffe"
 )
 
+// TLSPeer holds settings for creating SPIFFE-compatible TLS
+// configurations.
 type TLSPeer struct {
 	// Slice of permitted SPIFFE IDs
 	SpiffeIDs []string
-
+	// Root certificates for validation
 	TrustRoots *x509.CertPool
 }
 
