@@ -35,7 +35,7 @@ func TestGetURINamesFromPEM(t *testing.T) {
 	}
 
 	certPEM = getCertificateFromFile(t, "../testdata/intermediate.cert.pem")
-	uris, err = GetURINamesFromPEM(string(certPEM))
+	uris, err = GetURINamesFromPEM(certPEM)
 	if err != nil {
 		t.Fatalf("Failed with %v", err)
 	}

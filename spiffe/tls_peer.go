@@ -297,7 +297,7 @@ func AdaptVerifyPeerCertificate(p *TLSPeer, expectPeer ExpectPeerFunc) func([][]
 
 // ListenTLS is a convenience wrapper for listening for remote peers using
 // credentials obtained from the workload API. If more control is required it
-// is recomended to use the TLSPeer instead.
+// is recommended to use the TLSPeer instead.
 func ListenTLS(ctx context.Context, network, addr string, expectPeer ExpectPeerFunc) (net.Listener, error) {
 	tlsPeer, err := NewTLSPeer()
 	if err != nil {

@@ -100,3 +100,91 @@ func TestVerifyPeerCertificate(t *testing.T) {
 		})
 	}
 }
+
+func TestGetSpiffeIDFromCertificate(t *testing.T) {
+	ca1 := spiffetest.NewCA(t)
+	peer1, _ := ca1.CreateX509SVID("spiffe://domain1.test/workload")
+	roots1 := map[string]*x509.CertPool{
+		"spiffe://domain1.test": ca1.RootsPool(),
+	}
+
+	ca2 := spiffetest.NewCA(t)
+	roots2 := map[string]*x509.CertPool{
+		"spiffe://domain2.test": ca2.RootsPool(),
+	}
+
+	// bad peer... invalid spiffe ID
+	peerBad, _ := ca1.CreateX509SVID("sparfe://domain1.test/workload")
+	// bad set of roots... sets roots for ca2 under domain1.test
+	rootsBad := map[string]*x509.CertPool{
+		"spiffe://domain1.test": ca2.RootsPool(),
+	}
+
+	testCases := []struct {
+		name     string
+		spiffeID string
+		chain    []*x509.Certificate
+		roots    map[string]*x509.CertPool
+		err      string
+	}{
+		{
+			name:     "empty chain",
+			roots:    roots1,
+			spiffeID: "",
+			err:      "no peer certificates",
+		},
+		{
+			name:  "no roots",
+			chain: peer1,
+			err:   "at least one trust domain root is required",
+		},
+		{
+			name:     "no roots for peer domain",
+			chain:    peer1,
+			roots:    roots2,
+			spiffeID: "",
+			err:      `no roots for peer trust domain "spiffe://domain1.test"`,
+		},
+		{
+			name:     "root as peer",
+			chain:    ca1.Roots(),
+			roots:    roots1,
+			spiffeID: "",
+			err:      "cannot validate peer which is a CA",
+		},
+		{
+			name:     "bad peer id",
+			chain:    peerBad,
+			roots:    roots1,
+			spiffeID: "",
+			err:      "invalid SPIFFE ID \"sparfe://domain1.test/workload\": invalid scheme",
+		},
+		{
+			name:     "verification fails",
+			chain:    peer1,
+			roots:    rootsBad,
+			spiffeID: "",
+			err:      "x509: certificate signed by unknown authority",
+		},
+		{
+			name:     "success",
+			chain:    peer1,
+			spiffeID: "spiffe://domain1.test/workload",
+			roots:    roots1,
+		},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			spiffeID, err := GetSpiffeIDFromX509(testCase.chain, testCase.roots)
+			if testCase.err != "" {
+				require.EqualError(t, err, testCase.err)
+				require.Empty(t, spiffeID)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, testCase.spiffeID, spiffeID)
+		})
+	}
+}
