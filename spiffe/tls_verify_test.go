@@ -127,6 +127,13 @@ func TestVerifyPeerCertificate(t *testing.T) {
 			err:    `no roots for peer trust domain "spiffe://domain1.test"`,
 		},
 		{
+			name:   "root as peer",
+			chain:  ca1.Roots(),
+			roots:  roots1,
+			expect: ExpectAnyPeer(),
+			err:    "cannot validate peer which is a CA",
+		},
+		{
 			name:   "fails peer id expectation",
 			chain:  peer1,
 			roots:  roots1,
