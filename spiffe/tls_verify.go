@@ -8,6 +8,20 @@ import (
 	"github.com/spiffe/go-spiffe/internal"
 )
 
+// verifyPeerCertificateAttributes verifies the provided certificate attributes are valid
+func verifyPeerCertificateAttributes(peer *x509.Certificate) error {
+	switch {
+	case peer.IsCA:
+		return errors.New("cannot validate peer which is a CA")
+	case peer.KeyUsage&x509.KeyUsageCertSign > 0:
+		return errors.New("cannot validate peer with KeyCertSign key usage")
+	case peer.KeyUsage&x509.KeyUsageCRLSign > 0:
+		return errors.New("cannot validate peer with KeyCrlSign key usage")
+	default:
+		return nil
+	}
+}
+
 // verifyPeerCertificate verifies the provided peer certificate chain using the
 // set trust domain roots.
 func verifyPeerCertificate(peerChain []*x509.Certificate, trustDomainRoots map[string]*x509.CertPool) (string, [][]*x509.Certificate, error) {
@@ -19,14 +33,11 @@ func verifyPeerCertificate(peerChain []*x509.Certificate, trustDomainRoots map[s
 	}
 
 	peer := peerChain[0]
-	switch {
-	case peer.IsCA:
-		return "", nil, errors.New("cannot validate peer which is a CA")
-	case peer.KeyUsage&x509.KeyUsageCertSign > 0:
-		return "", nil, errors.New("cannot validate peer with KeyCertSign key usage")
-	case peer.KeyUsage&x509.KeyUsageCRLSign > 0:
-		return "", nil, errors.New("cannot validate peer with KeyCrlSign key usage")
+
+	if err := verifyPeerCertificateAttributes(peer); err != nil {
+		return "", nil, err
 	}
+
 	peerID, trustDomainID, err := getIDsFromCertificate(peer)
 	if err != nil {
 		return "", nil, err

@@ -1,12 +1,79 @@
 package spiffe
 
 import (
+	"crypto/rand"
 	"crypto/x509"
+	"crypto/x509/pkix"
+	"fmt"
+	"math/big"
+	"net/url"
 	"testing"
+	"time"
 
 	"github.com/spiffe/go-spiffe/spiffetest"
 	"github.com/stretchr/testify/require"
 )
+
+func TestVerifyPeerCertificateAttributes(t *testing.T) {
+	serial, err := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 128))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	testCases := []struct {
+		name        string
+		certificate *x509.Certificate
+		err         string
+	}{
+		{
+			name: "ca certificate",
+			certificate: &x509.Certificate{
+				IsCA: true,
+			},
+			err: "cannot validate peer which is a CA",
+		},
+		{
+			name: "certificate with KeyCertSign",
+			certificate: &x509.Certificate{
+				KeyUsage: x509.KeyUsageCertSign,
+			},
+			err: "cannot validate peer with KeyCertSign key usage",
+		},
+		{
+			name: "ca certificate",
+			certificate: &x509.Certificate{
+				KeyUsage: x509.KeyUsageCRLSign,
+			},
+			err: "cannot validate peer with KeyCrlSign key usage",
+		},
+		{
+			name: "valid certificate",
+			certificate: &x509.Certificate{
+				SerialNumber: spiffetest.NewSerial(t),
+				Subject: pkix.Name{
+					CommonName: fmt.Sprintf("CA %x", serial),
+				},
+				NotBefore: time.Now(),
+				NotAfter:  time.Now().Add(time.Hour),
+				URIs: []*url.URL{
+					{Scheme: "spiffe", Host: "domain1.com", Path: "/workload"},
+				},
+			},
+		},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			err := verifyPeerCertificateAttributes(testCase.certificate)
+			if testCase.err != "" {
+				require.EqualError(t, err, testCase.err)
+				return
+			}
+			require.NoError(t, err)
+		})
+	}
+}
 
 func TestVerifyPeerCertificate(t *testing.T) {
 	ca1 := spiffetest.NewCA(t)
