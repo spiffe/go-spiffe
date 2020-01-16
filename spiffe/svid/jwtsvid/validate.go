@@ -6,12 +6,12 @@ import (
 	"time"
 
 	"github.com/spiffe/go-spiffe/spiffe"
-	"github.com/spiffe/go-spiffe/spiffe/svid"
+	"github.com/spiffe/go-spiffe/spiffe/svid/bundle"
 	"gopkg.in/square/go-jose.v2"
 	"gopkg.in/square/go-jose.v2/jwt"
 )
 
-func validateToken(token string, keyStore svid.Bundles, audience []string) (string, map[string]interface{}, error) {
+func validateToken(token string, keyStore bundle.KeyStore, audience []string) (string, map[string]interface{}, error) {
 	tok, err := jwt.ParseSigned(token)
 	if err != nil {
 		return "", nil, errors.New("unable to parse JWT token")
@@ -54,7 +54,7 @@ func validateToken(token string, keyStore svid.Bundles, audience []string) (stri
 
 	// Construct the trust domain id from the SPIFFE ID and look up key by ID
 	trustDomainID := spiffe.TrustDomainID(spiffeID.Host)
-	key, err := keyStore.FindPublicKey(trustDomainID, keyID)
+	key, err := keyStore.FindJWTKey(trustDomainID, keyID)
 	if err != nil {
 		return "", nil, err
 	}
@@ -84,7 +84,7 @@ func validateToken(token string, keyStore svid.Bundles, audience []string) (stri
 	return spiffeID.String(), claimsMap, nil
 }
 
-func GetSpiffeIDFromSvid(token string, keyStore svid.Bundles, audience []string) (string, error) {
+func GetSpiffeIDFromSvid(token string, keyStore bundle.KeyStore, audience []string) (string, error) {
 	spiffeID, _, err := validateToken(token, keyStore, audience)
 	if err != nil {
 		return "", err
