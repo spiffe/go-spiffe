@@ -1,4 +1,4 @@
-package spiffe
+package spiffeid
 
 import (
 	"crypto/x509"
@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+
+	"github.com/spiffe/go-spiffe/uri"
 )
 
 type idType int
@@ -48,12 +50,8 @@ func ValidateURI(id *url.URL, mode ValidationMode) error {
 		case workloadId:
 			kind = "workload "
 		}
-		var idStr string
-		if id != nil {
-			idStr = id.String()
-		}
 		return fmt.Errorf("invalid %sSPIFFE ID %q: "+format,
-			append([]interface{}{kind, idStr}, args...)...)
+			append([]interface{}{kind, id.String()}, args...)...)
 	}
 
 	if id == nil || *id == (url.URL{}) {
@@ -226,10 +224,10 @@ func TrustDomainURI(trustDomain string) *url.URL {
 	}
 }
 
-// getIDsFromCertificate extracts the SPIFFE ID and Trust Domain ID from the
+// GetIDsFromCertificate extracts the SPIFFE ID and Trust Domain ID from the
 // URI SAN of the provided certificate. If the certificate has no URI SAN or
 // the SPIFFE ID is malformed, it will return an error.
-func getIDsFromCertificate(peer *x509.Certificate) (string, string, error) {
+func GetIDsFromCertificate(peer *x509.Certificate) (string, string, error) {
 	switch {
 	case len(peer.URIs) == 0:
 		return "", "", errors.New("peer certificate contains no URI SAN")
@@ -244,4 +242,36 @@ func getIDsFromCertificate(peer *x509.Certificate) (string, string, error) {
 	}
 
 	return id.String(), TrustDomainID(id.Host), nil
+}
+
+// MatchID tries to match a SPIFFE ID, given a certificate
+func MatchID(ids []string, cert *x509.Certificate) error {
+	parsedIDs, err := uri.GetURINamesFromCertificate(cert)
+	if err != nil {
+		return err
+	}
+
+	for _, parsedID := range parsedIDs {
+		for _, id := range ids {
+			if parsedID == id {
+				return nil
+			}
+		}
+	}
+
+	return fmt.Errorf("SPIFFE ID mismatch")
+}
+
+// VerifyCertificate has been deprecated, use tlspeer.VerifyPeerCertificate() from instead.
+// Verifies a SPIFFE certificate and its certification path. This function does
+// not perform rich validation.
+func VerifyCertificate(leaf *x509.Certificate, intermediates *x509.CertPool, roots *x509.CertPool) error {
+	verifyOpts := x509.VerifyOptions{
+		Intermediates: intermediates,
+		Roots:         roots,
+	}
+
+	// TODO: SPIFFE-specific validation of leaf and verified chain
+	_, err := leaf.Verify(verifyOpts)
+	return err
 }

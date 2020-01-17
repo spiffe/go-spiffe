@@ -1,9 +1,10 @@
-package spiffe
+package tlspeer
 
 import (
 	"crypto/x509"
 	"testing"
 
+	"github.com/spiffe/go-spiffe/spiffe/svid/x509svid"
 	"github.com/spiffe/go-spiffe/spiffetest"
 	"github.com/stretchr/testify/require"
 )
@@ -31,19 +32,19 @@ func TestVerifyPeerCertificate(t *testing.T) {
 		name   string
 		chain  []*x509.Certificate
 		roots  map[string]*x509.CertPool
-		expect ExpectPeerFunc
+		expect x509svid.ExpectPeerFunc
 		err    string
 	}{
 		{
 			name:   "empty chain",
 			roots:  roots1,
-			expect: ExpectAnyPeer(),
+			expect: x509svid.ExpectAnyPeer(),
 			err:    "no peer certificates",
 		},
 		{
 			name:   "no roots",
 			chain:  peer1,
-			expect: ExpectAnyPeer(),
+			expect: x509svid.ExpectAnyPeer(),
 			err:    "at least one trust domain root is required",
 		},
 		{
@@ -56,35 +57,35 @@ func TestVerifyPeerCertificate(t *testing.T) {
 			name:   "no roots for peer domain",
 			chain:  peer1,
 			roots:  roots2,
-			expect: ExpectAnyPeer(),
+			expect: x509svid.ExpectAnyPeer(),
 			err:    `no roots for peer trust domain "spiffe://domain1.test"`,
 		},
 		{
 			name:   "fails peer id expectation",
 			chain:  peer1,
 			roots:  roots1,
-			expect: ExpectPeer("spiffe://domain2.test/workload"),
+			expect: x509svid.ExpectPeer("spiffe://domain2.test/workload"),
 			err:    `unexpected peer ID "spiffe://domain1.test/workload"`,
 		},
 		{
 			name:   "bad peer id",
 			chain:  peerBad,
 			roots:  roots1,
-			expect: ExpectAnyPeer(),
+			expect: x509svid.ExpectAnyPeer(),
 			err:    "invalid SPIFFE ID \"sparfe://domain1.test/workload\": invalid scheme",
 		},
 		{
 			name:   "verification fails",
 			chain:  peer1,
 			roots:  rootsBad,
-			expect: ExpectAnyPeer(),
+			expect: x509svid.ExpectAnyPeer(),
 			err:    "x509: certificate signed by unknown authority",
 		},
 		{
 			name:   "success",
 			chain:  peer1,
 			roots:  roots1,
-			expect: ExpectAnyPeer(),
+			expect: x509svid.ExpectAnyPeer(),
 		},
 	}
 

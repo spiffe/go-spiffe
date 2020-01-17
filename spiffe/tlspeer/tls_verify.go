@@ -1,4 +1,4 @@
-package spiffe
+package tlspeer
 
 import (
 	"crypto/x509"
@@ -6,13 +6,15 @@ import (
 	"fmt"
 
 	"github.com/spiffe/go-spiffe/internal"
+	"github.com/spiffe/go-spiffe/spiffe/spiffeid"
+	"github.com/spiffe/go-spiffe/spiffe/svid/x509svid"
 )
 
 // VerifyPeerCertificate verifies the provided peer certificate chain using the
 // set trust domain roots. The expectPeerFn callback is used to check the peer
 // ID after the chain of trust has been verified to assert that the chain
 // belongs to the intended peer.
-func VerifyPeerCertificate(peerChain []*x509.Certificate, trustDomainRoots map[string]*x509.CertPool, expectPeerFn ExpectPeerFunc) ([][]*x509.Certificate, error) {
+func VerifyPeerCertificate(peerChain []*x509.Certificate, trustDomainRoots map[string]*x509.CertPool, expectPeerFn x509svid.ExpectPeerFunc) ([][]*x509.Certificate, error) {
 	switch {
 	case len(peerChain) == 0:
 		return nil, errors.New("no peer certificates")
@@ -23,7 +25,7 @@ func VerifyPeerCertificate(peerChain []*x509.Certificate, trustDomainRoots map[s
 	}
 
 	peer := peerChain[0]
-	peerID, trustDomainID, err := getIDsFromCertificate(peer)
+	peerID, trustDomainID, err := spiffeid.GetIDsFromCertificate(peer)
 	if err != nil {
 		return nil, err
 	}

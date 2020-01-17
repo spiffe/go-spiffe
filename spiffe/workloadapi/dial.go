@@ -1,4 +1,4 @@
-package workload
+package workloadapi
 
 import (
 	"context"
