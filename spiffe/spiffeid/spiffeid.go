@@ -266,7 +266,8 @@ func MatchID(ids []string, cert *x509.Certificate) error {
 	return fmt.Errorf("SPIFFE ID mismatch")
 }
 
-// VerifyCertificate has been deprecated, use tlspeer.VerifyPeerCertificate() from instead.
+// VerifyCertificate has been deprecated, use VerifyPeerCertificate() from the
+// tlspeer package instead.
 // Verifies a SPIFFE certificate and its certification path. This function does
 // not perform rich validation.
 func VerifyCertificate(leaf *x509.Certificate, intermediates *x509.CertPool, roots *x509.CertPool) error {
