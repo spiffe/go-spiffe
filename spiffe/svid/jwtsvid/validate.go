@@ -11,14 +11,11 @@ import (
 	"gopkg.in/square/go-jose.v2/jwt"
 )
 
-func validateToken(token string, keyStore bundle.KeyStore, audience []string) (string, map[string]interface{}, error) {
-	tok, err := jwt.ParseSigned(token)
-	if err != nil {
-		return "", nil, errors.New("unable to parse JWT token")
-	}
-
+// validateTokenAlgorithm json web token have only one header, and it is signed for a supported algorithm
+func validateTokenAlgorithm(tok *jwt.JSONWebToken) error {
+	// Only one header is expected
 	if len(tok.Headers) != 1 {
-		return "", nil, fmt.Errorf("expected a single token header; got %d", len(tok.Headers))
+		return fmt.Errorf("expected a single token header; got %d", len(tok.Headers))
 	}
 
 	// Make sure it has an algorithm supported by JWT-SVID
@@ -28,7 +25,23 @@ func validateToken(token string, keyStore bundle.KeyStore, audience []string) (s
 		jose.ES256, jose.ES384, jose.ES512,
 		jose.PS256, jose.PS384, jose.PS512:
 	default:
-		return "", nil, fmt.Errorf("unsupported token signature algorithm %q", alg)
+		return fmt.Errorf("unsupported token signature algorithm %q", alg)
+	}
+
+	return nil
+}
+
+// validateToken verify if token is signed by provided token and audience its audience
+func validateToken(token string, keyStore bundle.KeyStore, audience []string) (string, map[string]interface{}, error) {
+	// Parse serialized token
+	tok, err := jwt.ParseSigned(token)
+	if err != nil {
+		return "", nil, errors.New("unable to parse JWT token")
+	}
+
+	// Validates supported token signed algorithm
+	if err := validateTokenAlgorithm(tok); err != nil {
+		return "", nil, err
 	}
 
 	// Obtain the key ID from the header
@@ -84,7 +97,8 @@ func validateToken(token string, keyStore bundle.KeyStore, audience []string) (s
 	return spiffeID.String(), claimsMap, nil
 }
 
-func GetSpiffeIDFromSvid(token string, keyStore bundle.KeyStore, audience []string) (string, error) {
+// GetSpiffeID get spiffeID from a jwt token validated against a provided bundle
+func GetSpiffeID(token string, keyStore bundle.KeyStore, audience []string) (string, error) {
 	spiffeID, _, err := validateToken(token, keyStore, audience)
 	if err != nil {
 		return "", err
