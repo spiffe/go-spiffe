@@ -5,6 +5,7 @@ import (
 	"crypto/x509"
 
 	"github.com/spiffe/go-spiffe/spiffe"
+	"github.com/spiffe/go-spiffe/spiffe/svid/x509svid"
 )
 
 type TLSPeer struct {
@@ -60,7 +61,7 @@ func (t *TLSPeer) verifyPeerCertificate(rawCerts [][]byte, verifiedChains [][]*x
 	}
 
 	// Look for a known SPIFFE ID in the leaf
-	err = spiffe.MatchID(t.SpiffeIDs, certs[0])
+	err = x509svid.MatchID(t.SpiffeIDs, certs[0])
 	if err != nil {
 		return err
 	}

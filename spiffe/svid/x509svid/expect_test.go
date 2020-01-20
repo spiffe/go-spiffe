@@ -1,4 +1,4 @@
-package spiffe
+package x509svid
 
 import (
 	"testing"

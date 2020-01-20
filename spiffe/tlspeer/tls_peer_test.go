@@ -1,4 +1,4 @@
-package spiffe
+package tlspeer
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/spiffe/go-spiffe/spiffe/svid/x509svid"
 	"github.com/spiffe/go-spiffe/spiffetest"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
@@ -63,7 +64,7 @@ func TestTLSPeer(t *testing.T) {
 	require.NoError(t, err)
 	defer clientPeer.Close()
 
-	listener, err := serverPeer.Listen(ctx, "tcp", "localhost:0", ExpectPeer("spiffe://domain2.test/client"))
+	listener, err := serverPeer.Listen(ctx, "tcp", "localhost:0", x509svid.ExpectPeer("spiffe://domain2.test/client"))
 	require.NoError(t, err)
 	defer listener.Close()
 
@@ -74,7 +75,7 @@ func TestTLSPeer(t *testing.T) {
 		conn.Close()
 	}()
 
-	conn, err := clientPeer.Dial(ctx, listener.Addr().Network(), listener.Addr().String(), ExpectPeer("spiffe://domain1.test/server"))
+	conn, err := clientPeer.Dial(ctx, listener.Addr().Network(), listener.Addr().String(), x509svid.ExpectPeer("spiffe://domain1.test/server"))
 	require.NoError(t, err)
 	defer conn.Close()
 	_, err = conn.Write([]byte("HELLO"))
@@ -137,7 +138,7 @@ func TestTLSPeerGRPC(t *testing.T) {
 	require.NoError(t, err)
 	defer clientPeer.Close()
 
-	listener, err := serverPeer.Listen(ctx, "tcp", "localhost:0", ExpectPeer("spiffe://domain2.test/client"))
+	listener, err := serverPeer.Listen(ctx, "tcp", "localhost:0", x509svid.ExpectPeer("spiffe://domain2.test/client"))
 	require.NoError(t, err)
 	defer listener.Close()
 
@@ -145,7 +146,7 @@ func TestTLSPeerGRPC(t *testing.T) {
 	grpc_testing.RegisterTestServiceServer(server, testService{})
 	go server.Serve(listener)
 
-	conn, err := clientPeer.DialGRPC(ctx, listener.Addr().String(), ExpectPeer("spiffe://domain1.test/server"))
+	conn, err := clientPeer.DialGRPC(ctx, listener.Addr().String(), x509svid.ExpectPeer("spiffe://domain1.test/server"))
 	require.NoError(t, err)
 	defer conn.Close()
 

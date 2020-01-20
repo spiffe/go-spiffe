@@ -1,7 +1,6 @@
-package spiffe
+package spiffeid
 
 import (
-	"crypto/x509"
 	"errors"
 	"fmt"
 	"net/url"
@@ -224,24 +223,4 @@ func TrustDomainURI(trustDomain string) *url.URL {
 		Scheme: "spiffe",
 		Host:   trustDomain,
 	}
-}
-
-// getIDsFromCertificate extracts the SPIFFE ID and Trust Domain ID from the
-// URI SAN of the provided certificate. If the certificate has no URI SAN or
-// the SPIFFE ID is malformed, it will return an error.
-func getIDsFromCertificate(peer *x509.Certificate) (string, string, error) {
-	switch {
-	case len(peer.URIs) == 0:
-		return "", "", errors.New("peer certificate contains no URI SAN")
-	case len(peer.URIs) > 1:
-		return "", "", errors.New("peer certificate contains more than one URI SAN")
-	}
-
-	id := peer.URIs[0]
-
-	if err := ValidateURI(id, AllowAny()); err != nil {
-		return "", "", err
-	}
-
-	return id.String(), TrustDomainID(id.Host), nil
 }

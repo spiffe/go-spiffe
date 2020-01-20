@@ -1,4 +1,4 @@
-package spiffe
+package tlspeer
 
 import (
 	"context"
@@ -9,7 +9,9 @@ import (
 	"net"
 	"sync"
 
-	"github.com/spiffe/go-spiffe/workload"
+	"github.com/spiffe/go-spiffe/logger"
+	"github.com/spiffe/go-spiffe/spiffe/svid/x509svid"
+	"github.com/spiffe/go-spiffe/spiffe/workloadapi"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
@@ -27,7 +29,7 @@ func WithWorkloadAPIAddr(addr string) func(*TLSPeer) error {
 }
 
 // WithLogger provides a logger to the TLSPeer
-func WithLogger(log Logger) func(*TLSPeer) error {
+func WithLogger(log logger.Logger) func(*TLSPeer) error {
 	return func(p *TLSPeer) error {
 		p.log = log
 		return nil
@@ -37,9 +39,9 @@ func WithLogger(log Logger) func(*TLSPeer) error {
 // TLSPeer connects to the workload API and provides up-to-date identity and
 // trusted roots for TLS dialing and listening.
 type TLSPeer struct {
-	log    Logger
+	log    logger.Logger
 	addr   string
-	client *workload.X509SVIDClient
+	client *workloadapi.X509SVIDClient
 
 	readyOnce sync.Once
 	ready     chan struct{}
@@ -62,15 +64,15 @@ func NewTLSPeer(opts ...TLSPeerOption) (*TLSPeer, error) {
 	}
 
 	if p.log == nil {
-		p.log = nullLogger{}
+		p.log = logger.NullLogger{}
 	}
 
-	var dialOpts []workload.DialOption
+	var dialOpts []workloadapi.DialOption
 	if p.addr != "" {
-		dialOpts = append(dialOpts, workload.WithAddr(p.addr))
+		dialOpts = append(dialOpts, workloadapi.WithAddr(p.addr))
 	}
 
-	client, err := workload.NewX509SVIDClient(&tlsPeerWatcher{p: p}, dialOpts...)
+	client, err := workloadapi.NewX509SVIDClient(&tlsPeerWatcher{p: p}, dialOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -128,7 +130,7 @@ func (p *TLSPeer) GetRoots() (map[string]*x509.CertPool, error) {
 // Dial dials to a remote peer using the network and address provided. It
 // returns a TLS connection. If the remote peer does not have a SPIFFE ID
 // allowable by the expectPeer callback, the TLS handshake will fail.
-func (p *TLSPeer) Dial(ctx context.Context, network, address string, expectPeer ExpectPeerFunc) (net.Conn, error) {
+func (p *TLSPeer) Dial(ctx context.Context, network, address string, expectPeer x509svid.ExpectPeerFunc) (net.Conn, error) {
 	rawConn, err := new(net.Dialer).DialContext(ctx, network, address)
 	if err != nil {
 		return nil, err
@@ -153,7 +155,7 @@ func (p *TLSPeer) Dial(ctx context.Context, network, address string, expectPeer 
 // Listen starts listening for remote peers using the network and address
 // provided. It returns a listener, which should closed when finished to
 // release resources.
-func (p *TLSPeer) Listen(ctx context.Context, network, address string, expectPeer ExpectPeerFunc) (net.Listener, error) {
+func (p *TLSPeer) Listen(ctx context.Context, network, address string, expectPeer x509svid.ExpectPeerFunc) (net.Listener, error) {
 	inner, err := net.Listen(network, address)
 	if err != nil {
 		return nil, err
@@ -170,7 +172,7 @@ func (p *TLSPeer) Listen(ctx context.Context, network, address string, expectPee
 
 // NewListener wraps an existing listener in a TLS listener configured using
 // credentials and roots returned from the Workload API.
-func (p *TLSPeer) NewListener(ctx context.Context, inner net.Listener, expectPeer ExpectPeerFunc) (net.Listener, error) {
+func (p *TLSPeer) NewListener(ctx context.Context, inner net.Listener, expectPeer x509svid.ExpectPeerFunc) (net.Listener, error) {
 	config, err := p.GetConfig(ctx, expectPeer)
 	if err != nil {
 		return nil, err
@@ -182,7 +184,7 @@ func (p *TLSPeer) NewListener(ctx context.Context, inner net.Listener, expectPee
 // listen for remote peers. The remote peer SPIFFE ID must be allowed by the
 // provided expectPeer callback or the TLS handshake will fail. This function
 // blocks until the peer is ready (see WaitUntilReady).
-func (p *TLSPeer) GetConfig(ctx context.Context, expectPeer ExpectPeerFunc) (*tls.Config, error) {
+func (p *TLSPeer) GetConfig(ctx context.Context, expectPeer x509svid.ExpectPeerFunc) (*tls.Config, error) {
 	if expectPeer == nil {
 		return nil, errors.New("authorize callback is required")
 	}
@@ -199,7 +201,7 @@ func (p *TLSPeer) GetConfig(ctx context.Context, expectPeer ExpectPeerFunc) (*tl
 }
 
 // DialGRPC dials the gRPC endpoint addr using the peer TLS configuration.
-func (p *TLSPeer) DialGRPC(ctx context.Context, addr string, expectPeer ExpectPeerFunc, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
+func (p *TLSPeer) DialGRPC(ctx context.Context, addr string, expectPeer x509svid.ExpectPeerFunc, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
 	config, err := p.GetConfig(ctx, expectPeer)
 	if err != nil {
 		return nil, err
@@ -209,13 +211,13 @@ func (p *TLSPeer) DialGRPC(ctx context.Context, addr string, expectPeer ExpectPe
 	}, opts...)...)
 }
 
-func (p *TLSPeer) updateX509SVIDs(svids *workload.X509SVIDs) {
+func (p *TLSPeer) updateX509SVIDs(svids *workloadapi.X509SVIDs) {
 	p.log.Debugf("X509SVID workload API update received")
 
 	// Use the default SVID for now
 	// TODO: expand SVID selection options
 	svid := svids.Default()
-	_, trustDomainID, err := getIDsFromCertificate(svid.Certificates[0])
+	_, trustDomainID, err := x509svid.GetIDsFromCertificate(svid.Certificates[0])
 	if err != nil {
 		p.onError(fmt.Errorf("unable to parse IDs from X509-SVID update: %v", err))
 		return
@@ -270,7 +272,7 @@ func AdaptGetClientCertificate(p *TLSPeer) func(*tls.CertificateRequestInfo) (*t
 // VerifyPeerCertificate function from this package under the covers, using
 // roots obtained from the TLS peer. The expectPeer callback is used to
 // verify remote peer SPIFFE IDs.
-func AdaptVerifyPeerCertificate(p *TLSPeer, expectPeer ExpectPeerFunc) func([][]byte, [][]*x509.Certificate) error {
+func AdaptVerifyPeerCertificate(p *TLSPeer, expectPeer x509svid.ExpectPeerFunc) func([][]byte, [][]*x509.Certificate) error {
 	return func(rawCerts [][]byte, _ [][]*x509.Certificate) error {
 		var certs []*x509.Certificate
 		for i, rawCert := range rawCerts {
@@ -298,7 +300,7 @@ func AdaptVerifyPeerCertificate(p *TLSPeer, expectPeer ExpectPeerFunc) func([][]
 // ListenTLS is a convenience wrapper for listening for remote peers using
 // credentials obtained from the workload API. If more control is required it
 // is recomended to use the TLSPeer instead.
-func ListenTLS(ctx context.Context, network, addr string, expectPeer ExpectPeerFunc) (net.Listener, error) {
+func ListenTLS(ctx context.Context, network, addr string, expectPeer x509svid.ExpectPeerFunc) (net.Listener, error) {
 	tlsPeer, err := NewTLSPeer()
 	if err != nil {
 		return nil, err
@@ -319,7 +321,7 @@ func ListenTLS(ctx context.Context, network, addr string, expectPeer ExpectPeerF
 // DialTLS is a convenience wrapper for dialing remote peers using credentials
 // obtained from the workload API. If more control is required it is
 // recommended to use the TLSPeer instead.
-func DialTLS(ctx context.Context, network, addr string, expectPeer ExpectPeerFunc) (net.Conn, error) {
+func DialTLS(ctx context.Context, network, addr string, expectPeer x509svid.ExpectPeerFunc) (net.Conn, error) {
 	tlsPeer, err := NewTLSPeer()
 	if err != nil {
 		return nil, err
@@ -332,7 +334,7 @@ type tlsPeerWatcher struct {
 	p *TLSPeer
 }
 
-func (w *tlsPeerWatcher) UpdateX509SVIDs(svids *workload.X509SVIDs) {
+func (w *tlsPeerWatcher) UpdateX509SVIDs(svids *workloadapi.X509SVIDs) {
 	w.p.updateX509SVIDs(svids)
 }
 
