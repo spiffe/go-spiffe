@@ -1,13 +1,10 @@
 package spiffeid
 
 import (
-	"crypto/x509"
 	"errors"
 	"fmt"
 	"net/url"
 	"strings"
-
-	"github.com/spiffe/go-spiffe/uri"
 )
 
 type idType int
@@ -226,57 +223,4 @@ func TrustDomainURI(trustDomain string) *url.URL {
 		Scheme: "spiffe",
 		Host:   trustDomain,
 	}
-}
-
-// GetIDsFromCertificate extracts the SPIFFE ID and Trust Domain ID from the
-// URI SAN of the provided certificate. If the certificate has no URI SAN or
-// the SPIFFE ID is malformed, it will return an error.
-func GetIDsFromCertificate(peer *x509.Certificate) (string, string, error) {
-	switch {
-	case len(peer.URIs) == 0:
-		return "", "", errors.New("peer certificate contains no URI SAN")
-	case len(peer.URIs) > 1:
-		return "", "", errors.New("peer certificate contains more than one URI SAN")
-	}
-
-	id := peer.URIs[0]
-
-	if err := ValidateURI(id, AllowAny()); err != nil {
-		return "", "", err
-	}
-
-	return id.String(), TrustDomainID(id.Host), nil
-}
-
-// MatchID tries to match a SPIFFE ID, given a certificate
-func MatchID(ids []string, cert *x509.Certificate) error {
-	parsedIDs, err := uri.GetURINamesFromCertificate(cert)
-	if err != nil {
-		return err
-	}
-
-	for _, parsedID := range parsedIDs {
-		for _, id := range ids {
-			if parsedID == id {
-				return nil
-			}
-		}
-	}
-
-	return fmt.Errorf("SPIFFE ID mismatch")
-}
-
-// VerifyCertificate has been deprecated, use VerifyPeerCertificate() from the
-// tlspeer package instead.
-// Verifies a SPIFFE certificate and its certification path. This function does
-// not perform rich validation.
-func VerifyCertificate(leaf *x509.Certificate, intermediates *x509.CertPool, roots *x509.CertPool) error {
-	verifyOpts := x509.VerifyOptions{
-		Intermediates: intermediates,
-		Roots:         roots,
-	}
-
-	// TODO: SPIFFE-specific validation of leaf and verified chain
-	_, err := leaf.Verify(verifyOpts)
-	return err
 }

@@ -10,7 +10,6 @@ import (
 	"sync"
 
 	"github.com/spiffe/go-spiffe/logger"
-	"github.com/spiffe/go-spiffe/spiffe/spiffeid"
 	"github.com/spiffe/go-spiffe/spiffe/svid/x509svid"
 	"github.com/spiffe/go-spiffe/spiffe/workloadapi"
 	"google.golang.org/grpc"
@@ -218,7 +217,7 @@ func (p *TLSPeer) updateX509SVIDs(svids *workloadapi.X509SVIDs) {
 	// Use the default SVID for now
 	// TODO: expand SVID selection options
 	svid := svids.Default()
-	_, trustDomainID, err := spiffeid.GetIDsFromCertificate(svid.Certificates[0])
+	_, trustDomainID, err := x509svid.GetIDsFromCertificate(svid.Certificates[0])
 	if err != nil {
 		p.onError(fmt.Errorf("unable to parse IDs from X509-SVID update: %v", err))
 		return

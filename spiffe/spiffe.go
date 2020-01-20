@@ -3,6 +3,8 @@
 package spiffe
 
 import (
+	"crypto/x509"
+
 	"github.com/spiffe/go-spiffe/logger"
 	"github.com/spiffe/go-spiffe/spiffe/spiffeid"
 	"github.com/spiffe/go-spiffe/spiffe/svid/x509svid"
@@ -17,8 +19,6 @@ var (
 	AllowAnyTrustDomainWorkload = spiffeid.AllowAnyTrustDomainWorkload
 	AllowTrustDomain            = spiffeid.AllowTrustDomain
 	AllowTrustDomainWorkload    = spiffeid.AllowTrustDomainWorkload
-	GetIDsFromCertificate       = spiffeid.GetIDsFromCertificate
-	MatchID                     = spiffeid.MatchID
 	NormalizeID                 = spiffeid.NormalizeID
 	NormalizeURI                = spiffeid.NormalizeURI
 	ParseID                     = spiffeid.ParseID
@@ -26,7 +26,6 @@ var (
 	TrustDomainURI              = spiffeid.TrustDomainURI
 	ValidateID                  = spiffeid.ValidateID
 	ValidateURI                 = spiffeid.ValidateURI
-	VerifyCertificate           = spiffeid.VerifyCertificate
 )
 
 // Function aliases for the tlspeer package
@@ -46,10 +45,12 @@ var (
 // Function aliases for the x509svid package
 
 var (
-	ExpectAnyPeer      = x509svid.ExpectAnyPeer
-	ExpectPeer         = x509svid.ExpectPeer
-	ExpectPeerInDomain = x509svid.ExpectPeerInDomain
-	ExpectPeers        = x509svid.ExpectPeers
+	ExpectAnyPeer         = x509svid.ExpectAnyPeer
+	ExpectPeer            = x509svid.ExpectPeer
+	ExpectPeerInDomain    = x509svid.ExpectPeerInDomain
+	ExpectPeers           = x509svid.ExpectPeers
+	GetIDsFromCertificate = x509svid.GetIDsFromCertificate
+	MatchID               = x509svid.MatchID
 )
 
 // Type aliases for the x509svid package
@@ -70,3 +71,18 @@ type (
 type (
 	Logger = logger.Logger
 )
+
+// VerifyCertificate has been deprecated, use VerifyPeerCertificate() from the
+// tlspeer package instead.
+// Verifies a SPIFFE certificate and its certification path. This function does
+// not perform rich validation.
+func VerifyCertificate(leaf *x509.Certificate, intermediates *x509.CertPool, roots *x509.CertPool) error {
+	verifyOpts := x509.VerifyOptions{
+		Intermediates: intermediates,
+		Roots:         roots,
+	}
+
+	// TODO: SPIFFE-specific validation of leaf and verified chain
+	_, err := leaf.Verify(verifyOpts)
+	return err
+}

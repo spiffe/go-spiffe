@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/spiffe/go-spiffe/internal"
-	"github.com/spiffe/go-spiffe/spiffe/spiffeid"
 	"github.com/spiffe/go-spiffe/spiffe/svid/x509svid"
 )
 
@@ -25,7 +24,7 @@ func VerifyPeerCertificate(peerChain []*x509.Certificate, trustDomainRoots map[s
 	}
 
 	peer := peerChain[0]
-	peerID, trustDomainID, err := spiffeid.GetIDsFromCertificate(peer)
+	peerID, trustDomainID, err := x509svid.GetIDsFromCertificate(peer)
 	if err != nil {
 		return nil, err
 	}
