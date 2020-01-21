@@ -22,33 +22,44 @@ func TestNewClient(t *testing.T) {
 	}{
 		{
 			name:   "Success web PKI authentication",
-			config: ClientConfig{EndpointAddress: "localhost:9999"},
+			config: ClientConfig{Address: "localhost:9999"},
 		},
 		{
 			name: "Success SPIFFE authentication",
 			config: ClientConfig{
-				EndpointAddress: "localhost:9999",
-				SPIFFEAuth: &SPIFFEAuthConfig{
-					EndpointSpiffeID: "spiffe://example.org/bundle",
-					RootCAs:          []*x509.Certificate{&x509.Certificate{}},
+				Address: "localhost:9999",
+				Auth: &AuthConfig{
+					ServerID: "spiffe://example.org/bundle",
+					RootCAs:  []*x509.Certificate{&x509.Certificate{}},
 				},
 			},
 		},
 		{
-			name:        "Fail because of empty endpoint SPIFFE ID",
+			name:        "Fail because of empty Server ID",
 			errContains: "bundle endpoint spiffe ID is required",
 			config: ClientConfig{
-				EndpointAddress: "localhost:9999",
-				SPIFFEAuth:      &SPIFFEAuthConfig{RootCAs: []*x509.Certificate{}},
+				Address: "localhost:9999",
+				Auth:    &AuthConfig{RootCAs: []*x509.Certificate{}},
+			},
+		},
+		{
+			name:        "Fail because Server ID is malformed",
+			errContains: "cannot get TLS config: unable to get trust domain from SPIFFE ID",
+			config: ClientConfig{
+				Address: "localhost:9999",
+				Auth: &AuthConfig{
+					ServerID: "not a spiffe ID",
+					RootCAs:  []*x509.Certificate{&x509.Certificate{}},
+				},
 			},
 		},
 		{
 			name:        "Fail because no initial root CAs are provided",
 			errContains: "an initial up-to-date bundle from the remote trust domain is required",
 			config: ClientConfig{
-				EndpointAddress: "localhost:9999",
-				SPIFFEAuth: &SPIFFEAuthConfig{
-					EndpointSpiffeID: "spiffe://example.org/bundle",
+				Address: "localhost:9999",
+				Auth: &AuthConfig{
+					ServerID: "spiffe://example.org/bundle",
 				},
 			},
 		},
@@ -71,7 +82,6 @@ func TestNewClient(t *testing.T) {
 			assert.NotNil(t, client)
 		})
 	}
-
 }
 
 func TestFetchBundle(t *testing.T) {
@@ -90,8 +100,8 @@ func TestFetchBundle(t *testing.T) {
 		},
 		{
 			name:        "SPIFFE ID override",
-			spiffeID:    "spiffe://otherdomain.org",
-			errContains: "SPIFFE ID mismatch",
+			spiffeID:    "spiffe://otherdomain.org/bundle",
+			errContains: "unable to verify client peer chain",
 		},
 		{
 			name:        "non-200 status",
@@ -129,10 +139,10 @@ func TestFetchBundle(t *testing.T) {
 			defer server.Close()
 
 			client, err := NewClient(ClientConfig{
-				EndpointAddress: server.Listener.Addr().String(),
-				SPIFFEAuth: &SPIFFEAuthConfig{
-					EndpointSpiffeID: testCase.spiffeID,
-					RootCAs:          []*x509.Certificate{serverCert},
+				Address: server.Listener.Addr().String(),
+				Auth: &AuthConfig{
+					ServerID: testCase.spiffeID,
+					RootCAs:  []*x509.Certificate{serverCert},
 				},
 			})
 			require.NoError(t, err)

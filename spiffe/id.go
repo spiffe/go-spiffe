@@ -226,6 +226,15 @@ func TrustDomainURI(trustDomain string) *url.URL {
 	}
 }
 
+// TrustDomainIDFromID gets the trust domain ID given a SPIFFE ID
+func TrustDomainIDFromID(id string, mode ValidationMode) (string, error) {
+	u, err := ParseID(id, mode)
+	if err != nil {
+		return "", fmt.Errorf("unable to parse SPIFFE ID: %v", err)
+	}
+	return fmt.Sprintf("%s://%s", u.Scheme, u.Host), nil
+}
+
 // getIDsFromCertificate extracts the SPIFFE ID and Trust Domain ID from the
 // URI SAN of the provided certificate. If the certificate has no URI SAN or
 // the SPIFFE ID is malformed, it will return an error.

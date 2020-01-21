@@ -3,6 +3,7 @@ package bundle
 import (
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"net/http/httptest"
 	"testing"
@@ -24,6 +25,20 @@ func TestDecode(t *testing.T) {
 			name:        "Fails because it is not a json document",
 			doc:         "not a json",
 			errContains: "failed to decode bundle",
+		},
+		{
+			name: "Fails because it contains invalid key",
+			doc: `{
+				"keys": [
+					{
+						"kty": "EC",
+						"crv": "P-256",
+						"x": "kkEn5E2Hd_rvCRDCVMNj3deN0ADij9uJVmN-El0CJz0",
+						"y": "qNrnjhtzrtTR0bRgI2jPIC1nEgcWNX63YcZOEzyo1iA"
+					}
+				]
+			}`,
+			errContains: "key validation failed: found 1 invalid key(s)",
 		},
 		{
 			name:        "Success",
@@ -56,14 +71,80 @@ func TestDecode(t *testing.T) {
 	}
 }
 
+func TestDecodeLenient(t *testing.T) {
+	testCases := []struct {
+		name           string
+		doc            string
+		errContains    string
+		sequence       uint64
+		refreshHint    int
+		invalidKeysLen int
+		bundleKeysLen  int
+	}{
+		{
+			name:        "Fails because it is not a json document",
+			doc:         "not a json",
+			errContains: "failed to decode bundle",
+		},
+		{
+			name:           "Success with invalid key",
+			invalidKeysLen: 1,
+			bundleKeysLen:  0,
+			doc: `{
+				"keys": [
+					{
+						"kty": "EC",
+						"crv": "P-256",
+						"x": "kkEn5E2Hd_rvCRDCVMNj3deN0ADij9uJVmN-El0CJz0",
+						"y": "qNrnjhtzrtTR0bRgI2jPIC1nEgcWNX63YcZOEzyo1iA"
+					}
+				]
+			}`,
+		},
+		{
+			name:        "Success",
+			doc:         `{"spiffe_refresh_hint": 10, "spiffe_sequence": 2}`,
+			refreshHint: 10,
+			sequence:    2,
+		},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			r := httptest.NewRecorder()
+			_, err := r.Write([]byte(testCase.doc))
+			require.NoError(t, err)
+
+			b, invalidKeys, err := DecodeLenient(r.Result().Body)
+			if testCase.errContains != "" {
+				require.Contains(t, err.Error(), testCase.errContains)
+				require.Nil(t, b)
+				require.Nil(t, invalidKeys)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, b.Sequence, testCase.sequence)
+			assert.Equal(t, b.RefreshHint, testCase.refreshHint)
+
+			require.NotNil(t, b)
+			assert.Len(t, b.Keys, testCase.bundleKeysLen)
+
+			require.NotNil(t, invalidKeys)
+			assert.Len(t, invalidKeys, testCase.invalidKeysLen)
+		})
+	}
+}
+
 func TestValidateKeys(t *testing.T) {
 	ca := spiffetest.NewCA(t)
 	rootCA := ca.CreateCA().Roots()[0]
 
 	testCases := []struct {
-		name        string
-		doc         string
-		errContains string
+		name   string
+		doc    string
+		reason InvalidKeyReason
 	}{
 		{
 			name: "unrecognized use",
@@ -78,7 +159,7 @@ func TestValidateKeys(t *testing.T) {
 					}
 				]
 			}`,
-			errContains: `unrecognized use "bad stuff" for key entry 0`,
+			reason: ReasonUnrecognizedUse,
 		},
 		{
 			name: "entry missing use",
@@ -92,7 +173,7 @@ func TestValidateKeys(t *testing.T) {
 					}
 				]
 			}`,
-			errContains: "missing use for key entry 0",
+			reason: ReasonMissingUse,
 		},
 		{
 			name: "x509-svid without x5c",
@@ -107,7 +188,7 @@ func TestValidateKeys(t *testing.T) {
 					}
 				]
 			}`,
-			errContains: "expected a single certificate in x509-svid entry 0; got 0",
+			reason: ReasonSingleCertExpected,
 		},
 		{
 			name: "x509-svid with more than one x5c",
@@ -126,7 +207,7 @@ func TestValidateKeys(t *testing.T) {
 				}
 			]
 		}`, x5c(rootCA), x5c(rootCA)),
-			errContains: "expected a single certificate in x509-svid entry 0; got 2",
+			reason: ReasonSingleCertExpected,
 		},
 		{
 			name: "valid x509-svid",
@@ -166,7 +247,104 @@ func TestValidateKeys(t *testing.T) {
 	for _, testCase := range testCases {
 		testCase := testCase
 		t.Run(testCase.name, func(t *testing.T) {
+			r := httptest.NewRecorder()
+			_, err := r.Write([]byte(testCase.doc))
+			require.NoError(t, err)
 
+			b := new(Bundle)
+			err = json.NewDecoder(r.Result().Body).Decode(b)
+			require.NoError(t, err)
+			require.NotNil(t, b)
+
+			valid, invalid := ValidateKeys(b.Keys)
+			if testCase.reason != "" {
+				require.Len(t, valid, 0)
+				require.Len(t, invalid, 1)
+				assert.Equal(t, invalid[0].Reason, testCase.reason)
+				return
+			}
+			assert.Len(t, invalid, 0)
+			assert.Len(t, valid, 1)
+		})
+	}
+}
+
+func TestKeysForUse(t *testing.T) {
+	ca := spiffetest.NewCA(t)
+	rootCA := ca.CreateCA().Roots()[0]
+
+	testCases := []struct {
+		name    string
+		doc     string
+		lenJWT  int
+		lenX509 int
+	}{
+		{
+			name:   "Only one JWT key",
+			lenJWT: 1,
+			doc: `{
+				"keys": [
+					{
+						"use": "jwt-svid",
+						"kty": "EC",
+						"crv": "P-256",
+						"kid": "key-id",
+						"x": "kkEn5E2Hd_rvCRDCVMNj3deN0ADij9uJVmN-El0CJz0",
+						"y": "qNrnjhtzrtTR0bRgI2jPIC1nEgcWNX63YcZOEzyo1iA"
+					}
+				]
+			}`,
+		},
+		{
+			name:    "Only one X509 key",
+			lenX509: 1,
+			doc: fmt.Sprintf(`{
+				"keys": [
+					{
+						"use": "x509-svid",
+						"kty": "EC",
+						"crv": "P-256",
+						"x": "kkEn5E2Hd_rvCRDCVMNj3deN0ADij9uJVmN-El0CJz0",
+						"y": "qNrnjhtzrtTR0bRgI2jPIC1nEgcWNX63YcZOEzyo1iA",
+						"x5c": [
+							%q
+						]
+					}
+				]
+			}`, x5c(rootCA)),
+		},
+		{
+			name:    "Two different key uses",
+			lenJWT:  1,
+			lenX509: 1,
+			doc: fmt.Sprintf(`{
+				"keys": [
+					{
+						"use": "jwt-svid",
+						"kty": "EC",
+						"crv": "P-256",
+						"kid": "key-id",
+						"x": "kkEn5E2Hd_rvCRDCVMNj3deN0ADij9uJVmN-El0CJz0",
+						"y": "qNrnjhtzrtTR0bRgI2jPIC1nEgcWNX63YcZOEzyo1iA"
+					},
+					{
+						"use": "x509-svid",
+						"kty": "EC",
+						"crv": "P-256",
+						"x": "kkEn5E2Hd_rvCRDCVMNj3deN0ADij9uJVmN-El0CJz0",
+						"y": "qNrnjhtzrtTR0bRgI2jPIC1nEgcWNX63YcZOEzyo1iA",
+						"x5c": [
+							%q
+						]
+					}
+				]
+			}`, x5c(rootCA)),
+		},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
 			r := httptest.NewRecorder()
 			_, err := r.Write([]byte(testCase.doc))
 			require.NoError(t, err)
@@ -175,16 +353,8 @@ func TestValidateKeys(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, b)
 
-			valid, invalid := ValidateKeys(b.Keys)
-			if testCase.errContains != "" {
-				require.Len(t, valid, 0)
-				require.Len(t, invalid, 1)
-				assert.Contains(t, invalid[0].reason.Error(), testCase.errContains)
-				return
-			}
-			assert.Len(t, invalid, 0)
-			assert.Len(t, valid, 1)
-
+			assert.Len(t, b.KeysForUse(UseJWTSVID), testCase.lenJWT)
+			assert.Len(t, b.KeysForUse(UseX509SVID), testCase.lenX509)
 		})
 	}
 }

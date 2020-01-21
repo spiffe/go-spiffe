@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestValidateID(t *testing.T) {
@@ -255,6 +256,45 @@ func TestGetIDsFromCertificate(t *testing.T) {
 			assert.Empty(t, id)
 			assert.Empty(t, domain)
 			assert.EqualError(t, err, test.expectedError)
+		})
+	}
+}
+
+func TestTrustDomainIDFromID(t *testing.T) {
+	tests := []struct {
+		name                  string
+		id                    string
+		expectedError         string
+		expectedTrustDomainID string
+	}{
+		{
+			name:                  "workload SPIFFE ID",
+			id:                    "spiffe://example.org/workload",
+			expectedTrustDomainID: "spiffe://example.org",
+		},
+		{
+			name:                  "trust domain SPIFFE ID",
+			id:                    "spiffe://example.org",
+			expectedTrustDomainID: "spiffe://example.org",
+		},
+		{
+			name:          "invalid spiffe ID",
+			id:            "not-a-spiffe-id",
+			expectedError: "unable to parse SPIFFE ID",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.id, func(t *testing.T) {
+			td, err := TrustDomainIDFromID(test.id, AllowAny())
+			if test.expectedError != "" {
+				require.Contains(t, err.Error(), test.expectedError)
+				assert.Empty(t, td)
+				return
+			}
+
+			require.Nil(t, err)
+			assert.Equal(t, test.expectedTrustDomainID, td)
 		})
 	}
 }

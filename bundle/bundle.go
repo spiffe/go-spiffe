@@ -10,9 +10,23 @@ import (
 	"gopkg.in/square/go-jose.v2"
 )
 
+// Use represent the 'use' parameter of a JWK
+type Use string
+
+// Identity documents available for the 'use' parameter
 const (
-	x509SVIDUse = "x509-svid"
-	jwtSVIDUse  = "jwt-svid"
+	UseX509SVID Use = "x509-svid"
+	UseJWTSVID  Use = "jwt-svid"
+)
+
+// InvalidKeyReason describes why a JWK is not SPIFFE-compliant.
+type InvalidKeyReason string
+
+// SPIFFE key invalidity reasons.
+const (
+	ReasonMissingUse         InvalidKeyReason = "key is missing 'use' parameter"
+	ReasonUnrecognizedUse    InvalidKeyReason = "key has unrecognized value for 'use'"
+	ReasonSingleCertExpected InvalidKeyReason = "expected a single certificate"
 )
 
 // Bundle is a SPIFFE bundle object. It follows the definitions given in the
@@ -32,54 +46,84 @@ type Bundle struct {
 	RefreshHint int `json:"spiffe_refresh_hint,omitempty"`
 }
 
-// SPIFFEInvalidJWK is used to describe why a key is not SPIFFE-compliant.
-type SPIFFEInvalidJWK struct {
+// InvalidKey is used to describe why the wrapped JWK is not SPIFFE-compliant.
+type InvalidKey struct {
 	jose.JSONWebKey
-	reason error
+	Reason InvalidKeyReason
+}
+
+// KeysForUse provides a subset of keys filtered by the 'use' parameter
+func (b *Bundle) KeysForUse(use Use) []jose.JSONWebKey {
+	keys := []jose.JSONWebKey{}
+	for _, key := range b.Keys {
+		if key.Use == string(use) {
+			keys = append(keys, key)
+		}
+	}
+	return keys
 }
 
 // Decode reads a json document from a Reader interface and turns it into a
-// bundle object.
+// bundle object. It fails if an invalid key is found.
 func Decode(r io.Reader) (*Bundle, error) {
 	doc := new(Bundle)
 	if err := json.NewDecoder(r).Decode(doc); err != nil {
 		return nil, fmt.Errorf("failed to decode bundle: %v", err)
 	}
 
+	_, invalidKeys := ValidateKeys(doc.Keys)
+	if len(invalidKeys) > 0 {
+		return nil, errs.New("key validation failed: found %d invalid key(s)", len(invalidKeys))
+	}
+
 	return doc, nil
+}
+
+// Decode reads a json document from a Reader interface and turns it into a
+// bundle object. If invalid keys are found, they are returned in a separated slice.
+func DecodeLenient(r io.Reader) (*Bundle, []*InvalidKey, error) {
+	doc := new(Bundle)
+	if err := json.NewDecoder(r).Decode(doc); err != nil {
+		return nil, nil, fmt.Errorf("failed to decode bundle: %v", err)
+	}
+
+	validKeys, invalidKeys := ValidateKeys(doc.Keys)
+	doc.Keys = validKeys
+
+	return doc, invalidKeys, nil
 }
 
 // ValidateKeys validates if the keys contained in a JSONWebKey array are
 // SPIFFE-compliant. It returns two separated slices for valid and invalid keys.
-func ValidateKeys(keys []jose.JSONWebKey) ([]jose.JSONWebKey, []*SPIFFEInvalidJWK) {
-	invalid := []*SPIFFEInvalidJWK{}
+func ValidateKeys(keys []jose.JSONWebKey) ([]jose.JSONWebKey, []*InvalidKey) {
+	invalid := []*InvalidKey{}
 	valid := []jose.JSONWebKey{}
 
-	for i, key := range keys {
-		switch key.Use {
-		case x509SVIDUse:
+	for _, key := range keys {
+		switch Use(key.Use) {
+		case UseX509SVID:
 			if len(key.Certificates) != 1 {
-				invalid = append(invalid, &SPIFFEInvalidJWK{
+				invalid = append(invalid, &InvalidKey{
 					JSONWebKey: key,
-					reason:     errs.New("expected a single certificate in x509-svid entry %d; got %d", i, len(key.Certificates)),
+					Reason:     ReasonSingleCertExpected,
 				})
 				continue
 			}
 			valid = append(valid, key)
 
-		case jwtSVIDUse:
+		case UseJWTSVID:
 			valid = append(valid, key)
 
 		case "":
-			invalid = append(invalid, &SPIFFEInvalidJWK{
+			invalid = append(invalid, &InvalidKey{
 				JSONWebKey: key,
-				reason:     errs.New("missing use for key entry %d", i),
+				Reason:     ReasonMissingUse,
 			})
 
 		default:
-			invalid = append(invalid, &SPIFFEInvalidJWK{
+			invalid = append(invalid, &InvalidKey{
 				JSONWebKey: key,
-				reason:     errs.New("unrecognized use %q for key entry %d", key.Use, i),
+				Reason:     ReasonUnrecognizedUse,
 			})
 		}
 	}
