@@ -38,5 +38,6 @@ func Example() {
 		return
 	}
 
-	fmt.Printf("Bundle fetched: %+v", b)
+	// TODO: use the bundle
+	_ = b
 }
