@@ -31,7 +31,7 @@ func New(trustDomainID string) *Bundle {
 	}
 }
 
-// map of bundles keyed by trustDomainID
+// Bundles map of Bundle keyed by trustDomainID
 type Bundles map[string]*Bundle
 
 // FindJWTKey find a JWT Key by trustDomainID and key

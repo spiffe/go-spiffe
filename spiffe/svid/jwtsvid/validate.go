@@ -31,7 +31,8 @@ func validateTokenAlgorithm(tok *jwt.JSONWebToken) error {
 	return nil
 }
 
-// validateToken verify if token is signed by provided token and audience its audience
+// validateToken perform JWT-SVID validations against token, and if it is signed by provided bundle,
+// return SPIFFE ID and Claims from token
 func validateToken(token string, keyStore bundle.KeyStore, audience []string) (string, map[string]interface{}, error) {
 	// Parse serialized token
 	tok, err := jwt.ParseSigned(token)
@@ -97,7 +98,7 @@ func validateToken(token string, keyStore bundle.KeyStore, audience []string) (s
 	return spiffeID.String(), claimsMap, nil
 }
 
-// GetSpiffeID get spiffeID from a jwt token validated against a provided bundle
+// GetSpiffeID extract SPIFFE ID from a JWT-SVID token validated against bundle
 func GetSpiffeID(token string, keyStore bundle.KeyStore, audience []string) (string, error) {
 	spiffeID, _, err := validateToken(token, keyStore, audience)
 	if err != nil {

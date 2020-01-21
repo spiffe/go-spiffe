@@ -25,29 +25,26 @@ func TestNew(t *testing.T) {
 func TestFindJWTKeys(t *testing.T) {
 	// Create keys
 	key1, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+
 	key2, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	// Create bundle
 	bundle1 := &Bundle{
-		TrustDomainID: "spiffe://trustDomain1.com",
+		TrustDomainID: "spiffe://trustdomain1.com",
 		RootCAs:       []*x509.Certificate{},
 		JWTKeys: map[string]crypto.PublicKey{
-			"key1": key1,
-			"key2": key2,
+			"key1": key1.Public(),
+			"key2": key2.Public(),
 		},
 	}
 
 	bundle2 := &Bundle{
-		TrustDomainID: "spiffe://trustDomain2.com",
+		TrustDomainID: "spiffe://trustdomain2.com",
 		RootCAs:       []*x509.Certificate{},
 		JWTKeys: map[string]crypto.PublicKey{
-			"key1": key1,
+			"key1": key1.Public(),
 		},
 	}
 
@@ -72,15 +69,15 @@ func TestFindJWTKeys(t *testing.T) {
 		},
 		{
 			name:          "key not found",
-			trustDomainID: "spiffe://trustDomain2.com",
+			trustDomainID: "spiffe://trustdomain2.com",
 			keyID:         "key2",
-			err:           "public key \"key2\" not found in trust domain \"spiffe://trustDomain2.com\"",
+			err:           "public key \"key2\" not found in trust domain \"spiffe://trustdomain2.com\"",
 		},
 		{
 			name:          "success",
-			trustDomainID: "spiffe://trustDomain1.com",
+			trustDomainID: "spiffe://trustdomain1.com",
 			keyID:         "key2",
-			jwtKey:        key2,
+			jwtKey:        key2.Public(),
 		},
 	}
 

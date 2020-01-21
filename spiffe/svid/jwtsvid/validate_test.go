@@ -126,14 +126,10 @@ func TestValidateAlgorithm(t *testing.T) {
 func TestGetSpiffeID(t *testing.T) {
 	// Create keys
 	key1, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	key2, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	// Create bundle
 	bundle1 := &bundle.Bundle{
