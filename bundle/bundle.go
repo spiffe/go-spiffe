@@ -2,6 +2,7 @@
 package bundle
 
 import (
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -61,6 +62,19 @@ func (b *Bundle) KeysForUse(use Use) []jose.JSONWebKey {
 		}
 	}
 	return keys
+}
+
+// RootCAs provide RootCAs from bundle
+func (b *Bundle) RootCAs() []*x509.Certificate {
+	var certs []*x509.Certificate
+
+	for _, key := range b.KeysForUse(UseX509SVID) {
+		if len(key.Certificates) > 0 {
+			certs = append(certs, key.Certificates...)
+		}
+	}
+
+	return certs
 }
 
 // Decode reads a json document from a Reader interface and turns it into a

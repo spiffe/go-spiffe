@@ -1,17 +1,134 @@
 package bundle
 
 import (
+	"crypto/rand"
+	"crypto/rsa"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 
+	"github.com/spiffe/go-spiffe/spiffe"
 	"github.com/spiffe/go-spiffe/spiffetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/square/go-jose.v2"
 )
+
+func TestRootCAs(t *testing.T) {
+	ca1ID := spiffe.TrustDomainURI("trustdomain1.com")
+	ca1 := &x509.Certificate{
+		URIs: []*url.URL{
+			ca1ID,
+		},
+	}
+
+	ca2ID := spiffe.TrustDomainURI("trustdomain2.com")
+	ca2 := &x509.Certificate{
+		URIs: []*url.URL{
+			ca2ID,
+		},
+	}
+
+	key1, err := rsa.GenerateKey(rand.Reader, 2048)
+	require.NoError(t, err)
+
+	testCases := []struct {
+		name    string
+		bundle  *Bundle
+		rootCAs []*x509.Certificate
+	}{
+		{
+			name: "bundle without keys",
+			bundle: &Bundle{
+				JSONWebKeySet: jose.JSONWebKeySet{},
+			},
+		},
+		{
+			name: "bundle without rootCAs",
+			bundle: &Bundle{
+				JSONWebKeySet: jose.JSONWebKeySet{
+					Keys: []jose.JSONWebKey{
+						{
+							KeyID: ca1ID.String(),
+							Key:   key1.Public(),
+							Use:   string(UseJWTSVID),
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "bundle with empty JWTSVID",
+			bundle: &Bundle{
+				JSONWebKeySet: jose.JSONWebKeySet{
+					Keys: []jose.JSONWebKey{
+						{
+							KeyID: ca1ID.String(),
+							Key:   key1.Public(),
+							Use:   string(UseJWTSVID),
+						},
+						{
+							Certificates: []*x509.Certificate{},
+							Use:          string(UseX509SVID),
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "bundle single rootCA",
+			bundle: &Bundle{
+				JSONWebKeySet: jose.JSONWebKeySet{
+					Keys: []jose.JSONWebKey{
+						{
+							KeyID: ca1ID.String(),
+							Key:   key1.Public(),
+							Use:   string(UseJWTSVID),
+						},
+						{
+							KeyID:        ca1ID.String(),
+							Certificates: []*x509.Certificate{ca1},
+							Use:          string(UseX509SVID),
+						},
+					},
+				},
+			},
+			rootCAs: []*x509.Certificate{ca1},
+		},
+		{
+			name: "bundle multiple rootCAs",
+			bundle: &Bundle{
+				JSONWebKeySet: jose.JSONWebKeySet{
+					Keys: []jose.JSONWebKey{
+						{
+							KeyID:        ca1ID.String(),
+							Certificates: []*x509.Certificate{ca1},
+							Use:          string(UseX509SVID),
+						},
+						{
+							KeyID:        ca2ID.String(),
+							Certificates: []*x509.Certificate{ca2},
+							Use:          string(UseX509SVID),
+						},
+					},
+				},
+			},
+			rootCAs: []*x509.Certificate{ca1, ca2},
+		},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			rootCAs := testCase.bundle.RootCAs()
+			require.Equal(t, testCase.rootCAs, rootCAs)
+		})
+	}
+}
 
 func TestDecode(t *testing.T) {
 	testCases := []struct {
@@ -66,7 +183,6 @@ func TestDecode(t *testing.T) {
 			require.NotNil(t, b)
 			assert.Equal(t, b.Sequence, testCase.sequence)
 			assert.Equal(t, b.RefreshHint, testCase.refreshHint)
-
 		})
 	}
 }
