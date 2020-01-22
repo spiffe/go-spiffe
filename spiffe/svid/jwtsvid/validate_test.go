@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/spiffe/go-spiffe/spiffe/svid/bundle"
+	"github.com/spiffe/go-spiffe/spiffe/bundle"
 	"github.com/spiffe/go-spiffe/spiffetest"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/square/go-jose.v2"

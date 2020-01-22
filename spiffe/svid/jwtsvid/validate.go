@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/spiffe/go-spiffe/spiffe"
-	"github.com/spiffe/go-spiffe/spiffe/svid/bundle"
+	"github.com/spiffe/go-spiffe/spiffe/bundle"
 	"gopkg.in/square/go-jose.v2"
 	"gopkg.in/square/go-jose.v2/jwt"
 )
