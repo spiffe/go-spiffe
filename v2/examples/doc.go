@@ -1,0 +1,2 @@
+// SPIFFE!
+package examples
