@@ -6,17 +6,21 @@ import (
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 )
 
-// RootStore is an interface used to locate the public key for a signed JWT-SVID
+// RootStore is an interface used to locate the set of X.509 roots for a
+// trust domain
 type RootStore interface {
+	// GetX509RootsForTrustDomain returns the roots for the given trust domain
+	// or an error if the roots do not exist
 	GetX509RootsForTrustDomain(trustDomain spiffeid.TrustDomain) ([]*x509.Certificate, error)
 }
 
-// ParseAndVerify parses the x509 certificates
-func VerifyChain(svidChain []*x509.Certificate, roots RootStore) (*SVID, error) {
+// VerifyChain verifies the given X509-SVID chain using the root store
+func VerifyChain(svidCerts []*x509.Certificate, roots RootStore) (*SVID, error) {
 	panic("not implemented")
 }
 
-// ParseAndVerifyChain parses and verifies chain of certificates
-func ParseAndVerifyChain(svidChain [][]byte, roots RootStore) (*SVID, error) {
+// ParseAndVerifyChain parses the and verifies the given X509-SVID chain using
+// the root store
+func ParseAndVerifyChain(certs [][]byte, roots RootStore) (*SVID, error) {
 	panic("not implemented")
 }

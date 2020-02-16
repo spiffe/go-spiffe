@@ -19,7 +19,7 @@ func Example_hTTPSClientWithMTLS() {
 	}
 	defer workload.Close()
 
-	// Create an MTLS transport that authenticates the server against the
+	// Create an mTLS transport that authenticates the server against the
 	// expected SPIFFE ID.
 	client := &http.Client{
 		Transport: spiffehttp.NewMTLSTransport(workload, spiffetls.AllowID(serverID)),

@@ -9,8 +9,18 @@ import (
 	"github.com/spiffe/go-spiffe/v2/spiffex509"
 )
 
+// ErrNotReady is returned when the workload has yet to receive the initial
+// response from the Workload API.
 var ErrNotReady = errors.New("tls-workload: not ready")
 
+// ErrClosed is returned from methods that provide up-to-date information from
+// the Workload API after the workload has been closed to prevent callers from
+// relying on stale information.
+var ErrClosed = errors.New("tls-workload: closed")
+
+// Workload is a TLS workload that maintains up-to-date TLS context (i.e.
+// SVIDs with private keys, trusted X.509 roots, etc.) retrieved from the
+// Workload API.
 type Workload struct{}
 
 // Open opens the TLS workload against the Workload API. It does not return
@@ -20,6 +30,10 @@ func Open(ctx context.Context, options ...Option) (*Workload, error) {
 	panic("not implemented")
 }
 
+// Close closes the TLS workload, tearing down streams and disconnecting
+// from the workload API. Other methods that rely on up-to-date information
+// from the workload API will fail with ErrClosed after this call to prevent
+// callers from relying on stale information.
 func (w *Workload) Close() error {
 	panic("not implemented")
 }

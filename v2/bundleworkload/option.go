@@ -5,8 +5,11 @@ import (
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
 )
 
+// Option is used to provide additional options to the bundle workload.
 type Option interface{}
 
+// WithWorkloadAPIOptions provides additional options for interactions with
+// the WorkloadAPI.
 func WithWorkloadAPIOptions(options ...workloadapi.Option) Option {
 	panic("not implemented")
 }

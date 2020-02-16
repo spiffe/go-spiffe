@@ -21,8 +21,8 @@ func Example_watchBundleViaSPIFFAuth() {
 	// Retrieve the bundle from the URL, authenticating the server using a
 	// bundle pulled from the workload API.
 	// TODO: When implementing the watcher's OnUpdate, replace the bundle for
-	// the trust domain in the bundle set so the next the next connection uses
-	// the updated bundle.
+	// the trust domain in the bundle set so the next connection uses the
+	// updated bundle.
 	var watcher bundleendpoint.Watcher
 	err = bundleendpoint.WatchBundle(context.TODO(), "https://domain.test:443/bundle", watcher,
 		bundleendpoint.WithSPIFFEAuth(bundles, spiffetls.AllowID(spiffeid.Make("domain.test", "bundle", "server"))))

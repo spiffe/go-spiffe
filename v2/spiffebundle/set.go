@@ -28,14 +28,14 @@ func (set *Set) Has(trustDomain spiffeid.TrustDomain) bool {
 	panic("not implemented")
 }
 
-// GetX509Roots gets the X509 roots for the specified trust domain. It
-// implements the spiffex509.RootStore interface.
+// GetX509RootsForTrustDomain gets the X509 roots for the specified trust
+// domain. It implements the spiffex509.RootStore interface.
 func (set *Set) GetX509RootsForTrustDomain(trustDomain spiffeid.TrustDomain) ([]*x509.Certificate, error) {
 	panic("not implemented")
 }
 
-// GetJWTKey returns the JWT key for the specified key ID in the trust domain.
-// It implements the spiffejwt.KeyStore interface.
+// GetJWTKeyForTrustDomain returns the JWT key for the specified key ID in the
+// trust domain. It implements the spiffejwt.KeyStore interface.
 func (set *Set) GetJWTKeyForTrustDomain(trustDomain spiffeid.TrustDomain, keyID string) (crypto.PublicKey, error) {
 	panic("not implemented")
 }
