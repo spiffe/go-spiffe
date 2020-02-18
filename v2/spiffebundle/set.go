@@ -7,12 +7,16 @@ import (
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 )
 
+// Set is a set of bundles, keyed by trust domain.
 type Set struct{}
 
+// NewSet creates a new, empty set.
 func NewSet() *Set {
 	panic("not implemented")
 }
 
+// Insert inserts a new bundle into the set. If a bundle already exists for the
+// trust domain, the existing bundle is replaced.
 func (set *Set) Insert(trustDomain spiffeid.TrustDomain, bundle *Bundle) {
 	panic("not implemented")
 }

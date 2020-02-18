@@ -7,7 +7,8 @@ import (
 	"github.com/spiffe/go-spiffe/v2/spiffejwt"
 )
 
-// NewRequest returns a new HTTP request with a JWT-SVID attached for authorization
+// NewRequest returns a new HTTP request with a JWT-SVID attached for
+// authorization.
 func NewRequestWithJWT(method, url string, body io.Reader, svid *spiffejwt.SVID) (*http.Request, error) {
 	req, err := http.NewRequest(method, url, body)
 	if err != nil {
@@ -17,7 +18,7 @@ func NewRequestWithJWT(method, url string, body io.Reader, svid *spiffejwt.SVID)
 	return req, nil
 }
 
-// AttachJWTSVID attaches a JWT-SVID to request for authorization
+// AttachJWTSVID attaches a JWT-SVID to an HTTP request as authorization.
 func AttachJWTSVID(req *http.Request, svid *spiffejwt.SVID) {
 	req.Header.Add("Authorization", "Bearer "+svid.Token)
 }

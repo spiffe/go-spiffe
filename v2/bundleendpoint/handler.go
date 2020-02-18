@@ -6,7 +6,7 @@ import (
 	"github.com/spiffe/go-spiffe/v2/spiffebundle"
 )
 
-// Source is used by the handler to retrieve the bundle for each request
+// Source is used by the handler to retrieve the bundle for each request.
 type Source interface {
 	GetBundle() (*spiffebundle.Bundle, error)
 }

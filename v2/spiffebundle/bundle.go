@@ -7,7 +7,7 @@ import (
 	"gopkg.in/square/go-jose.v2"
 )
 
-// Bundle is a SPIFFE bundle
+// Bundle is a SPIFFE bundle.
 type Bundle struct {
 	jose.JSONWebKeySet
 
@@ -15,22 +15,22 @@ type Bundle struct {
 	RefreshHint int    `json:"spiffe_refresh_hint,omitempty"`
 }
 
-// Load loads a Bundle from a file on disk
+// Load loads a Bundle from a file on disk.
 func Load(path string) (*Bundle, error) {
 	panic("not implemented")
 }
 
-// Read decodes a bundle from a reader
+// Read decodes a bundle from a reader.
 func Read(r io.Reader) (*Bundle, error) {
 	panic("not implemented")
 }
 
-// Parse parses a bundle from bytes
+// Parse parses a bundle from bytes.
 func Parse(b []byte) (*Bundle, error) {
 	panic("not implemented")
 }
 
-// FromX509Roots creates a bundle from a set of X.509 root certificates
+// FromX509Roots creates a bundle from a set of X.509 root certificates.
 func FromX509Roots(roots []*x509.Certificate) (*Bundle, error) {
 	panic("not implemented")
 }

@@ -8,7 +8,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-// ServerOption is additional options for the gRPC server
+// ServerOption is additional options for the gRPC server.
 type ServerOption interface{}
 
 // WithGRPCServerOptions are extra options to provide to grpc.NewServer when
@@ -25,11 +25,11 @@ func WithJWTSVIDValidation(audience string, validator spiffejwt.Validator) Serve
 	panic("not implemented")
 }
 
-// Server is a gRPC server backed by SPIFFE authentication
+// Server is a gRPC server backed by SPIFFE authentication.
 type Server struct {
 }
 
-// GRPCServer returns the underlying gRPC server
+// GRPCServer returns the underlying gRPC server.
 func (s *Server) GRPCServer() *grpc.Server {
 	panic("not implemented")
 }

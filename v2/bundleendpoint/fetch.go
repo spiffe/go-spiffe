@@ -8,7 +8,7 @@ import (
 	"github.com/spiffe/go-spiffe/v2/spiffex509"
 )
 
-// FetchOption is an option used when dialing the bundle endpoint
+// FetchOption is an option used when dialing the bundle endpoint.
 type FetchOption interface{}
 
 // WithSPIFFEAuth authenticates the bundle endpoint with SPIFFE authentication
@@ -18,7 +18,7 @@ func WithSPIFFEAuth(store spiffex509.RootStore, validator spiffetls.Validator) F
 	panic("not implemented")
 }
 
-// FetchBundle retrieves a bundle from a bundle endpoint
+// FetchBundle retrieves a bundle from a bundle endpoint.
 func FetchBundle(ctx context.Context, url string, option ...FetchOption) (*spiffebundle.Bundle, error) {
 	panic("not implemented")
 }

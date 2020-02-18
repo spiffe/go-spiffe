@@ -7,12 +7,12 @@ import (
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 )
 
-// KeyStore is an interface used to locate the public key for a signed JWT-SVID
+// KeyStore is an interface used to locate the public key for a signed JWT-SVID.
 type KeyStore interface {
 	GetJWTKeyForTrustDomain(trustDomain spiffeid.TrustDomain, keyID string) (crypto.PublicKey, error)
 }
 
-// SVID represents a JWT-SVID
+// SVID represents a JWT-SVID.
 type SVID struct {
 	Token string
 

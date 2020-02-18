@@ -7,12 +7,12 @@ import (
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 )
 
-// SVID represents a SPIFFE X509-SVID
+// SVID represents a SPIFFE X509-SVID.
 type SVID struct {
-	// ID is the SPIFFE ID of the X509-SVID
+	// ID is the SPIFFE ID of the X509-SVID.
 	ID spiffeid.ID
 
-	// PrivateKey is the private key for the X509-SVID
+	// PrivateKey is the private key for the X509-SVID.
 	PrivateKey crypto.Signer
 
 	// Certificates are the X.509 certificates of the X509-SVID. The leaf

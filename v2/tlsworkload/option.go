@@ -6,8 +6,11 @@ import (
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
 )
 
+// Option is used to provide additional options to the TLS workload.
 type Option interface{}
 
+// WithWorkloadAPIOptions provides additional options for interactions with
+// the WorkloadAPI.
 func WithWorkloadAPIOptions(options ...workloadapi.Option) Option {
 	panic("not implemented")
 }
@@ -18,7 +21,7 @@ func WithDefaultX509SVIDPicker(picker func([]*spiffex509.SVID) (*spiffex509.SVID
 	panic("not implemented")
 }
 
-// WithOnUpdate provides a callback to be invoked when the workload is updated
+// WithOnUpdate provides a callback to be invoked when the workload is updated.
 func WithOnUpdate(onUpdate func()) Option {
 	panic("not implemented")
 }
@@ -29,7 +32,7 @@ func WithOnError(onError func(error)) Option {
 	panic("not implemented")
 }
 
-// WithLogger provides a logger to the workload
+// WithLogger provides a logger to the workload.
 func WithLogger(logger logger.Logger) Option {
 	panic("not implemented")
 }

@@ -2,17 +2,17 @@ package spiffeid
 
 import "fmt"
 
-// Validator is use to validate a SPIFFE ID
+// Validator is use to validate a SPIFFE ID.
 type Validator func(ID) error
 
-// AllowAny allows any SPIFFE ID
+// AllowAny allows any SPIFFE ID.
 func AllowAny() Validator {
 	return Validator(func(actual ID) error {
 		return nil
 	})
 }
 
-// AllowID allows a specific SPIFFE ID
+// AllowID allows a specific SPIFFE ID.
 func AllowID(allowed ID) Validator {
 	return Validator(func(actual ID) error {
 		if actual != allowed {
@@ -22,7 +22,7 @@ func AllowID(allowed ID) Validator {
 	})
 }
 
-// AllowIDs allows any SPIFFE ID in the given list of IDs
+// AllowIDs allows any SPIFFE ID in the given list of IDs.
 func AllowIDs(allowed ...ID) Validator {
 	set := make(map[ID]struct{})
 	for _, id := range allowed {
@@ -36,7 +36,7 @@ func AllowIDs(allowed ...ID) Validator {
 	})
 }
 
-// AllowIn allows any SPIFFE ID in the given trust domain
+// AllowIn allows any SPIFFE ID in the given trust domain.
 func AllowIn(allowed TrustDomain) Validator {
 	return Validator(func(actual ID) error {
 		if td := actual.TrustDomain(); td != allowed {

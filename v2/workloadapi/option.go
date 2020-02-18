@@ -20,7 +20,7 @@ func WithDialOptions(options ...grpc.DialOption) Option {
 	panic("not implemented")
 }
 
-// WithLogger provides a logger to the client
+// WithLogger provides a logger to the client.
 func WithLogger(logger logger.Logger) Option {
 	panic("not implemented")
 }

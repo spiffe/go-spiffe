@@ -8,16 +8,18 @@ import (
 	"google.golang.org/grpc"
 )
 
-// DialOptions are options specific to dialing
+// DialOptions are options specific to dialing.
 type DialOption interface{}
 
 // PerRPCJWTSVID is returned from the WithPerRPCJWTSVID callback and influences
 // the properties of the JWT-SVID that should be attached to the gRPC request.
 type PerRPCJWTSVID struct {
-	// Audience is one or more audience values to include in the per-rpc JWT-SVID
+	// Audience is one or more audience values to include in the per-rpc
+	// JWT-SVID.
 	Audience []string
 
-	// If set, a JWT-SVID for this SPIFFE ID will be used
+	// ID is the SPIFFE ID to request for the JWT-SVID. If it unset, the
+	// Workload API will choose.
 	ID spiffeid.ID
 }
 
@@ -32,13 +34,13 @@ func WithPerRPCJWTSVID(func(uris ...string) PerRPCJWTSVID) DialOption {
 type Conn struct {
 }
 
-// GRPCClientConn returns the underlying workload gRPC client connection
+// GRPCClientConn returns the underlying workload gRPC client connection.
 func (c *Conn) GRPCClientConn() *grpc.ClientConn {
 	panic("not implemented")
 }
 
-// Close closes the connection. The underlying gRPC client
-// connection is also closed
+// Close closes the connection. The underlying gRPC client connection is also
+// closed.
 func (c *Conn) Close() error {
 	panic("not implemented")
 }
