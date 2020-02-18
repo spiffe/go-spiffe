@@ -16,7 +16,7 @@ func ListenTLS(ctx context.Context, network, addr string, options ...Option) (ne
 
 // ListenMTLS creates an mTLS listener accepting connections on the given
 // network address using net.Listen. It uses mTLS configuration provided by the
-// Workload API.
+// Workload API. The peer is validatd using the Validator callback.
 func ListenMTLS(ctx context.Context, network, addr string, validator spiffetls.Validator, options ...Option) (net.Listener, error) {
 	panic("not implemented")
 }

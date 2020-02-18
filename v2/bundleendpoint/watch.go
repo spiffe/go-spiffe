@@ -7,7 +7,8 @@ import (
 	"github.com/spiffe/go-spiffe/v2/spiffebundle"
 )
 
-// Watcher is an interface used to watch for bundle updates.
+// Watcher is used by WatchBundle to provide the caller with bundle updates and
+// control the next refresh time.
 type Watcher interface {
 	// NextRefresh is called by Watch to determine when the next refresh
 	// should take place. A refresh hint is provided, which can be zero, meaning
