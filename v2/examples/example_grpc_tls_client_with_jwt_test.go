@@ -12,7 +12,7 @@ func Example_gRPCTLSClientWithJWT() {
 	serverID := spiffeid.Make("example.org", "server")
 
 	conn, err := grpcworkload.DialTLS(context.TODO(), "example.org:8443", spiffetls.AllowID(serverID),
-		grpcworkload.WithPerPRCJWTSVID(func(uris ...string) grpcworkload.PerRPCJWTSVID {
+		grpcworkload.WithPerRPCJWTSVID(func(uris ...string) grpcworkload.PerRPCJWTSVID {
 			return grpcworkload.PerRPCJWTSVID{
 				Audience: []string{serverID.String()},
 			}

@@ -13,7 +13,7 @@ func Example_gRPCTLSServerWithJWT() {
 	td := spiffeid.TrustDomain("example.org")
 	serverID := spiffeid.Make(td, "server")
 	server, err := grpcworkload.NewTLSServer(context.TODO(),
-		grpcworkload.WithJWTSVIDValidation(serverID.String(), spiffejwt.AllowTrustDomain(td)))
+		grpcworkload.WithJWTSVIDValidation(serverID.String(), spiffejwt.AllowIn(td)))
 	if err != nil {
 		// TODO: handle error
 	}

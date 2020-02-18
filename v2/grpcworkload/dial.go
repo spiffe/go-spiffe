@@ -11,7 +11,7 @@ import (
 // DialOptions are options specific to dialing
 type DialOption interface{}
 
-// PerRPCJWTSVID is returned from the WithPerPRCJWTSVID callback and influences
+// PerRPCJWTSVID is returned from the WithPerRPCJWTSVID callback and influences
 // the properties of the JWT-SVID that should be attached to the gRPC request.
 type PerRPCJWTSVID struct {
 	// Audience is one or more audience values to include in the per-rpc JWT-SVID
@@ -21,9 +21,9 @@ type PerRPCJWTSVID struct {
 	ID spiffeid.ID
 }
 
-// WithPerPRCJWTSVID provides a callback that influences the properties of
+// WithPerRPCJWTSVID provides a callback that influences the properties of
 // the JWT-SVID that should be attached to the gRPC request.
-func WithPerPRCJWTSVID(func(uris ...string) PerRPCJWTSVID) DialOption {
+func WithPerRPCJWTSVID(func(uris ...string) PerRPCJWTSVID) DialOption {
 	panic("not implemented")
 }
 

@@ -55,8 +55,9 @@ func (id ID) String() string {
 // URL returns a URL for SPIFFE ID
 func (id ID) URL() *url.URL {
 	return &url.URL{
-		Host: string(id.td),
-		Path: id.path,
+		Scheme: "spiffe",
+		Host:   string(id.td),
+		Path:   id.path,
 	}
 }
 
