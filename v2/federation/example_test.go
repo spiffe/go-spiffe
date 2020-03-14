@@ -13,7 +13,11 @@ import (
 
 func ExampleFetchBundle_webPKI() {
 	endpointURL := "https://example.org:8443/bundle"
-	trustDomain := spiffeid.TrustDomain("example.org")
+	trustDomain, err := spiffeid.TrustDomainFromString("example.org")
+	if err != nil {
+		// TODO: handle error
+	}
+
 	bundle, err := federation.FetchBundle(context.TODO(), trustDomain, endpointURL)
 	if err != nil {
 		// TODO: handle error
@@ -28,8 +32,11 @@ func ExampleFetchBundle_sPIFFEAuth() {
 	// at https://example.org/bundle with the
 	// spiffe://example.org/bundle-server SPIFFE ID.
 	endpointURL := "https://example.org:8443/bundle"
-	trustDomain := spiffeid.TrustDomain("example.org")
-	serverID := spiffeid.Make(trustDomain, "bundle-server")
+	trustDomain, err := spiffeid.TrustDomainFromString("example.org")
+	if err != nil {
+		// TODO: handle error
+	}
+	serverID := trustDomain.NewID("bundle-server")
 
 	bundle, err := spiffebundle.Load(trustDomain, "bundle.json")
 	if err != nil {
@@ -37,7 +44,7 @@ func ExampleFetchBundle_sPIFFEAuth() {
 	}
 
 	bundleSet := spiffebundle.NewSet(bundle)
-	bundleSet.Insert(bundle)
+	bundleSet.Add(bundle)
 
 	updatedBundle, err := federation.FetchBundle(context.TODO(), trustDomain, endpointURL,
 		federation.WithSPIFFEAuth(bundleSet, serverID))
@@ -47,15 +54,18 @@ func ExampleFetchBundle_sPIFFEAuth() {
 
 	// TODO: use bundle, e.g. replace the bundle in the bundle set so it can
 	// be used to fetch the next bundle.
-	bundleSet.Insert(updatedBundle)
+	bundleSet.Add(updatedBundle)
 }
 
 func ExampleWatchBundle_webPKI() {
 	endpointURL := "https://example.org:8443/bundle"
-	trustDomain := spiffeid.TrustDomain("example.org")
+	trustDomain, err := spiffeid.TrustDomainFromString("example.org")
+	if err != nil {
+		// TODO: handle error
+	}
 
 	var watcher federation.BundleWatcher
-	err := federation.WatchBundle(context.TODO(), trustDomain, endpointURL, watcher)
+	err = federation.WatchBundle(context.TODO(), trustDomain, endpointURL, watcher)
 	if err != nil {
 		// TODO: handle error
 	}
@@ -66,8 +76,11 @@ func ExampleWatchBundle_sPIFFEAuth() {
 	// hosted at https://example.org/bundle with the
 	// spiffe://example.org/bundle-server SPIFFE ID.
 	endpointURL := "https://example.org:8443/bundle"
-	trustDomain := spiffeid.TrustDomain("example.org")
-	serverID := spiffeid.Make(trustDomain, "bundle-server")
+	trustDomain, err := spiffeid.TrustDomainFromString("example.org")
+	if err != nil {
+		// TODO: handle error
+	}
+	serverID := trustDomain.NewID("bundle-server")
 
 	bundle, err := spiffebundle.Load(trustDomain, "bundle.json")
 	if err != nil {
@@ -75,7 +88,7 @@ func ExampleWatchBundle_sPIFFEAuth() {
 	}
 
 	bundleSet := spiffebundle.NewSet(bundle)
-	bundleSet.Insert(bundle)
+	bundleSet.Add(bundle)
 
 	// TODO: When implementing the watcher's OnUpdate, replace the bundle for
 	// the trust domain in the bundle set so the next connection uses the
@@ -90,7 +103,10 @@ func ExampleWatchBundle_sPIFFEAuth() {
 }
 
 func ExampleHandler_webPKI() {
-	trustDomain := spiffeid.TrustDomain("example.org")
+	trustDomain, err := spiffeid.TrustDomainFromString("example.org")
+	if err != nil {
+		// TODO: handle error
+	}
 
 	bundleSource, err := workloadapi.NewBundleSource(context.TODO())
 	if err != nil {
@@ -106,7 +122,10 @@ func ExampleHandler_webPKI() {
 }
 
 func ExampleHandler_sPIFFEAuth() {
-	trustDomain := spiffeid.TrustDomain("example.org")
+	trustDomain, err := spiffeid.TrustDomainFromString("example.org")
+	if err != nil {
+		// TODO: handle error
+	}
 
 	// Create an X.509 source for obtaining the server X509-SVID
 	x509Source, err := workloadapi.NewX509Source(context.TODO())
