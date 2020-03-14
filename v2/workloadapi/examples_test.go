@@ -19,8 +19,13 @@ func ExampleFetchX509SVID() {
 }
 
 func ExampleFetchJWTSVID() {
+	serverID, err := spiffeid.Join("example.org", "server")
+	if err != nil {
+		// TODO: error handling
+	}
+
 	svid, err := workloadapi.FetchJWTSVID(context.TODO(), jwtsvid.Params{
-		Audience: spiffeid.String("example.org", "server"),
+		Audience: serverID,
 	})
 	if err != nil {
 		// TODO: error handling
@@ -31,8 +36,13 @@ func ExampleFetchJWTSVID() {
 }
 
 func ExampleValidateJWTSVID() {
+	serverID, err := spiffeid.Join("example.org", "server")
+	if err != nil {
+		// TODO: error handling
+	}
+
 	token := "TODO"
-	svid, err := workloadapi.ValidateJWTSVID(context.TODO(), token, spiffeid.String("example.org", "server"))
+	svid, err := workloadapi.ValidateJWTSVID(context.TODO(), token, serverID)
 	if err != nil {
 		// TODO: error handling
 	}
