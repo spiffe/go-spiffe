@@ -25,7 +25,7 @@ func RequireTrustDomainFromString(s string) TrustDomain {
 
 // TrustDomainFromURI returns a new TrustDomain from a URI. The URI must be a
 // valid SPIFFE ID (see FromURI) or an error is returned. The trust domain is
-// extract from the host field and normalized to lower case.
+// extracted from the host field and normalized to lower case.
 func TrustDomainFromURI(uri *url.URL) (TrustDomain, error) {
 	panic("not implemented")
 }
@@ -37,7 +37,7 @@ func RequireTrustDomainFromURI(uri *url.URL) TrustDomain {
 	panic("not implemented")
 }
 
-// String returns the trust domain as a string, e.g. example.org
+// String returns the trust domain as a string, e.g. example.org.
 func (td TrustDomain) String() string {
 	panic("not implemented")
 }

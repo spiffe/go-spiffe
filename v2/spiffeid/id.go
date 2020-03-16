@@ -16,20 +16,20 @@ func New(trustDomain string, segments ...string) (ID, error) {
 }
 
 // Must creates a new ID using the trust domain (e.g. example.org) and path
-// segments. The function panics if the trust domain is not value (see
+// segments. The function panics if the trust domain is not valid (see
 // ParseTrustDomain).
 func Must(trustDomain string, segments ...string) ID {
 	panic("not implemented")
 }
 
-// Join returns the string representation of an ID inside the given the trust
+// Join returns the string representation of an ID inside the given trust
 // domain (e.g. example.org) with the given path segments. An error is returned
 // if the trust domain is not valid (see ParseTrustDomain).
 func Join(trustDomain string, segments ...string) (string, error) {
 	panic("not implemented")
 }
 
-// MustJoin returns the string representation of an ID inside the given the trust
+// MustJoin returns the string representation of an ID inside the given trust
 // domain (e.g. example.org) with the given path segments. The function panics
 // if the trust domain is not valid (see ParseTrustDomain).
 func MustJoin(trustDomain string, segments ...string) string {

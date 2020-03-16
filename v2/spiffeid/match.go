@@ -40,7 +40,7 @@ func MatchIDs(expected ...ID) Matcher {
 func MatchMemberOf(expected TrustDomain) Matcher {
 	return Matcher(func(actual ID) error {
 		if !actual.MemberOf(expected) {
-			return fmt.Errorf("unexpected trust domain %q", expected)
+			return fmt.Errorf("unexpected trust domain %q", actual.TrustDomain())
 		}
 		return nil
 	})
