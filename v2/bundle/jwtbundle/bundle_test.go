@@ -11,8 +11,29 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type testFile struct {
+	filePath  string
+	keysCount int
+}
+
 var (
-	td, _ = spiffeid.TrustDomainFromString("example.org")
+	td, _     = spiffeid.TrustDomainFromString("example.org")
+	testFiles = map[string]testFile{
+		"valid 1": testFile{
+			filePath:  "testdata/jwks_valid_1.json",
+			keysCount: 1,
+		},
+		"valid 2": testFile{
+			filePath:  "testdata/jwks_valid_2.json",
+			keysCount: 2,
+		},
+		"non existent file": testFile{
+			filePath: "testdata/does-not-exist.json",
+		},
+		"missing kid": testFile{
+			filePath: "testdata/jwks_missing_kid.json",
+		},
+	}
 )
 
 func TestNew(t *testing.T) {
@@ -24,81 +45,66 @@ func TestNew(t *testing.T) {
 
 func TestLoad(t *testing.T) {
 	testCases := []struct {
-		name      string
-		filePath  string
-		keysCount int
-		err       string
+		tf  testFile
+		err string
 	}{
 		{
-			name:      "valid 1",
-			filePath:  "testdata/jwks_valid_1.json",
-			keysCount: 1,
+			tf: testFiles["valid 1"],
 		},
 		{
-			name:      "valid 2",
-			filePath:  "testdata/jwks_valid_2.json",
-			keysCount: 2,
+			tf: testFiles["valid 2"],
 		},
 		{
-			name:     "non existent file",
-			filePath: "testdata/does-not-exist.json",
-			err:      "unble to read JWT bundle: open testdata/does-not-exist.json: no such file or directory",
+			tf:  testFiles["non existent file"],
+			err: "unble to read JWT bundle: open testdata/does-not-exist.json: no such file or directory",
 		},
 		{
-			name:     "missing kid",
-			filePath: "testdata/jwks_missing_kid.json",
-			err:      "error adding entry 1 of JWK Set: missing key ID",
+			tf:  testFiles["missing kid"],
+			err: "error adding entry 1 of JWK Set: missing key ID",
 		},
 	}
 
 	for _, testCase := range testCases {
 		testCase := testCase
-		t.Run(testCase.name, func(t *testing.T) {
-			bundle, err := Load(td, testCase.filePath)
+		t.Run(testCase.tf.filePath, func(t *testing.T) {
+			bundle, err := Load(td, testCase.tf.filePath)
 			if testCase.err != "" {
 				require.EqualError(t, err, testCase.err)
 				return
 			}
 			require.NoError(t, err)
 			require.NotNil(t, bundle)
-			assert.Len(t, bundle.JWTKeys(), testCase.keysCount)
+			assert.Len(t, bundle.JWTKeys(), testCase.tf.keysCount)
 		})
 	}
 }
 
 func TestRead(t *testing.T) {
 	testCases := []struct {
-		name, filePath,
+		tf  testFile
 		err string
-		keysCount int
 	}{
 		{
-			name:      "valid 1",
-			filePath:  "testdata/jwks_valid_1.json",
-			keysCount: 1,
+			tf: testFiles["valid 1"],
 		},
 		{
-			name:      "valid",
-			filePath:  "testdata/jwks_valid_2.json",
-			keysCount: 2,
+			tf: testFiles["valid 2"],
 		},
 		{
-			name:     "non existent file",
-			filePath: "testdata/does-not-exist.json",
-			err:      "unable to read: invalid argument",
+			tf:  testFiles["non existent file"],
+			err: "unable to read: invalid argument",
 		},
 		{
-			name:     "missing kid",
-			filePath: "testdata/jwks_missing_kid.json",
-			err:      "error adding entry 1 of JWK Set: missing key ID",
+			tf:  testFiles["missing kid"],
+			err: "error adding entry 1 of JWK Set: missing key ID",
 		},
 	}
 
 	for _, testCase := range testCases {
 		testCase := testCase
-		t.Run(testCase.name, func(t *testing.T) {
+		t.Run(testCase.tf.filePath, func(t *testing.T) {
 			// we expect the Open call to fail in some cases
-			file, _ := os.Open(testCase.filePath)
+			file, _ := os.Open(testCase.tf.filePath)
 			t.Cleanup(func() {
 				file.Close()
 			})
@@ -110,44 +116,37 @@ func TestRead(t *testing.T) {
 			}
 			require.NoError(t, err)
 			require.NotNil(t, bundle)
-			assert.Len(t, bundle.JWTKeys(), testCase.keysCount)
+			assert.Len(t, bundle.JWTKeys(), testCase.tf.keysCount)
 		})
 	}
 }
 
 func TestParse(t *testing.T) {
 	testCases := []struct {
-		name, filePath,
+		tf  testFile
 		err string
-		keysCount int
 	}{
 		{
-			name:      "valid 1",
-			filePath:  "testdata/jwks_valid_1.json",
-			keysCount: 1,
+			tf: testFiles["valid 1"],
 		},
 		{
-			name:      "valid 2",
-			filePath:  "testdata/jwks_valid_2.json",
-			keysCount: 2,
+			tf: testFiles["valid 2"],
 		},
 		{
-			name:     "non existent file",
-			filePath: "testdata/does-not-exist.json",
-			err:      "unable to parse JWK Set: unexpected end of JSON input",
+			tf:  testFiles["non existent file"],
+			err: "unable to parse JWK Set: unexpected end of JSON input",
 		},
 		{
-			name:     "missing kid",
-			filePath: "testdata/jwks_missing_kid.json",
-			err:      "error adding entry 1 of JWK Set: missing key ID",
+			tf:  testFiles["missing kid"],
+			err: "error adding entry 1 of JWK Set: missing key ID",
 		},
 	}
 
 	for _, testCase := range testCases {
 		testCase := testCase
-		t.Run(testCase.name, func(t *testing.T) {
+		t.Run(testCase.tf.filePath, func(t *testing.T) {
 			// we expect the ReadFile call to fail in some cases
-			bundleBytes, _ := ioutil.ReadFile(testCase.filePath)
+			bundleBytes, _ := ioutil.ReadFile(testCase.tf.filePath)
 
 			bundle, err := Parse(td, bundleBytes)
 			if testCase.err != "" {
@@ -156,7 +155,7 @@ func TestParse(t *testing.T) {
 			}
 			require.NoError(t, err)
 			require.NotNil(t, bundle)
-			assert.Len(t, bundle.JWTKeys(), testCase.keysCount)
+			assert.Len(t, bundle.JWTKeys(), testCase.tf.keysCount)
 		})
 	}
 }
