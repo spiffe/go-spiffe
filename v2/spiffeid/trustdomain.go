@@ -1,11 +1,14 @@
 package spiffeid
 
 import (
+	"fmt"
 	"net/url"
+	"strings"
 )
 
 // TrustDomain is the name of a SPIFFE trust domain (e.g. example.org).
 type TrustDomain struct {
+	name string
 }
 
 // TrustDomainFromString returns a new TrustDomain from a string. The string
@@ -13,7 +16,18 @@ type TrustDomain struct {
 // or a valid SPIFFE ID URI (e.g. spiffe://example.org), otherwise an error is
 // returned.  The trust domain is normalized to lower case.
 func TrustDomainFromString(s string) (TrustDomain, error) {
-	panic("not implemented")
+	if !strings.HasPrefix(s, "spiffe://") {
+		s = "spiffe://" + s
+	}
+
+	id, err := FromString(s)
+	if err != nil {
+		return TrustDomain{}, fmt.Errorf("invalid SPIFFE ID or URI host: %v", err)
+	}
+
+	return TrustDomain{
+		name: strings.ToLower(id.uri.Host),
+	}, nil
 }
 
 // RequireTrustDomainFromString is similar to TrustDomainFromString except that
@@ -39,7 +53,7 @@ func RequireTrustDomainFromURI(uri *url.URL) TrustDomain {
 
 // String returns the trust domain as a string, e.g. example.org.
 func (td TrustDomain) String() string {
-	panic("not implemented")
+	return td.name
 }
 
 // ID returns the SPIFFE ID of the trust domain.

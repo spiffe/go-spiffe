@@ -10,7 +10,7 @@ import (
 func TestMakeAndIDString(t *testing.T) {
 	tests := []struct {
 		name       string
-		td         TrustDomain
+		td         string
 		segments   []string
 		expectedId string
 	}{
@@ -26,20 +26,6 @@ func TestMakeAndIDString(t *testing.T) {
 			expectedId: "spiffe://domain.test",
 		},
 		{
-			name:       "all_empty",
-			expectedId: "",
-		},
-		{
-			name:       "empty_trust_domain",
-			segments:   []string{"path", "element"},
-			expectedId: "",
-		},
-		{
-			name:       "empty_trust_domain",
-			segments:   []string{"path", "element"},
-			expectedId: "",
-		},
-		{
 			name:       "segments_with_slashes",
 			td:         "domain.test",
 			segments:   []string{"pa/th", "ele/ment"},
@@ -49,119 +35,119 @@ func TestMakeAndIDString(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			id := Make(test.td, test.segments...)
+			id := Must(test.td, test.segments...)
 			assert.Equal(t, test.expectedId, id.String())
 		})
 	}
 }
 
-func TestParse(t *testing.T) {
+func TestFromString(t *testing.T) {
 	tests := []struct {
 		name          string
 		inputId       string
 		expectedId    ID
 		expectedError string
 	}{
-
 		{
 			name:       "happy_path",
 			inputId:    "spiffe://domain.test/path/element",
-			expectedId: Make("domain.test", "path", "element"),
+			expectedId: Must("domain.test", "path", "element"),
 		},
 		{
 			name:          "empty_input_string",
 			inputId:       "",
-			expectedError: "empty string",
+			expectedError: "invalid SPIFFE ID: SPIFFE ID is empty",
 		},
 		{
 			name:          "invalid_uri",
 			inputId:       "192.168.2.2:6688",
-			expectedError: "wrong or missing scheme",
+			expectedError: "invalid SPIFFE ID: parse \"192.168.2.2:6688\": first path segment in URL cannot contain colon",
 		},
 		{
 			name:          "invalid_scheme",
 			inputId:       "http://domain.test/path/element",
-			expectedError: "wrong or missing scheme",
+			expectedError: "invalid SPIFFE ID: invalid scheme",
 		},
 		{
 			name:       "scheme_mixed_case",
 			inputId:    "SPIFFE://domain.test/path/element",
-			expectedId: Make("domain.test", "path", "element"),
+			expectedId: Must("domain.test", "path", "element"),
 		},
 		{
 			name:          "empty_host",
 			inputId:       "spiffe:///path/element",
-			expectedError: "empty trust domain",
+			expectedError: "invalid SPIFFE ID: trust domain is empty",
 		},
 		{
 			name:          "query_not_allowed",
 			inputId:       "spiffe://domain.test/path/element?query=1",
-			expectedError: "query not allowed",
+			expectedError: "invalid SPIFFE ID: query is not allowed",
 		},
 		{
 			name:          "fragment_not_allowed",
 			inputId:       "spiffe://domain.test/path/element?#fragment-1",
-			expectedError: "fragment not allowed",
+			expectedError: "invalid SPIFFE ID: fragment is not allowed",
 		},
 		{
 			name:          "port_not_allowed",
 			inputId:       "spiffe://domain.test:8080/path/element",
-			expectedError: "port is not allowed",
+			expectedError: "invalid SPIFFE ID: port is not allowed",
 		},
 		{
 			name:          "user_info_not_allowed",
 			inputId:       "spiffe://user:password@test.org/path/element",
-			expectedError: "user info is not allowed",
+			expectedError: "invalid SPIFFE ID: user info is not allowed",
 		},
 		{
 			name:       "empty_path",
 			inputId:    "spiffe://domain.test",
-			expectedId: Make("domain.test"),
+			expectedId: Must("domain.test"),
 		},
 		{
 			name:          "missing_double_slash_1",
 			inputId:       "spiffe:path/element",
-			expectedError: "missing '//' characters",
+			expectedError: "invalid SPIFFE ID: trust domain is empty",
 		},
 		{
 			name:          "missing_double_slash_2",
 			inputId:       "spiffe:/path/element",
-			expectedError: "missing '//' characters",
+			expectedError: "invalid SPIFFE ID: trust domain is empty",
 		},
 		{
 			name:       "encoded_slash_in_path",
 			inputId:    "spiffe://domain.test/path%2felement%2f",
-			expectedId: Make("domain.test", "path%2felement%2f"),
+			expectedId: Must("domain.test", "path/element/"),
 		},
 		{
 			name:       "path_with_colons",
 			inputId:    "spiffe://domain.test/pa:th/element:",
-			expectedId: Make("domain.test", "pa:th", "element:"),
+			expectedId: Must("domain.test", "pa:th", "element:"),
 		},
 		{
 			name:       "path_with_@",
 			inputId:    "spiffe://domain.test/pa@th/element:",
-			expectedId: Make("domain.test", "pa@th", "element:"),
+			expectedId: Must("domain.test", "pa@th", "element:"),
 		},
 		{
 			name:       "path_starts_with_double_slash",
 			inputId:    "spiffe://domain.test//path/element",
-			expectedId: ID{td: "domain.test", path: "//path/element"},
+			expectedId: Must("domain.test", "", "path", "element"),
 		},
+
 		{
 			name:       "path_has_subdelims",
 			inputId:    "spiffe://domain.test/p!a$t&h'/(e)l*e+m,e;n=t",
-			expectedId: Make("domain.test", "p!a$t&h'", "(e)l*e+m,e;n=t"),
+			expectedId: Must("domain.test", "p!a$t&h'", "(e)l*e+m,e;n=t"),
 		},
 		{
 			name:          "path_has_invalid_percent_char",
 			inputId:       "spiffe://domain.test/path/elem%5uent",
-			expectedError: "invalid percent encoded char at index 30",
+			expectedError: "invalid SPIFFE ID: parse \"spiffe://domain.test/path/elem%5uent\": invalid URL escape \"%5u\"",
 		},
 		{
 			name:          "path_has_invalid_percent_char_at_end_of_path",
 			inputId:       "spiffe://domain.test/path/element%5",
-			expectedError: "invalid percent encoded char at index 33",
+			expectedError: "invalid SPIFFE ID: parse \"spiffe://domain.test/path/element%5\": invalid URL escape \"%5\"",
 		},
 		{
 			name:          "path_has_not_allowed_gendelim_[",
@@ -177,7 +163,7 @@ func TestParse(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			id, err := Parse(test.inputId)
+			id, err := FromString(test.inputId)
 			if test.expectedError == "" {
 				assert.NoError(t, err)
 			} else {
@@ -189,7 +175,7 @@ func TestParse(t *testing.T) {
 	}
 }
 
-func TestParseURI(t *testing.T) {
+func TestFromURI(t *testing.T) {
 	parse := func(id string) *url.URL {
 		u, err := url.Parse(id)
 		assert.NoError(t, err)
@@ -204,7 +190,7 @@ func TestParseURI(t *testing.T) {
 		{
 			name:       "happy_path",
 			input:      parse("spiffe://domain.test/path/element"),
-			expectedId: Make("domain.test", "path", "element"),
+			expectedId: Must("domain.test", "path", "element"),
 		},
 		{
 			name:          "nil_uri",
@@ -229,7 +215,7 @@ func TestParseURI(t *testing.T) {
 		{
 			name:       "scheme_mixed_case",
 			input:      parse("SPIFFE://domain.test/path/element"),
-			expectedId: Make("domain.test", "path", "element"),
+			expectedId: Must("domain.test", "path", "element"),
 		},
 		{
 			name:          "empty_host",
@@ -259,7 +245,7 @@ func TestParseURI(t *testing.T) {
 		{
 			name:       "empty_path",
 			input:      parse("spiffe://domain.test"),
-			expectedId: Make("domain.test"),
+			expectedId: Must("domain.test"),
 		},
 		{
 			name:          "missing_double_slash_1",
@@ -274,13 +260,13 @@ func TestParseURI(t *testing.T) {
 		{
 			name:       "encoded_slash_in_path",
 			input:      parse("spiffe://domain.test/path%2felement"),
-			expectedId: Make("domain.test", "path%2felement"),
+			expectedId: Must("domain.test", "path%2felement"),
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			id, err := ParseURI(test.input)
+			id, err := FromURI(test.input)
 			if test.expectedError == "" {
 				assert.NoError(t, err)
 			} else {

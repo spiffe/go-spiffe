@@ -4,26 +4,50 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"strconv"
 	"strings"
 )
 
 // ID is a SPIFFE ID
 type ID struct {
+	uri *url.URL
 }
 
 // New creates a new ID using the trust domain (e.g. example.org) and path
 // segments. An error is returned if the trust domain is not valid (see
 // TrustDomainFromString).
 func New(trustDomain string, segments ...string) (ID, error) {
-	panic("not implemented")
+	td, err := TrustDomainFromString(trustDomain)
+	if err != nil {
+		return ID{}, err
+	}
+
+	sep := "/"
+	path := ""
+	for i, segment := range segments {
+		if i == len(segments)-1 && segment == "" {
+			continue
+		}
+		path = path + sep + segment
+	}
+
+	return ID{
+		uri: &url.URL{
+			Scheme: "spiffe",
+			Host:   td.String(),
+			Path:   path,
+		},
+	}, nil
 }
 
 // Must creates a new ID using the trust domain (e.g. example.org) and path
 // segments. The function panics if the trust domain is not valid (see
 // TrustDomainFromString).
 func Must(trustDomain string, segments ...string) ID {
-	panic("not implemented")
+	id, err := New(trustDomain, segments...)
+	if err != nil {
+		panic(err)
+	}
+	return id
 }
 
 // Join returns the string representation of an ID inside the given trust
@@ -42,132 +66,86 @@ func MustJoin(trustDomain string, segments ...string) string {
 
 // FromString parses a SPIFFE ID from a string.
 func FromString(s string) (ID, error) {
-	switch {
-	case s == "":
-		return ID{}, errors.New("empty string")
-	case len(strings.Split(s, "#")) > 1:
-		return ID{}, errors.New("fragment not allowed")
-	case len(strings.Split(s, "?")) > 1:
-		return ID{}, errors.New("query not allowed")
-	case !strings.HasPrefix(strings.ToLower(s), "spiffe:"):
-		return ID{}, errors.New("wrong or missing scheme")
-	case !strings.HasPrefix(s[7:], "//"):
-		return ID{}, errors.New("missing '//' characters")
+	uri, err := url.Parse(s)
+	if err != nil {
+		return ID{}, fmt.Errorf("invalid SPIFFE ID: %v", err)
 	}
 
-	// Remove 'spiffe://'
-	authority := s[9:]
-	path := ""
-	slashi := strings.Index(authority, "/")
-	// If there is a slash, the authority is the string before it, and the path
-	// is the string after it (slash included).
-	if slashi >= 0 {
-		path = authority[slashi:]
-		authority = authority[:slashi]
-	}
-
-	if err := validateTrustDomain(authority); err != nil {
-		return ID{}, err
-	}
-
-	if err := validatePath(path, len(authority)+9); err != nil {
-		return ID{}, err
-	}
-
-	return ID{
-		td:   normalizeTrustDomain(TrustDomain(authority)),
-		path: path,
-	}, nil
+	return FromURI(uri)
 }
 
 // FromURI parses a SPIFFE ID from a URI.
-func FromURI(u *url.URL) (ID, error) {
-	switch {
-	case u == nil:
-		return ID{}, errors.New("nil URI")
-	case *u == url.URL{}:
-		return ID{}, errors.New("empty URI")
+func FromURI(uri *url.URL) (ID, error) {
+	if uri == nil || *uri == (url.URL{}) {
+		return ID{}, errors.New("invalid SPIFFE ID: SPIFFE ID is empty")
 	}
 
-	return Parse(u.String())
+	// General validation
+	switch {
+	case strings.ToLower(uri.Scheme) != "spiffe":
+		return ID{}, errors.New("invalid SPIFFE ID: invalid scheme")
+	case uri.User != nil:
+		return ID{}, errors.New("invalid SPIFFE ID: user info is not allowed")
+	case uri.Host == "":
+		return ID{}, errors.New("invalid SPIFFE ID: trust domain is empty")
+	case uri.Port() != "":
+		return ID{}, errors.New("invalid SPIFFE ID: port is not allowed")
+	case uri.Fragment != "":
+		return ID{}, errors.New("invalid SPIFFE ID: fragment is not allowed")
+	case uri.RawQuery != "":
+		return ID{}, errors.New("invalid SPIFFE ID: query is not allowed")
+	}
+
+	return ID{
+		uri: normalizeURI(uri),
+	}, nil
 }
 
 // TrustDomain returns the trust domain of the SPIFFE ID.
 func (id ID) TrustDomain() TrustDomain {
-	panic("not implemented")
+	// We built the TrustDomain directly because the ID has always a URI with a valid trust domain.
+	return TrustDomain{
+		name: id.uri.Host,
+	}
 }
 
 // MemberOf returns true if the SPIFFE ID is a member of the given trust domain.
 func (id ID) MemberOf(td TrustDomain) bool {
-	panic("not implemented")
+	return id.uri.Host == td.name
 }
 
 // Path returns the path of the SPIFFE ID inside the trust domain.
 func (id ID) Path() string {
-	panic("not implemented")
+	return id.uri.Path
 }
 
 // String returns the string representation of the SPIFFE ID, e.g.,
 // "spiffe://example.org/foo/bar".
 func (id ID) String() string {
-	panic("not implemented")
+	if id.Empty() {
+		return ""
+	}
+	return id.uri.String()
 }
 
 // URL returns a URL for SPIFFE ID.
 func (id ID) URL() *url.URL {
-	panic("not implemented")
+	return &url.URL{
+		Scheme: "spiffe",
+		Host:   id.uri.Host,
+		Path:   id.uri.Path,
+	}
 }
 
 // Empty returns true if the SPIFFE ID is empty.
 func (id ID) Empty() bool {
-	panic("not implemented")
+	return id.uri == nil || id.uri.Host == ""
 }
 
-func validateTrustDomain(trustDomain string) error {
-	switch {
-	case strings.TrimSpace(trustDomain) == "":
-		return errors.New("empty trust domain")
-	case strings.Contains(trustDomain, "@"):
-		return errors.New("user info is not allowed")
-	case strings.Contains(trustDomain, ":"):
-		return errors.New("port is not allowed")
-	}
-	return nil
-}
-
-func validatePath(path string, basei int) error {
-	pathrunes := []rune(path)
-	for i := 0; i < len(pathrunes); i++ {
-		switch {
-		case pathrunes[i] == '/':
-		case pathrunes[i] == '%':
-			if i+2 >= len(pathrunes) {
-				return fmt.Errorf("invalid percent encoded char at index %d", basei+i)
-			}
-
-			_, err := strconv.ParseInt(string(pathrunes[i+1])+string(pathrunes[i+2]), 16, 8)
-			if err != nil {
-				return fmt.Errorf("invalid percent encoded char at index %d", basei+i)
-			}
-			i += 2
-		case !isCharAllowed(pathrunes[i]):
-			return fmt.Errorf("invalid character at index %d", basei+i)
-		}
-	}
-	return nil
-}
-
-func isCharAllowed(r rune) bool {
-	return isUnreservedChar(r) || isSubDelim(r) ||
-		strings.ContainsRune(":@", r)
-}
-
-func isUnreservedChar(r rune) bool {
-	return r >= 0x41 && r <= 0x5A || r >= 0x61 && r <= 0x7A || // is in the range of ALPHA chars
-		r >= 0x30 && r <= 0x39 || // is a DIGIT
-		strings.ContainsRune("-._~", r)
-}
-
-func isSubDelim(r rune) bool {
-	return strings.ContainsRune("!$&'()*+,;=", r)
+func normalizeURI(uri *url.URL) *url.URL {
+	c := *uri
+	c.Scheme = strings.ToLower(c.Scheme)
+	// SPIFFE ID's can't contain ports so don't bother handling that here.
+	c.Host = strings.ToLower(c.Hostname())
+	return &c
 }
