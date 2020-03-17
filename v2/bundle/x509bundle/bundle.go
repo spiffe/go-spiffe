@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"reflect"
 	"sync"
 
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
@@ -18,20 +17,16 @@ const certType string = "CERTIFICATE"
 
 // Bundle is a collection of trusted public key material for a trust domain.
 type Bundle struct {
-	tdMtx       *sync.RWMutex
 	trustDomain spiffeid.TrustDomain
-
-	rootsMtx *sync.RWMutex
-	roots    []*x509.Certificate
+	roots       []*x509.Certificate
+	rootsMtx    sync.RWMutex
 }
 
 // New creates a new bundle
 func New(trustDomain spiffeid.TrustDomain) *Bundle {
 	return &Bundle{
 		trustDomain: trustDomain,
-		tdMtx:       &sync.RWMutex{},
 		roots:       []*x509.Certificate{},
-		rootsMtx:    &sync.RWMutex{},
 	}
 }
 
@@ -39,7 +34,7 @@ func New(trustDomain spiffeid.TrustDomain) *Bundle {
 func Load(trustDomain spiffeid.TrustDomain, path string) (*Bundle, error) {
 	fileBytes, err := ioutil.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("unable to open file: %v", err)
+		return nil, fmt.Errorf("unable to load X.509 bundle file: %w", err)
 	}
 
 	return Parse(trustDomain, fileBytes)
@@ -50,7 +45,7 @@ func Read(trustDomain spiffeid.TrustDomain, r io.Reader) (*Bundle, error) {
 	var b bytes.Buffer
 	_, err := b.ReadFrom(r)
 	if err != nil {
-		return nil, fmt.Errorf("unable to read: %v", err)
+		return nil, fmt.Errorf("unable to read X.509 bundle: %v", err)
 	}
 
 	return Parse(trustDomain, b.Bytes())
@@ -70,7 +65,7 @@ func Parse(trustDomain spiffeid.TrustDomain, b []byte) (*Bundle, error) {
 		}
 
 		if pemBlock.Type != certType {
-			return nil, fmt.Errorf(`block does not contain %q type, current type is: %q`, certType, pemBlock.Type)
+			return nil, fmt.Errorf("block does not contain %q type, current type is: %q", certType, pemBlock.Type)
 		}
 
 		cert, err := x509.ParseCertificate(pemBlock.Bytes)
@@ -84,8 +79,6 @@ func Parse(trustDomain spiffeid.TrustDomain, b []byte) (*Bundle, error) {
 
 // TrustDomain returns the trust domain of the bundle.
 func (b *Bundle) TrustDomain() spiffeid.TrustDomain {
-	b.tdMtx.RLock()
-	defer b.tdMtx.RUnlock()
 	return b.trustDomain
 }
 
@@ -103,7 +96,7 @@ func (b *Bundle) AddX509Root(root *x509.Certificate) {
 	defer b.rootsMtx.Unlock()
 
 	for _, r := range b.roots {
-		if reflect.DeepEqual(r, root) {
+		if areCertsEqual(r, root) {
 			return
 		}
 	}
@@ -117,10 +110,10 @@ func (b *Bundle) RemoveX509Root(root *x509.Certificate) {
 	defer b.rootsMtx.Unlock()
 
 	for i, r := range b.roots {
-		if reflect.DeepEqual(r, root) {
-			// Error can be safely ignored since the index comes from
-			// iterating on the root certificates slice
-			b.roots, _ = removeElement(b.roots, i)
+		if areCertsEqual(r, root) {
+			//remove element from slice (slice order is not preserved)
+			b.roots[i] = b.roots[len(b.roots)-1]
+			b.roots = b.roots[:len(b.roots)-1]
 			return
 		}
 	}
@@ -132,7 +125,7 @@ func (b *Bundle) HasX509Root(root *x509.Certificate) bool {
 	defer b.rootsMtx.RUnlock()
 
 	for _, r := range b.roots {
-		if reflect.DeepEqual(r, root) {
+		if areCertsEqual(r, root) {
 			return true
 		}
 	}
@@ -162,21 +155,21 @@ func (b *Bundle) Marshal() ([]byte, error) {
 // domain. It implements the Source interface. It will fail if
 // called with a trust domain other than the one the bundle belongs to.
 func (b *Bundle) GetX509BundleForTrustDomain(trustDomain spiffeid.TrustDomain) (*Bundle, error) {
-	b.tdMtx.RLock()
-	defer b.tdMtx.RUnlock()
-
 	if b.trustDomain != trustDomain {
-		return nil, errors.New("wrong td")
+		return nil, fmt.Errorf("no X.509 bundle found for trust domain: %q", trustDomain)
 	}
 
 	return b, nil
 }
 
-// removeElement removes an element from slice, slice order is not preserved.
-func removeElement(slice []*x509.Certificate, index int) ([]*x509.Certificate, error) {
-	if index < 0 || index >= len(slice) {
-		return nil, fmt.Errorf("index %d is out of slice boundaries", index)
+// areCertsEqual checks if two X.509 certificates are equal by comparing its raw bytes
+func areCertsEqual(a, b *x509.Certificate) bool {
+	if a == nil && b == nil {
+		return true
 	}
-	slice[index] = slice[len(slice)-1]
-	return slice[:len(slice)-1], nil
+	if a == nil || b == nil {
+		return false
+	}
+
+	return bytes.Equal(a.Raw, b.Raw)
 }

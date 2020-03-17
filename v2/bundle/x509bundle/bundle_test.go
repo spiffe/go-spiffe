@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func Test_New(t *testing.T) {
+func TestNew(t *testing.T) {
 	bundle := New("example.org")
 	require.NotNil(t, bundle)
 	require.NotNil(t, bundle.X509Roots())
@@ -18,21 +18,21 @@ func Test_New(t *testing.T) {
 	assert.Equal(t, spiffeid.TrustDomain("example.org"), bundle.TrustDomain())
 }
 
-func Test_LoadSucceeds(t *testing.T) {
+func TestLoad_Succeeds(t *testing.T) {
 	bundle, err := Load("example.org", "testdata/certs.pem")
 	require.NoError(t, err)
 	require.NotNil(t, bundle)
 	assert.Len(t, bundle.X509Roots(), 2)
 }
 
-func Test_LoadFails(t *testing.T) {
+func TestLoad_Fails(t *testing.T) {
 	bundle, err := Load("example.org", "testdata/non-existent-file.pem")
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "unable to open file")
+	require.Contains(t, err.Error(), "unable to load X.509 bundle file")
 	assert.Nil(t, bundle)
 }
 
-func Test_ReadSucceeds(t *testing.T) {
+func TestRead_Succeeds(t *testing.T) {
 	file, err := os.Open("testdata/certs.pem")
 	require.NoError(t, err)
 	defer file.Close()
@@ -43,7 +43,7 @@ func Test_ReadSucceeds(t *testing.T) {
 	assert.Len(t, bundle.X509Roots(), 2)
 }
 
-func Test_ReadFails(t *testing.T) {
+func TestRead_Fails(t *testing.T) {
 	file, err := os.Open("testdata/certs.pem")
 	require.NoError(t, err)
 
@@ -56,7 +56,7 @@ func Test_ReadFails(t *testing.T) {
 	assert.Nil(t, bundle)
 }
 
-func Test_Parse(t *testing.T) {
+func TestParse(t *testing.T) {
 	tests := []struct {
 		name           string
 		trustDomain    spiffeid.TrustDomain
@@ -115,7 +115,7 @@ func Test_Parse(t *testing.T) {
 	}
 }
 
-func Test_X509RootCRUD(t *testing.T) {
+func TestX509RootCRUD(t *testing.T) {
 	// Load bundle1, which contains a single certificate
 	bundle1, err := Load("example-1.org", "testdata/cert.pem")
 	require.NoError(t, err)
@@ -153,7 +153,7 @@ func Test_X509RootCRUD(t *testing.T) {
 	assert.False(t, bundle1.HasX509Root(cert))
 }
 
-func Test_MarshalSucceeds(t *testing.T) {
+func TestMarshal(t *testing.T) {
 	// Load a bundle to marshal
 	bundle, err := Load("example.org", "testdata/certs.pem")
 	require.NoError(t, err)
@@ -171,7 +171,7 @@ func Test_MarshalSucceeds(t *testing.T) {
 	assert.Equal(t, expBytes, pemBytes)
 }
 
-func Test_GetX509BundleForTrustDomainSucceeds(t *testing.T) {
+func TestGetX509BundleForTrustDomain_Succeeds(t *testing.T) {
 	bundle, err := Load("example.org", "testdata/certs.pem")
 	require.NoError(t, err)
 
@@ -181,36 +181,12 @@ func Test_GetX509BundleForTrustDomainSucceeds(t *testing.T) {
 	require.Equal(t, bundle, b)
 }
 
-func Test_GetX509BundleForTrustDomainFails(t *testing.T) {
+func TestGetX509BundleForTrustDomain_Fails(t *testing.T) {
 	bundle, err := Load("example.org", "testdata/certs.pem")
 	require.NoError(t, err)
 
 	b, err := bundle.GetX509BundleForTrustDomain("another-td.org")
 	require.Error(t, err)
+	require.Contains(t, err.Error(), `no X.509 bundle found for trust domain: "another-td.org"`)
 	require.Nil(t, b)
-}
-
-func Test_removeElementSucceeds(t *testing.T) {
-	bundle, err := Load("example.org", "testdata/certs.pem")
-	require.NoError(t, err)
-	roots := bundle.X509Roots()
-	require.Len(t, roots, 2)
-
-	updatedRoots, err := removeElement(roots, 0)
-	require.NoError(t, err)
-	require.NotNil(t, updatedRoots)
-	require.Len(t, updatedRoots, 1)
-	require.Equal(t, roots[1], updatedRoots[0])
-}
-
-func Test_removeElementFails(t *testing.T) {
-	bundle, err := Load("example.org", "testdata/certs.pem")
-	require.NoError(t, err)
-	roots := bundle.X509Roots()
-	require.Len(t, roots, 2)
-
-	updatedRoots, err := removeElement(roots, 2)
-	require.Error(t, err)
-	require.Nil(t, updatedRoots)
-	require.Contains(t, err.Error(), "index 2 is out of slice boundaries")
 }
