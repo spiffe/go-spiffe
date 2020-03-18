@@ -1,7 +1,6 @@
 package spiffeid
 
 import (
-	"fmt"
 	"net/url"
 	"strings"
 )
@@ -22,7 +21,7 @@ func TrustDomainFromString(s string) (TrustDomain, error) {
 
 	id, err := FromString(s)
 	if err != nil {
-		return TrustDomain{}, fmt.Errorf("invalid SPIFFE ID or URI host: %v", err)
+		return TrustDomain{}, err
 	}
 
 	return TrustDomain{
@@ -34,7 +33,11 @@ func TrustDomainFromString(s string) (TrustDomain, error) {
 // instead of returning an error on malformed input, it panics. It should only
 // be used when given string is statically verifiable.
 func RequireTrustDomainFromString(s string) TrustDomain {
-	panic("not implemented")
+	td, err := TrustDomainFromString(s)
+	if err != nil {
+		panic(err)
+	}
+	return td
 }
 
 // TrustDomainFromURI returns a new TrustDomain from a URI. The URI must be a

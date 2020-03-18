@@ -1,18 +1,21 @@
-package spiffeid
+package spiffeid_test
 
 import (
+	"fmt"
 	"net/url"
 	"testing"
 
+	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestMustAndIDString(t *testing.T) {
+func TestMust(t *testing.T) {
 	tests := []struct {
-		name       string
-		td         string
-		segments   []string
-		expectedId string
+		name          string
+		td            string
+		segments      []string
+		expectedId    string
+		expectedPanic string
 	}{
 		{
 			name:       "happy_path",
@@ -31,12 +34,75 @@ func TestMustAndIDString(t *testing.T) {
 			segments:   []string{"path", "element"},
 			expectedId: "spiffe://domain.test/path/element",
 		},
+		{
+			name:          "trust_domain_empty",
+			td:            "spiffe://",
+			segments:      []string{"path", "element"},
+			expectedPanic: "invalid SPIFFE ID: trust domain is empty",
+		},
+		{
+			name:       "path_with_colon_and_@",
+			td:         "spiffe://domain.test",
+			segments:   []string{"pa:th", "elem@ent"},
+			expectedId: "spiffe://domain.test/pa:th/elem@ent",
+		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			id := Must(test.td, test.segments...)
+			defer func() {
+				if p := recover(); p != nil {
+					assert.Equal(t, test.expectedPanic, fmt.Sprintf("%v", p))
+				}
+			}()
+			id := spiffeid.Must(test.td, test.segments...)
 			assert.Equal(t, test.expectedId, id.String())
+		})
+	}
+}
+
+func TestMustJoin(t *testing.T) {
+	tests := []struct {
+		name          string
+		td            string
+		segments      []string
+		expectedId    string
+		expectedPanic string
+	}{
+		{
+			name:       "happy_path",
+			td:         "domain.test",
+			segments:   []string{"path", "element"},
+			expectedId: "spiffe://domain.test/path/element",
+		},
+		{
+			name:       "empty_segments",
+			td:         "domain.test",
+			expectedId: "spiffe://domain.test",
+		},
+		{
+			name:       "trust_domain_with_scheme",
+			td:         "spiffe://domain.test",
+			segments:   []string{"path", "element"},
+			expectedId: "spiffe://domain.test/path/element",
+		},
+		{
+			name:          "trust_domain_empty",
+			td:            "spiffe://",
+			segments:      []string{"path", "element"},
+			expectedPanic: "invalid SPIFFE ID: trust domain is empty",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			defer func() {
+				if p := recover(); p != nil {
+					assert.Equal(t, test.expectedPanic, fmt.Sprintf("%v", p))
+				}
+			}()
+			idstr := spiffeid.MustJoin(test.td, test.segments...)
+			assert.Equal(t, test.expectedId, idstr)
 		})
 	}
 }
@@ -45,13 +111,13 @@ func TestFromString(t *testing.T) {
 	tests := []struct {
 		name          string
 		inputId       string
-		expectedId    ID
+		expectedId    spiffeid.ID
 		expectedError string
 	}{
 		{
 			name:       "happy_path",
 			inputId:    "spiffe://domain.test/path/element",
-			expectedId: Must("domain.test", "path", "element"),
+			expectedId: spiffeid.Must("domain.test", "path", "element"),
 		},
 		{
 			name:          "empty_input_string",
@@ -71,7 +137,7 @@ func TestFromString(t *testing.T) {
 		{
 			name:       "scheme_mixed_case",
 			inputId:    "SPIFFE://domain.test/path/element",
-			expectedId: Must("domain.test", "path", "element"),
+			expectedId: spiffeid.Must("domain.test", "path", "element"),
 		},
 		{
 			name:          "empty_host",
@@ -101,7 +167,7 @@ func TestFromString(t *testing.T) {
 		{
 			name:       "empty_path",
 			inputId:    "spiffe://domain.test",
-			expectedId: Must("domain.test"),
+			expectedId: spiffeid.Must("domain.test"),
 		},
 		{
 			name:          "missing_double_slash_1",
@@ -116,23 +182,23 @@ func TestFromString(t *testing.T) {
 		{
 			name:       "path_with_colons",
 			inputId:    "spiffe://domain.test/pa:th/element:",
-			expectedId: Must("domain.test", "pa:th", "element:"),
+			expectedId: spiffeid.Must("domain.test", "pa:th", "element:"),
 		},
 		{
 			name:       "path_with_@",
 			inputId:    "spiffe://domain.test/pa@th/element:",
-			expectedId: Must("domain.test", "pa@th", "element:"),
+			expectedId: spiffeid.Must("domain.test", "pa@th", "element:"),
 		},
 		{
 			name:       "path_starts_with_double_slash",
 			inputId:    "spiffe://domain.test//path/element",
-			expectedId: Must("domain.test", "", "path", "element"),
+			expectedId: spiffeid.Must("domain.test", "", "path", "element"),
 		},
 
 		{
 			name:       "path_has_encoded_subdelims",
 			inputId:    "spiffe://domain.test/p%21a$t&h%27/%28e%29l%2Ae+m,e;n=t",
-			expectedId: Must("domain.test", "p!a$t&h'", "(e)l*e+m,e;n=t"),
+			expectedId: spiffeid.Must("domain.test", "p!a$t&h'", "(e)l*e+m,e;n=t"),
 		},
 		{
 			name:          "path_has_invalid_percent_char",
@@ -147,18 +213,18 @@ func TestFromString(t *testing.T) {
 		{
 			name:       "path_has_encoded_gendelim_[",
 			inputId:    "spiffe://domain.test/path/elem%5Bent",
-			expectedId: Must("domain.test", "path", "elem[ent"),
+			expectedId: spiffeid.Must("domain.test", "path", "elem[ent"),
 		},
 		{
 			name:       "path_has_encoded_gendelim_]",
 			inputId:    "spiffe://domain.test/path/elem%5Dent",
-			expectedId: Must("domain.test", "path", "elem]ent"),
+			expectedId: spiffeid.Must("domain.test", "path", "elem]ent"),
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			id, err := FromString(test.inputId)
+			id, err := spiffeid.FromString(test.inputId)
 			if test.expectedError == "" {
 				assert.NoError(t, err)
 			} else {
@@ -179,13 +245,13 @@ func TestFromURI(t *testing.T) {
 	tests := []struct {
 		name          string
 		input         *url.URL
-		expectedId    ID
+		expectedId    spiffeid.ID
 		expectedError string
 	}{
 		{
 			name:       "happy_path",
 			input:      parse("spiffe://domain.test/path/element"),
-			expectedId: Must("domain.test", "path", "element"),
+			expectedId: spiffeid.Must("domain.test", "path", "element"),
 		},
 		{
 			name:          "nil_uri",
@@ -210,7 +276,7 @@ func TestFromURI(t *testing.T) {
 		{
 			name:       "scheme_mixed_case",
 			input:      parse("SPIFFE://domain.test/path/element"),
-			expectedId: Must("domain.test", "path", "element"),
+			expectedId: spiffeid.Must("domain.test", "path", "element"),
 		},
 		{
 			name:          "empty_host",
@@ -240,7 +306,7 @@ func TestFromURI(t *testing.T) {
 		{
 			name:       "empty_path",
 			input:      parse("spiffe://domain.test"),
-			expectedId: Must("domain.test"),
+			expectedId: spiffeid.Must("domain.test"),
 		},
 		{
 			name:          "missing_double_slash_1",
@@ -255,13 +321,13 @@ func TestFromURI(t *testing.T) {
 		{
 			name:       "encoded_slash_in_path",
 			input:      &url.URL{Scheme: "spiffe", Host: "domain.test", Path: "/path%2felement"},
-			expectedId: Must("domain.test", "path%2felement"),
+			expectedId: spiffeid.Must("domain.test", "path%2felement"),
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			id, err := FromURI(test.input)
+			id, err := spiffeid.FromURI(test.input)
 			if test.expectedError == "" {
 				assert.NoError(t, err)
 			} else {
@@ -270,4 +336,113 @@ func TestFromURI(t *testing.T) {
 			assert.Equal(t, test.expectedId, id)
 		})
 	}
+}
+
+func TestTrustDomain(t *testing.T) {
+	td := spiffeid.RequireTrustDomainFromString("domain.test")
+
+	// Common case
+	id := spiffeid.Must("domain.test", "path", "element")
+	assert.Equal(t, td, id.TrustDomain())
+
+	// Empty path
+	id = spiffeid.Must("domain.test")
+	assert.Equal(t, td, id.TrustDomain())
+}
+
+func TestMemberOf(t *testing.T) {
+	td := spiffeid.RequireTrustDomainFromString("domain.test")
+
+	// Common case
+	id := spiffeid.Must("domain.test", "path", "element")
+	assert.True(t, id.MemberOf(td))
+
+	// Empty path
+	id = spiffeid.Must("domain.test")
+	assert.True(t, id.MemberOf(td))
+
+	// Is not member of
+	id = spiffeid.Must("other.domain.test", "path", "element")
+	assert.False(t, id.MemberOf(td))
+}
+
+func TestPath(t *testing.T) {
+	// Common case
+	id := spiffeid.Must("domain.test", "path", "element")
+	assert.Equal(t, "/path/element", id.Path())
+
+	// Empty path
+	id = spiffeid.Must("domain.test")
+	assert.Equal(t, "", id.Path())
+
+	// A single empty segment
+	id = spiffeid.Must("domain.test", "")
+	assert.Equal(t, "", id.Path())
+
+	// Couple of empty segment
+	id = spiffeid.Must("domain.test", "", "")
+	assert.Equal(t, "//", id.Path())
+
+	// First segment empty
+	id = spiffeid.Must("domain.test", "", "path", "element")
+	assert.Equal(t, "//path/element", id.Path())
+
+	// Last segment empty
+	id = spiffeid.Must("domain.test", "path", "element", "")
+	assert.Equal(t, "/path/element/", id.Path())
+}
+
+func TestString(t *testing.T) {
+	// Common case
+	id := spiffeid.Must("domain.test", "path", "element")
+	assert.Equal(t, "spiffe://domain.test/path/element", id.String())
+
+	// Empty path
+	id = spiffeid.Must("domain.test")
+	assert.Equal(t, "spiffe://domain.test", id.String())
+
+	// A single empty segment
+	id = spiffeid.Must("domain.test", "")
+	assert.Equal(t, "spiffe://domain.test", id.String())
+
+	// Couple of empty segment
+	id = spiffeid.Must("domain.test", "", "")
+	assert.Equal(t, "spiffe://domain.test//", id.String())
+
+	// Segment with sub-delims
+	id = spiffeid.Must("domain.test", "!p$a&t'h", "(e)l*e+m,e;n=t")
+	assert.Equal(t, "spiffe://domain.test/%21p$a&t%27h/%28e%29l%2Ae+m,e;n=t", id.String())
+
+	// Empty ID
+	id = spiffeid.ID{}
+	assert.Equal(t, "", id.String())
+}
+
+func TestURL(t *testing.T) {
+	asURL := func(td, path string) *url.URL {
+		return &url.URL{
+			Scheme: "spiffe",
+			Host:   td,
+			Path:   path,
+		}
+	}
+	// Common case
+	id := spiffeid.Must("domain.test", "path", "element")
+	assert.Equal(t, asURL("domain.test", "/path/element"), id.URL())
+
+	// Empty path
+	id = spiffeid.Must("domain.test")
+	assert.Equal(t, asURL("domain.test", ""), id.URL())
+
+	// Segment with sub-delims
+	id = spiffeid.Must("domain.test", "!p$a&t'h", "(e)l*e+m,e;n=t")
+	assert.Equal(t, asURL("domain.test", "/!p$a&t'h/(e)l*e+m,e;n=t"), id.URL())
+
+	// Empty ID
+	id = spiffeid.ID{}
+	assert.Equal(t, &url.URL{}, id.URL())
+}
+
+func TestEmpty(t *testing.T) {
+	assert.True(t, spiffeid.ID{}.Empty())
 }

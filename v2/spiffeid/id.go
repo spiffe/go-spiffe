@@ -138,6 +138,10 @@ func (id ID) String() string {
 
 // URL returns a URL for SPIFFE ID.
 func (id ID) URL() *url.URL {
+	if id.Empty() {
+		return &url.URL{}
+	}
+
 	return &url.URL{
 		Scheme: "spiffe",
 		Host:   id.uri.Host,
