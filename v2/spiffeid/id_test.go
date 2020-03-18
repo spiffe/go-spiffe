@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestMakeAndIDString(t *testing.T) {
+func TestMustAndIDString(t *testing.T) {
 	tests := []struct {
 		name       string
 		td         string
@@ -26,10 +26,10 @@ func TestMakeAndIDString(t *testing.T) {
 			expectedId: "spiffe://domain.test",
 		},
 		{
-			name:       "segments_with_slashes",
-			td:         "domain.test",
-			segments:   []string{"pa/th", "ele/ment"},
-			expectedId: "spiffe://domain.test/pa%2fth/ele%2fment",
+			name:       "trust_domain_with_scheme",
+			td:         "spiffe://domain.test",
+			segments:   []string{"path", "element"},
+			expectedId: "spiffe://domain.test/path/element",
 		},
 	}
 
@@ -114,11 +114,6 @@ func TestFromString(t *testing.T) {
 			expectedError: "invalid SPIFFE ID: trust domain is empty",
 		},
 		{
-			name:       "encoded_slash_in_path",
-			inputId:    "spiffe://domain.test/path%2felement%2f",
-			expectedId: Must("domain.test", "path/element/"),
-		},
-		{
 			name:       "path_with_colons",
 			inputId:    "spiffe://domain.test/pa:th/element:",
 			expectedId: Must("domain.test", "pa:th", "element:"),
@@ -135,8 +130,8 @@ func TestFromString(t *testing.T) {
 		},
 
 		{
-			name:       "path_has_subdelims",
-			inputId:    "spiffe://domain.test/p!a$t&h'/(e)l*e+m,e;n=t",
+			name:       "path_has_encoded_subdelims",
+			inputId:    "spiffe://domain.test/p%21a$t&h%27/%28e%29l%2Ae+m,e;n=t",
 			expectedId: Must("domain.test", "p!a$t&h'", "(e)l*e+m,e;n=t"),
 		},
 		{
@@ -150,14 +145,14 @@ func TestFromString(t *testing.T) {
 			expectedError: "invalid SPIFFE ID: parse \"spiffe://domain.test/path/element%5\": invalid URL escape \"%5\"",
 		},
 		{
-			name:          "path_has_not_allowed_gendelim_[",
-			inputId:       "spiffe://domain.test/path/elem[ent",
-			expectedError: "invalid character at index 30",
+			name:       "path_has_encoded_gendelim_[",
+			inputId:    "spiffe://domain.test/path/elem%5Bent",
+			expectedId: Must("domain.test", "path", "elem[ent"),
 		},
 		{
-			name:          "path_has_not_allowed_gendelim_]",
-			inputId:       "spiffe://domain.test/path/elem]ent",
-			expectedError: "invalid character at index 30",
+			name:       "path_has_encoded_gendelim_]",
+			inputId:    "spiffe://domain.test/path/elem%5Dent",
+			expectedId: Must("domain.test", "path", "elem]ent"),
 		},
 	}
 
@@ -195,22 +190,22 @@ func TestFromURI(t *testing.T) {
 		{
 			name:          "nil_uri",
 			input:         nil,
-			expectedError: "nil URI",
+			expectedError: "invalid SPIFFE ID: SPIFFE ID is empty",
 		},
 		{
 			name:          "empty_uri",
 			input:         &url.URL{},
-			expectedError: "empty URI",
+			expectedError: "invalid SPIFFE ID: SPIFFE ID is empty",
 		},
 		{
 			name:          "invalid_uri",
 			input:         &url.URL{Host: "192.168.2.2:6688"},
-			expectedError: "wrong or missing scheme",
+			expectedError: "invalid SPIFFE ID: invalid scheme",
 		},
 		{
 			name:          "invalid_scheme",
 			input:         parse("http://domain.test/path/element"),
-			expectedError: "wrong or missing scheme",
+			expectedError: "invalid SPIFFE ID: invalid scheme",
 		},
 		{
 			name:       "scheme_mixed_case",
@@ -220,27 +215,27 @@ func TestFromURI(t *testing.T) {
 		{
 			name:          "empty_host",
 			input:         parse("spiffe:///path/element"),
-			expectedError: "empty trust domain",
+			expectedError: "invalid SPIFFE ID: trust domain is empty",
 		},
 		{
 			name:          "query_not_allowed",
 			input:         parse("spiffe://domain.test/path/element?query=1"),
-			expectedError: "query not allowed",
+			expectedError: "invalid SPIFFE ID: query is not allowed",
 		},
 		{
 			name:          "fragment_not_allowed",
 			input:         parse("spiffe://domain.test/path/element?#fragment-1"),
-			expectedError: "fragment not allowed",
+			expectedError: "invalid SPIFFE ID: fragment is not allowed",
 		},
 		{
 			name:          "port_not_allowed",
 			input:         parse("spiffe://domain.test:8080/path/element"),
-			expectedError: "port is not allowed",
+			expectedError: "invalid SPIFFE ID: port is not allowed",
 		},
 		{
 			name:          "user_info_not_allowed",
 			input:         parse("spiffe://user:password@test.org/path/element"),
-			expectedError: "user info is not allowed",
+			expectedError: "invalid SPIFFE ID: user info is not allowed",
 		},
 		{
 			name:       "empty_path",
@@ -250,16 +245,16 @@ func TestFromURI(t *testing.T) {
 		{
 			name:          "missing_double_slash_1",
 			input:         parse("spiffe:path/element"),
-			expectedError: "missing '//' characters",
+			expectedError: "invalid SPIFFE ID: trust domain is empty",
 		},
 		{
 			name:          "missing_double_slash_2",
 			input:         parse("spiffe:/path/element"),
-			expectedError: "empty trust domain",
+			expectedError: "invalid SPIFFE ID: trust domain is empty",
 		},
 		{
 			name:       "encoded_slash_in_path",
-			input:      parse("spiffe://domain.test/path%2felement"),
+			input:      &url.URL{Scheme: "spiffe", Host: "domain.test", Path: "/path%2felement"},
 			expectedId: Must("domain.test", "path%2felement"),
 		},
 	}
@@ -272,7 +267,6 @@ func TestFromURI(t *testing.T) {
 			} else {
 				assert.EqualError(t, err, test.expectedError)
 			}
-
 			assert.Equal(t, test.expectedId, id)
 		})
 	}

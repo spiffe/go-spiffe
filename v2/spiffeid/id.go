@@ -15,19 +15,18 @@ type ID struct {
 // New creates a new ID using the trust domain (e.g. example.org) and path
 // segments. An error is returned if the trust domain is not valid (see
 // TrustDomainFromString).
+// Warning: Percent encoded characters on path segments are
+// not decoded, instead this function will percent encode symbols
+// when the ID is converted to a string.
 func New(trustDomain string, segments ...string) (ID, error) {
 	td, err := TrustDomainFromString(trustDomain)
 	if err != nil {
 		return ID{}, err
 	}
 
-	sep := "/"
-	path := ""
-	for i, segment := range segments {
-		if i == len(segments)-1 && segment == "" {
-			continue
-		}
-		path = path + sep + segment
+	path := strings.Join(segments, "/")
+	if len(path) > 0 {
+		path = "/" + path
 	}
 
 	return ID{
@@ -54,14 +53,23 @@ func Must(trustDomain string, segments ...string) ID {
 // domain (e.g. example.org) with the given path segments. An error is returned
 // if the trust domain is not valid (see TrustDomainFromString).
 func Join(trustDomain string, segments ...string) (string, error) {
-	panic("not implemented")
+	id, err := New(trustDomain, segments...)
+	if err != nil {
+		return "", err
+	}
+
+	return id.String(), nil
 }
 
 // MustJoin returns the string representation of an ID inside the given trust
 // domain (e.g. example.org) with the given path segments. The function panics
 // if the trust domain is not valid (see TrustDomainFromString).
 func MustJoin(trustDomain string, segments ...string) string {
-	panic("not implemented")
+	idstr, err := Join(trustDomain, segments...)
+	if err != nil {
+		panic(err)
+	}
+	return idstr
 }
 
 // FromString parses a SPIFFE ID from a string.
