@@ -26,9 +26,8 @@ func TestNewSet(t *testing.T) {
 func TestAdd(t *testing.T) {
 	s := jwtbundle.NewSet()
 	require.False(t, s.Has(td))
-	s = jwtbundle.NewSet(b1)
-	s.Add(b2)
-	require.True(t, s.Has(td2))
+	s.Add(b1)
+	require.True(t, s.Has(td))
 }
 
 func TestRemove(t *testing.T) {
