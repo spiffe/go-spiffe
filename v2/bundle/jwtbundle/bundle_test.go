@@ -61,7 +61,7 @@ func TestLoad(t *testing.T) {
 		},
 		{
 			tf:  testFiles["missing kid"],
-			err: "jwtbundle: error adding key 1 of JWKS: jwtbundle: keyID cannot be empty",
+			err: "jwtbundle: error adding key 1 of JWKS: keyID cannot be empty",
 		},
 	}
 
@@ -97,7 +97,7 @@ func TestRead(t *testing.T) {
 		},
 		{
 			tf:  testFiles["missing kid"],
-			err: "jwtbundle: error adding key 1 of JWKS: jwtbundle: keyID cannot be empty",
+			err: "jwtbundle: error adding key 1 of JWKS: keyID cannot be empty",
 		},
 	}
 
@@ -137,7 +137,7 @@ func TestParse(t *testing.T) {
 		},
 		{
 			tf:  testFiles["missing kid"],
-			err: "jwtbundle: error adding key 1 of JWKS: jwtbundle: keyID cannot be empty",
+			err: "jwtbundle: error adding key 1 of JWKS: keyID cannot be empty",
 		},
 	}
 
@@ -227,11 +227,11 @@ func TestMarshal(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, bundleBytesMarshal)
 
-	// Prase the marshalled bundle
+	// Prase the marshaled bundle
 	bundleParsed, err := jwtbundle.Parse(td, bundleBytesMarshal)
 	require.NoError(t, err)
 
-	// Assert that the marshalled bundle is equal to the parsed bundle
+	// Assert that the marshaled bundle is equal to the parsed bundle
 	assert.Equal(t, bundleParsed, bundle)
 }
 

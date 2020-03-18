@@ -18,9 +18,10 @@ var (
 
 // Bundle is a collection of trusted JWT public keys for a trust domain.
 type Bundle struct {
-	mtx         sync.RWMutex
 	trustDomain spiffeid.TrustDomain
-	jwtKeys     map[string]crypto.PublicKey
+
+	mtx     sync.RWMutex
+	jwtKeys map[string]crypto.PublicKey
 }
 
 // New creates a new bundle.
@@ -61,7 +62,7 @@ func Parse(trustDomain spiffeid.TrustDomain, bundleBytes []byte) (*Bundle, error
 	bundle := New(trustDomain)
 	for i, key := range jwks.Keys {
 		if err := bundle.AddJWTKey(key.KeyID, key.Key); err != nil {
-			return nil, jwtbundleErr.New("error adding key %d of JWKS: %v", i, err)
+			return nil, jwtbundleErr.New("error adding key %d of JWKS: %v", i, errs.Unwrap(err))
 		}
 	}
 
