@@ -106,9 +106,7 @@ func TestRead(t *testing.T) {
 		t.Run(testCase.tf.filePath, func(t *testing.T) {
 			// we expect the Open call to fail in some cases
 			file, _ := os.Open(testCase.tf.filePath)
-			t.Cleanup(func() {
-				file.Close()
-			})
+			defer file.Close()
 
 			bundle, err := jwtbundle.Read(td, file)
 			if testCase.err != "" {
