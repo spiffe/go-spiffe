@@ -1,41 +1,41 @@
 package jwtbundle
 
 import (
-	"bytes"
 	"crypto"
 	"encoding/json"
-	"errors"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"sync"
 
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
+	"github.com/zeebo/errs"
 	"gopkg.in/square/go-jose.v2"
+)
+
+var (
+	jwtbundleErr = errs.Class("jwtbundle")
 )
 
 // Bundle is a collection of trusted JWT public keys for a trust domain.
 type Bundle struct {
-	mtx            sync.RWMutex
-	trustDomain    spiffeid.TrustDomain
-	jwtSigningKeys map[string]crypto.PublicKey
+	mtx         sync.RWMutex
+	trustDomain spiffeid.TrustDomain
+	jwtKeys     map[string]crypto.PublicKey
 }
 
 // New creates a new bundle.
 func New(trustDomain spiffeid.TrustDomain) *Bundle {
 	return &Bundle{
-		mtx:            sync.RWMutex{},
-		trustDomain:    trustDomain,
-		jwtSigningKeys: make(map[string]crypto.PublicKey),
+		trustDomain: trustDomain,
+		jwtKeys:     make(map[string]crypto.PublicKey),
 	}
 }
 
 // Load loads a Bundle from a file on disk.
 func Load(trustDomain spiffeid.TrustDomain, path string) (*Bundle, error) {
 	bundleBytes, err := ioutil.ReadFile(path)
-
 	if err != nil {
-		return nil, fmt.Errorf("unble to read JWT bundle: %w", err)
+		return nil, jwtbundleErr.New("unable to read JWT bundle: %w", err)
 	}
 
 	return Parse(trustDomain, bundleBytes)
@@ -43,26 +43,25 @@ func Load(trustDomain spiffeid.TrustDomain, path string) (*Bundle, error) {
 
 // Read decodes a bundle from a reader.
 func Read(trustDomain spiffeid.TrustDomain, r io.Reader) (*Bundle, error) {
-	var b bytes.Buffer
-	_, err := b.ReadFrom(r)
+	b, err := ioutil.ReadAll(r)
 	if err != nil {
-		return nil, fmt.Errorf("unable to read: %v", err)
+		return nil, jwtbundleErr.New("unable to read: %v", err)
 	}
 
-	return Parse(trustDomain, b.Bytes())
+	return Parse(trustDomain, b)
 }
 
 // Parse parses a bundle from bytes.
 func Parse(trustDomain spiffeid.TrustDomain, bundleBytes []byte) (*Bundle, error) {
 	jwks := new(jose.JSONWebKeySet)
 	if err := json.Unmarshal(bundleBytes, jwks); err != nil {
-		return nil, fmt.Errorf("unable to parse JWK Set: %v", err)
+		return nil, jwtbundleErr.New("unable to parse JWKS: %v", err)
 	}
 
 	bundle := New(trustDomain)
 	for i, key := range jwks.Keys {
 		if err := bundle.AddJWTKey(key.KeyID, key.Key); err != nil {
-			return nil, fmt.Errorf("error adding entry %d of JWK Set: %v", i, err)
+			return nil, jwtbundleErr.New("error adding key %d of JWKS: %v", i, err)
 		}
 	}
 
@@ -71,9 +70,6 @@ func Parse(trustDomain spiffeid.TrustDomain, bundleBytes []byte) (*Bundle, error
 
 // TrustDomain returns the trust domain the bundle belongs to.
 func (b *Bundle) TrustDomain() spiffeid.TrustDomain {
-	b.mtx.RLock()
-	defer b.mtx.RUnlock()
-
 	return b.trustDomain
 }
 
@@ -82,7 +78,7 @@ func (b *Bundle) JWTKeys() map[string]crypto.PublicKey {
 	b.mtx.RLock()
 	defer b.mtx.RUnlock()
 
-	return b.jwtSigningKeys
+	return b.jwtKeys
 }
 
 // FindJWTKey finds the JWT key with the given key id from the bundle. If the key
@@ -92,7 +88,7 @@ func (b *Bundle) FindJWTKey(keyID string) (crypto.PublicKey, bool) {
 	b.mtx.RLock()
 	defer b.mtx.RUnlock()
 
-	if jwtKey, ok := b.jwtSigningKeys[keyID]; ok {
+	if jwtKey, ok := b.jwtKeys[keyID]; ok {
 		return jwtKey, true
 	}
 	return nil, false
@@ -103,7 +99,7 @@ func (b *Bundle) HasJWTKey(keyID string) bool {
 	b.mtx.RLock()
 	defer b.mtx.RUnlock()
 
-	_, ok := b.jwtSigningKeys[keyID]
+	_, ok := b.jwtKeys[keyID]
 	return ok
 }
 
@@ -111,13 +107,13 @@ func (b *Bundle) HasJWTKey(keyID string) bool {
 // under the given key ID, it is replaced. A key ID must be specified.
 func (b *Bundle) AddJWTKey(keyID string, key crypto.PublicKey) error {
 	if keyID == "" {
-		return errors.New("missing key ID")
+		return jwtbundleErr.New("keyID cannot be empty")
 	}
 
 	b.mtx.Lock()
 	defer b.mtx.Unlock()
 
-	b.jwtSigningKeys[keyID] = key
+	b.jwtKeys[keyID] = key
 	return nil
 }
 
@@ -126,7 +122,7 @@ func (b *Bundle) RemoveJWTKey(keyID string) {
 	b.mtx.Lock()
 	defer b.mtx.Unlock()
 
-	delete(b.jwtSigningKeys, keyID)
+	delete(b.jwtKeys, keyID)
 }
 
 // Marshal marshals the JWT bundle into a standard RFC 7517 JWKS document. The
@@ -136,17 +132,14 @@ func (b *Bundle) Marshal() ([]byte, error) {
 	defer b.mtx.RUnlock()
 
 	jwks := jose.JSONWebKeySet{}
-	for keyID, jwtSigningKey := range b.jwtSigningKeys {
-		if keyID == "" {
-			return nil, errors.New("missing key ID")
-		}
+	for keyID, jwtKey := range b.jwtKeys {
 		jwks.Keys = append(jwks.Keys, jose.JSONWebKey{
-			Key:   jwtSigningKey,
+			Key:   jwtKey,
 			KeyID: keyID,
 		})
 	}
 
-	return json.MarshalIndent(jwks, "", "    ")
+	return json.Marshal(jwks)
 }
 
 // GetJWTBundleForTrustDomain returns the JWT bundle of the given trust domain.
@@ -157,7 +150,7 @@ func (b *Bundle) GetJWTBundleForTrustDomain(trustDomain spiffeid.TrustDomain) (*
 	defer b.mtx.RUnlock()
 
 	if b.trustDomain != trustDomain {
-		return nil, fmt.Errorf("this bundle does not belong to trust domain %q", trustDomain)
+		return nil, jwtbundleErr.New("no JWT bundle for trust domain %q", trustDomain)
 	}
 
 	return b, nil

@@ -1,4 +1,4 @@
-package jwtbundle
+package jwtbundle_test
 
 import (
 	"crypto"
@@ -6,6 +6,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/spiffe/go-spiffe/v2/bundle/jwtbundle"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -17,7 +18,7 @@ type testFile struct {
 }
 
 var (
-	td, _     = spiffeid.TrustDomainFromString("example.org")
+	td        = spiffeid.RequireTrustDomainFromString("example.org")
 	testFiles = map[string]testFile{
 		"valid 1": testFile{
 			filePath:  "testdata/jwks_valid_1.json",
@@ -37,7 +38,7 @@ var (
 )
 
 func TestNew(t *testing.T) {
-	b := New(td)
+	b := jwtbundle.New(td)
 	require.NotNil(t, b)
 	require.Len(t, b.JWTKeys(), 0)
 	require.Equal(t, td, b.TrustDomain())
@@ -56,18 +57,18 @@ func TestLoad(t *testing.T) {
 		},
 		{
 			tf:  testFiles["non existent file"],
-			err: "unble to read JWT bundle: open testdata/does-not-exist.json: no such file or directory",
+			err: "jwtbundle: unable to read JWT bundle: open testdata/does-not-exist.json: no such file or directory",
 		},
 		{
 			tf:  testFiles["missing kid"],
-			err: "error adding entry 1 of JWK Set: missing key ID",
+			err: "jwtbundle: error adding key 1 of JWKS: jwtbundle: keyID cannot be empty",
 		},
 	}
 
 	for _, testCase := range testCases {
 		testCase := testCase
 		t.Run(testCase.tf.filePath, func(t *testing.T) {
-			bundle, err := Load(td, testCase.tf.filePath)
+			bundle, err := jwtbundle.Load(td, testCase.tf.filePath)
 			if testCase.err != "" {
 				require.EqualError(t, err, testCase.err)
 				return
@@ -92,11 +93,11 @@ func TestRead(t *testing.T) {
 		},
 		{
 			tf:  testFiles["non existent file"],
-			err: "unable to read: invalid argument",
+			err: "jwtbundle: unable to read: invalid argument",
 		},
 		{
 			tf:  testFiles["missing kid"],
-			err: "error adding entry 1 of JWK Set: missing key ID",
+			err: "jwtbundle: error adding key 1 of JWKS: jwtbundle: keyID cannot be empty",
 		},
 	}
 
@@ -109,7 +110,7 @@ func TestRead(t *testing.T) {
 				file.Close()
 			})
 
-			bundle, err := Read(td, file)
+			bundle, err := jwtbundle.Read(td, file)
 			if testCase.err != "" {
 				require.EqualError(t, err, testCase.err)
 				return
@@ -134,11 +135,11 @@ func TestParse(t *testing.T) {
 		},
 		{
 			tf:  testFiles["non existent file"],
-			err: "unable to parse JWK Set: unexpected end of JSON input",
+			err: "jwtbundle: unable to parse JWKS: unexpected end of JSON input",
 		},
 		{
 			tf:  testFiles["missing kid"],
-			err: "error adding entry 1 of JWK Set: missing key ID",
+			err: "jwtbundle: error adding key 1 of JWKS: jwtbundle: keyID cannot be empty",
 		},
 	}
 
@@ -148,7 +149,7 @@ func TestParse(t *testing.T) {
 			// we expect the ReadFile call to fail in some cases
 			bundleBytes, _ := ioutil.ReadFile(testCase.tf.filePath)
 
-			bundle, err := Parse(td, bundleBytes)
+			bundle, err := jwtbundle.Parse(td, bundleBytes)
 			if testCase.err != "" {
 				require.EqualError(t, err, testCase.err)
 				return
@@ -161,16 +162,16 @@ func TestParse(t *testing.T) {
 }
 
 func TestTrustDomain(t *testing.T) {
-	b := New(td)
+	b := jwtbundle.New(td)
 	btd := b.TrustDomain()
 	require.Equal(t, td, btd)
 }
 
-func TestJWTKeys_crud(t *testing.T) {
+func TestJWTKeysCRUD(t *testing.T) {
 	// Test AddJWTKey (missing key)
-	b := New(td)
+	b := jwtbundle.New(td)
 	err := b.AddJWTKey("", "test-1")
-	require.EqualError(t, err, "missing key ID")
+	require.EqualError(t, err, "jwtbundle: keyID cannot be empty")
 
 	// Test AddJWTKey (new key)
 	err = b.AddJWTKey("key-1", "test-1")
@@ -220,7 +221,7 @@ func TestJWTKeys_crud(t *testing.T) {
 
 func TestMarshal(t *testing.T) {
 	// Load a bundle to marshal
-	bundle, err := Load(td, "testdata/jwks_valid_1.json")
+	bundle, err := jwtbundle.Load(td, "testdata/jwks_valid_2.json")
 	require.NoError(t, err)
 
 	// Marshal the bundle
@@ -228,30 +229,22 @@ func TestMarshal(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, bundleBytesMarshal)
 
-	// Load original bytes for comparison
-	bundleBytesFile, err := ioutil.ReadFile("testdata/jwks_valid_1.json")
+	// Prase the marshalled bundle
+	bundleParsed, err := jwtbundle.Parse(td, bundleBytesMarshal)
 	require.NoError(t, err)
 
-	// Assert the marshalled bundle is equal to the one loaded
-	assert.Equal(t, bundleBytesFile, bundleBytesMarshal)
-
-	// Try to marshal an invalid bundle
-	b := &Bundle{
-		trustDomain:    td,
-		jwtSigningKeys: map[string]crypto.PublicKey{"": nil},
-	}
-	bundleBytesMarshal, err = b.Marshal()
-	require.EqualError(t, err, "missing key ID")
+	// Assert that the marshalled bundle is equal to the parsed bundle
+	assert.Equal(t, bundleParsed, bundle)
 }
 
 func TestGetJWTBundleForTrustDomain(t *testing.T) {
-	b := New(td)
+	b := jwtbundle.New(td)
 	b1, err := b.GetJWTBundleForTrustDomain(td)
 	require.NoError(t, err)
 	require.Equal(t, b, b1)
 
-	td2, _ := spiffeid.TrustDomainFromString("example-2.org")
+	td2 := spiffeid.RequireTrustDomainFromString("example-2.org")
 	b2, err := b.GetJWTBundleForTrustDomain(td2)
 	require.Nil(t, b2)
-	require.EqualError(t, err, `this bundle does not belong to trust domain "example-2.org"`)
+	require.EqualError(t, err, `jwtbundle: no JWT bundle for trust domain "example-2.org"`)
 }
