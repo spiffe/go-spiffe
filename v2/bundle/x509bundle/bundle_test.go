@@ -28,7 +28,7 @@ func TestLoad_Succeeds(t *testing.T) {
 func TestLoad_Fails(t *testing.T) {
 	bundle, err := Load(spiffeid.RequireTrustDomainFromString("example.org"), "testdata/non-existent-file.pem")
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "unable to load X.509 bundle file")
+	require.Contains(t, err.Error(), "x509bundle: unable to load X.509 bundle file")
 	assert.Nil(t, bundle)
 }
 
@@ -52,7 +52,7 @@ func TestRead_Fails(t *testing.T) {
 
 	bundle, err := Read(spiffeid.RequireTrustDomainFromString("example.org"), file)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "unable to read")
+	require.Contains(t, err.Error(), "x509bundle: unable to read")
 	assert.Nil(t, bundle)
 }
 
@@ -82,17 +82,17 @@ func TestParse(t *testing.T) {
 		{
 			name:           "Parse non-PEM bytes should fail",
 			path:           "testdata/not-pem.pem",
-			expErrContains: "no PEM data found while decoding block",
+			expErrContains: "x509bundle: no PEM data found while decoding block",
 		},
 		{
 			name:           "Parse should fail if block is not a certificate",
 			path:           "testdata/key.pem",
-			expErrContains: `block does not contain "CERTIFICATE" type, current type is: "PRIVATE KEY"`,
+			expErrContains: `x509bundle: block does not contain "CERTIFICATE" type, current type is: "PRIVATE KEY"`,
 		},
 		{
 			name:           "Parse a corrupted certificate should fail",
 			path:           "testdata/corrupted.pem",
-			expErrContains: "cannot parse certificate",
+			expErrContains: "x509bundle: cannot parse certificate",
 		},
 	}
 
@@ -187,6 +187,6 @@ func TestGetX509BundleForTrustDomain_Fails(t *testing.T) {
 
 	b, err := bundle.GetX509BundleForTrustDomain(spiffeid.RequireTrustDomainFromString("another-td.org"))
 	require.Error(t, err)
-	require.Contains(t, err.Error(), `no X.509 bundle found for trust domain: "another-td.org"`)
+	require.Contains(t, err.Error(), `x509bundle: no X.509 bundle found for trust domain: "another-td.org"`)
 	require.Nil(t, b)
 }

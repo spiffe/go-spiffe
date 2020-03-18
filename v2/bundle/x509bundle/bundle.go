@@ -4,22 +4,24 @@ import (
 	"bytes"
 	"crypto/x509"
 	"encoding/pem"
-	"errors"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"sync"
 
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
+	"github.com/zeebo/errs"
 )
 
 const certType string = "CERTIFICATE"
 
+var x509bundleErr = errs.Class("x509bundle")
+
 // Bundle is a collection of trusted public key material for a trust domain.
 type Bundle struct {
 	trustDomain spiffeid.TrustDomain
-	roots       []*x509.Certificate
-	rootsMtx    sync.RWMutex
+
+	rootsMtx sync.RWMutex
+	roots    []*x509.Certificate
 }
 
 // New creates a new bundle
@@ -34,7 +36,7 @@ func New(trustDomain spiffeid.TrustDomain) *Bundle {
 func Load(trustDomain spiffeid.TrustDomain, path string) (*Bundle, error) {
 	fileBytes, err := ioutil.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("unable to load X.509 bundle file: %w", err)
+		return nil, x509bundleErr.New("unable to load X.509 bundle file: %w", err)
 	}
 
 	return Parse(trustDomain, fileBytes)
@@ -42,13 +44,12 @@ func Load(trustDomain spiffeid.TrustDomain, path string) (*Bundle, error) {
 
 // Read decodes a bundle from a reader.
 func Read(trustDomain spiffeid.TrustDomain, r io.Reader) (*Bundle, error) {
-	var b bytes.Buffer
-	_, err := b.ReadFrom(r)
+	b, err := ioutil.ReadAll(r)
 	if err != nil {
-		return nil, fmt.Errorf("unable to read X.509 bundle: %v", err)
+		return nil, x509bundleErr.New("unable to read X.509 bundle: %v", err)
 	}
 
-	return Parse(trustDomain, b.Bytes())
+	return Parse(trustDomain, b)
 }
 
 // Parse parses a bundle from bytes.
@@ -61,16 +62,16 @@ func Parse(trustDomain spiffeid.TrustDomain, b []byte) (*Bundle, error) {
 		pemBlock, pemBytes := pem.Decode(b)
 		b = pemBytes
 		if pemBlock == nil {
-			return nil, errors.New("no PEM data found while decoding block")
+			return nil, x509bundleErr.New("no PEM data found while decoding block")
 		}
 
 		if pemBlock.Type != certType {
-			return nil, fmt.Errorf("block does not contain %q type, current type is: %q", certType, pemBlock.Type)
+			return nil, x509bundleErr.New("block does not contain %q type, current type is: %q", certType, pemBlock.Type)
 		}
 
 		cert, err := x509.ParseCertificate(pemBlock.Bytes)
 		if err != nil {
-			return nil, fmt.Errorf("cannot parse certificate: %v", err)
+			return nil, x509bundleErr.New("cannot parse certificate: %v", err)
 		}
 		bundle.AddX509Root(cert)
 	}
@@ -144,7 +145,7 @@ func (b *Bundle) Marshal() ([]byte, error) {
 			Bytes: root.Raw,
 		})
 		if err != nil {
-			return nil, fmt.Errorf("unable to encode root certificate: %v", err)
+			return nil, x509bundleErr.New("unable to encode root certificate: %v", err)
 		}
 	}
 
@@ -156,7 +157,7 @@ func (b *Bundle) Marshal() ([]byte, error) {
 // called with a trust domain other than the one the bundle belongs to.
 func (b *Bundle) GetX509BundleForTrustDomain(trustDomain spiffeid.TrustDomain) (*Bundle, error) {
 	if b.trustDomain != trustDomain {
-		return nil, fmt.Errorf("no X.509 bundle found for trust domain: %q", trustDomain)
+		return nil, x509bundleErr.New("no X.509 bundle found for trust domain: %q", trustDomain)
 	}
 
 	return b, nil
