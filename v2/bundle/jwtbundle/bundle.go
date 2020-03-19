@@ -32,7 +32,7 @@ func New(trustDomain spiffeid.TrustDomain) *Bundle {
 	}
 }
 
-// Load loads a Bundle from a file on disk.
+// Load loads a bundle from a file on disk.
 func Load(trustDomain spiffeid.TrustDomain, path string) (*Bundle, error) {
 	bundleBytes, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -69,7 +69,7 @@ func Parse(trustDomain spiffeid.TrustDomain, bundleBytes []byte) (*Bundle, error
 	return bundle, nil
 }
 
-// TrustDomain returns the trust domain the bundle belongs to.
+// TrustDomain returns the trust domain that the bundle belongs to.
 func (b *Bundle) TrustDomain() spiffeid.TrustDomain {
 	return b.trustDomain
 }
@@ -143,9 +143,9 @@ func (b *Bundle) Marshal() ([]byte, error) {
 	return json.Marshal(jwks)
 }
 
-// GetJWTBundleForTrustDomain returns the JWT bundle of the given trust domain.
-// It implements the Source interface. It will fail if called with a trust
-// domain other than the one the bundle belongs to.
+// GetJWTBundleForTrustDomain returns the JWT bundle for the given trust
+// domain. It implements the Source interface. An error will be returned if
+// the trust domain does not match that of the bundle.
 func (b *Bundle) GetJWTBundleForTrustDomain(trustDomain spiffeid.TrustDomain) (*Bundle, error) {
 	b.mtx.RLock()
 	defer b.mtx.RUnlock()
