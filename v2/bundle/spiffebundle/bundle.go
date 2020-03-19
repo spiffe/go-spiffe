@@ -18,12 +18,12 @@ import (
 type Bundle struct {
 }
 
-// New creates a new bundle
+// New creates a new bundle.
 func New(trustDomain spiffeid.TrustDomain) *Bundle {
 	panic("not implemented")
 }
 
-// Load loads a Bundle from a file on disk.
+// Load loads a bundle from a file on disk.
 func Load(trustDomain spiffeid.TrustDomain, path string) (*Bundle, error) {
 	panic("not implemented")
 }
@@ -38,17 +38,17 @@ func Parse(trustDomain spiffeid.TrustDomain, b []byte) (*Bundle, error) {
 	panic("not implemented")
 }
 
-// FromX509Bundle creates a Bundle from an X.509 bundle.
+// FromX509Bundle creates a bundle from an X.509 bundle.
 func FromX509Bundle(x509Bundle *x509bundle.Bundle) *Bundle {
 	panic("not implemented")
 }
 
-// FromJWTBundle creates a Bundle from a JWT bundle.
+// FromJWTBundle creates a bundle from a JWT bundle.
 func FromJWTBundle(jwtBundle *jwtbundle.Bundle) *Bundle {
 	panic("not implemented")
 }
 
-// TrustDomain returns the trust domain of the bundle.
+// TrustDomain returns the trust domain that the bundle belongs to.
 func (b *Bundle) TrustDomain() spiffeid.TrustDomain {
 	panic("not implemented")
 }
@@ -64,12 +64,12 @@ func (b *Bundle) AddX509Root(*x509.Certificate) {
 	panic("not implemented")
 }
 
-// RemoveX509Root removes an X.509 root to the bundle.
+// RemoveX509Root removes an X.509 root from the bundle.
 func (b *Bundle) RemoveX509Root(*x509.Certificate) {
 	panic("not implemented")
 }
 
-// HasX509Root checks if the given X.509 root exists in the bundle
+// HasX509Root checks if the given X.509 root exists in the bundle.
 func (b *Bundle) HasX509Root(root *x509.Certificate) bool {
 	panic("not implemented")
 }
@@ -86,9 +86,14 @@ func (b *Bundle) FindJWTKey(keyID string) (crypto.PublicKey, bool) {
 	panic("not implemented")
 }
 
+// HasJWTKey returns true if the bundle has a JWT key with the given key id.
+func (b *Bundle) HasJWTKey(keyID string) bool {
+	panic("not implemented")
+}
+
 // AddJWTKey adds a JWT key to the bundle. If a JWT key already exists
-// under the given key ID, it is replaced.
-func (b *Bundle) AddJWTKey(keyID string, key crypto.PublicKey) {
+// under the given key ID, it is replaced. A key ID must be specified.
+func (b *Bundle) AddJWTKey(keyID string, key crypto.PublicKey) error {
 	panic("not implemented")
 }
 
@@ -157,16 +162,16 @@ func (b *Bundle) GetBundleForTrustDomain(trustDomain spiffeid.TrustDomain) (*Bun
 	panic("not implemented")
 }
 
-// GetX509BundleForTrustDomain implements the x509bundle.Source interface. An
-// error will be returned if the trust domain does not match that of the
-// bundle.
+// GetX509BundleForTrustDomain returns the X.509 bundle for the given trust
+// domain. It implements the x509bundle.Source interface. An error will be
+// returned if the trust domain does not match that of the bundle.
 func (b *Bundle) GetX509BundleForTrustDomain(trustDomain spiffeid.TrustDomain) (*x509bundle.Bundle, error) {
 	panic("not implemented")
 }
 
-// GetJWTBundleForTrustDomain implements the jwtbundle.Source interface. An
-// error will be returned if the trust domain does not match that of the
-// bundle.
+// GetJWTBundleForTrustDomain returns the JWT bundle of the given trust domain.
+// It implements the jwtbundle.Source interface. An error will be returned if
+// the trust domain does not match that of the bundle.
 func (b *Bundle) GetJWTBundleForTrustDomain(trustDomain spiffeid.TrustDomain) (*jwtbundle.Bundle, error) {
 	panic("not implemented")
 }

@@ -12,7 +12,7 @@ type Set struct {
 	bundles map[spiffeid.TrustDomain]*Bundle
 }
 
-// NewSet creates a new set initialized with the given bundles
+// NewSet creates a new set initialized with the given bundles.
 func NewSet(bundles ...*Bundle) *Set {
 	bundlesMap := make(map[spiffeid.TrustDomain]*Bundle)
 
@@ -55,8 +55,8 @@ func (s *Set) Has(trustDomain spiffeid.TrustDomain) bool {
 	return ok
 }
 
-// GetJWTBundleForTrustDomain returns the JWT bundle of the given trust domain.
-// It implements the Source interface.
+// GetJWTBundleForTrustDomain returns the JWT bundle for the given trust
+// domain. It implements the Source interface.
 func (s *Set) GetJWTBundleForTrustDomain(trustDomain spiffeid.TrustDomain) (*Bundle, error) {
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()

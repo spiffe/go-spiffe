@@ -12,7 +12,7 @@ type Set struct {
 	bundles map[spiffeid.TrustDomain]*Bundle
 }
 
-// NewSet creates a new set initialized with the given bundles
+// NewSet creates a new set initialized with the given bundles.
 func NewSet(bundles ...*Bundle) *Set {
 	bundlesMap := make(map[spiffeid.TrustDomain]*Bundle)
 
@@ -27,7 +27,7 @@ func NewSet(bundles ...*Bundle) *Set {
 	}
 }
 
-// Add add a new bundle into the set. If a bundle already exists for the
+// Add adds a new bundle into the set. If a bundle already exists for the
 // trust domain, the existing bundle is replaced.
 func (s *Set) Add(bundle *Bundle) {
 	s.mtx.Lock()
@@ -38,7 +38,7 @@ func (s *Set) Add(bundle *Bundle) {
 	}
 }
 
-// Remove removes the bundle given by the trust domain.
+// Remove removes the bundle for the given trust domain.
 func (s *Set) Remove(trustDomain spiffeid.TrustDomain) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()

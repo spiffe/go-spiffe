@@ -16,7 +16,7 @@ const certType string = "CERTIFICATE"
 
 var x509bundleErr = errs.Class("x509bundle")
 
-// Bundle is a collection of trusted public key material for a trust domain.
+// Bundle is a collection of trusted X.509 roots for a trust domain.
 type Bundle struct {
 	trustDomain spiffeid.TrustDomain
 
@@ -24,14 +24,14 @@ type Bundle struct {
 	roots    []*x509.Certificate
 }
 
-// New creates a new bundle
+// New creates a new bundle.
 func New(trustDomain spiffeid.TrustDomain) *Bundle {
 	return &Bundle{
 		trustDomain: trustDomain,
 	}
 }
 
-// Load loads a Bundle from a file on disk.
+// Load loads a bundle from a file on disk.
 func Load(trustDomain spiffeid.TrustDomain, path string) (*Bundle, error) {
 	fileBytes, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -77,7 +77,7 @@ func Parse(trustDomain spiffeid.TrustDomain, b []byte) (*Bundle, error) {
 	return bundle, nil
 }
 
-// TrustDomain returns the trust domain of the bundle.
+// TrustDomain returns the trust domain that the bundle belongs to.
 func (b *Bundle) TrustDomain() spiffeid.TrustDomain {
 	return b.trustDomain
 }
@@ -104,7 +104,7 @@ func (b *Bundle) AddX509Root(root *x509.Certificate) {
 	b.roots = append(b.roots, root)
 }
 
-// RemoveX509Root removes an X.509 root to the bundle.
+// RemoveX509Root removes an X.509 root from the bundle.
 func (b *Bundle) RemoveX509Root(root *x509.Certificate) {
 	b.rootsMtx.Lock()
 	defer b.rootsMtx.Unlock()
@@ -118,7 +118,7 @@ func (b *Bundle) RemoveX509Root(root *x509.Certificate) {
 	}
 }
 
-// HasX509Root checks if the given X.509 root exists in the bundle
+// HasX509Root checks if the given X.509 root exists in the bundle.
 func (b *Bundle) HasX509Root(root *x509.Certificate) bool {
 	b.rootsMtx.RLock()
 	defer b.rootsMtx.RUnlock()
@@ -151,8 +151,8 @@ func (b *Bundle) Marshal() ([]byte, error) {
 }
 
 // GetX509BundleForTrustDomain returns the X.509 bundle for the given trust
-// domain. It implements the Source interface. It will fail if
-// called with a trust domain other than the one the bundle belongs to.
+// domain. It implements the Source interface. An error will be
+// returned if the trust domain does not match that of the bundle.
 func (b *Bundle) GetX509BundleForTrustDomain(trustDomain spiffeid.TrustDomain) (*Bundle, error) {
 	if b.trustDomain != trustDomain {
 		return nil, x509bundleErr.New("no X.509 bundle found for trust domain: %q", trustDomain)
