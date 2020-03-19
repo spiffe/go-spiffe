@@ -9,7 +9,7 @@ import (
 // Set is a set of bundles, keyed by trust domain.
 type Set struct{}
 
-// NewSet creates a new, empty set.
+// NewSet creates a new set initialized with the given bundles.
 func NewSet(bundles ...*Bundle) *Set {
 	panic("not implemented")
 }
