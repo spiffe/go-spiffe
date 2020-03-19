@@ -197,7 +197,7 @@ func TestFromString(t *testing.T) {
 
 		{
 			name:       "path_has_encoded_subdelims",
-			inputId:    "spiffe://domain.test/p%21a$t&h%27/%28e%29l%2Ae+m,e;n=t",
+			inputId:    "spiffe://domain.test/p!a$t&h'/(e)l*e+m,e;n=t",
 			expectedId: spiffeid.Must("domain.test", "p!a$t&h'", "(e)l*e+m,e;n=t"),
 		},
 		{
@@ -212,12 +212,12 @@ func TestFromString(t *testing.T) {
 		},
 		{
 			name:       "path_has_encoded_gendelim_[",
-			inputId:    "spiffe://domain.test/path/elem%5Bent",
+			inputId:    "spiffe://domain.test/path/elem[ent",
 			expectedId: spiffeid.Must("domain.test", "path", "elem[ent"),
 		},
 		{
 			name:       "path_has_encoded_gendelim_]",
-			inputId:    "spiffe://domain.test/path/elem%5Dent",
+			inputId:    "spiffe://domain.test/path/elem]ent",
 			expectedId: spiffeid.Must("domain.test", "path", "elem]ent"),
 		},
 	}
@@ -317,11 +317,6 @@ func TestFromURI(t *testing.T) {
 			name:          "missing_double_slash_2",
 			input:         parse("spiffe:/path/element"),
 			expectedError: "invalid SPIFFE ID: trust domain is empty",
-		},
-		{
-			name:       "encoded_slash_in_path",
-			input:      &url.URL{Scheme: "spiffe", Host: "domain.test", Path: "/path%2felement"},
-			expectedId: spiffeid.Must("domain.test", "path%2felement"),
 		},
 	}
 

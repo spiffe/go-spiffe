@@ -9,7 +9,8 @@ import (
 
 // ID is a SPIFFE ID
 type ID struct {
-	uri *url.URL
+	td   TrustDomain
+	path string
 }
 
 // New creates a new ID using the trust domain (e.g. example.org) and path
@@ -30,11 +31,8 @@ func New(trustDomain string, segments ...string) (ID, error) {
 	}
 
 	return ID{
-		uri: &url.URL{
-			Scheme: "spiffe",
-			Host:   td.String(),
-			Path:   path,
-		},
+		td:   td,
+		path: path,
 	}, nil
 }
 
@@ -104,27 +102,27 @@ func FromURI(uri *url.URL) (ID, error) {
 		return ID{}, errors.New("invalid SPIFFE ID: query is not allowed")
 	}
 
+	uri = normalizeURI(uri)
+
 	return ID{
-		uri: normalizeURI(uri),
+		td:   TrustDomain{name: uri.Host},
+		path: uri.EscapedPath(),
 	}, nil
 }
 
 // TrustDomain returns the trust domain of the SPIFFE ID.
 func (id ID) TrustDomain() TrustDomain {
-	// We built the TrustDomain directly because the ID has always a URI with a valid trust domain.
-	return TrustDomain{
-		name: id.uri.Host,
-	}
+	return id.td
 }
 
 // MemberOf returns true if the SPIFFE ID is a member of the given trust domain.
 func (id ID) MemberOf(td TrustDomain) bool {
-	return id.uri.Host == td.name
+	return id.td.name == td.name
 }
 
 // Path returns the path of the SPIFFE ID inside the trust domain.
 func (id ID) Path() string {
-	return id.uri.Path
+	return id.path
 }
 
 // String returns the string representation of the SPIFFE ID, e.g.,
@@ -133,7 +131,8 @@ func (id ID) String() string {
 	if id.Empty() {
 		return ""
 	}
-	return id.uri.String()
+
+	return id.URL().String()
 }
 
 // URL returns a URL for SPIFFE ID.
@@ -144,14 +143,14 @@ func (id ID) URL() *url.URL {
 
 	return &url.URL{
 		Scheme: "spiffe",
-		Host:   id.uri.Host,
-		Path:   id.uri.Path,
+		Host:   id.td.name,
+		Path:   id.path,
 	}
 }
 
 // Empty returns true if the SPIFFE ID is empty.
 func (id ID) Empty() bool {
-	return id.uri == nil || id.uri.Host == ""
+	return id.td.name == ""
 }
 
 func normalizeURI(uri *url.URL) *url.URL {
