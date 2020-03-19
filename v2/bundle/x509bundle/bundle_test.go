@@ -13,7 +13,6 @@ import (
 func TestNew(t *testing.T) {
 	bundle := New(spiffeid.RequireTrustDomainFromString("example.org"))
 	require.NotNil(t, bundle)
-	require.NotNil(t, bundle.X509Roots())
 	assert.Len(t, bundle.X509Roots(), 0)
 	assert.Equal(t, spiffeid.RequireTrustDomainFromString("example.org"), bundle.TrustDomain())
 }

@@ -28,7 +28,6 @@ type Bundle struct {
 func New(trustDomain spiffeid.TrustDomain) *Bundle {
 	return &Bundle{
 		trustDomain: trustDomain,
-		roots:       []*x509.Certificate{},
 	}
 }
 
@@ -112,9 +111,8 @@ func (b *Bundle) RemoveX509Root(root *x509.Certificate) {
 
 	for i, r := range b.roots {
 		if areCertsEqual(r, root) {
-			//remove element from slice (slice order is not preserved)
-			b.roots[i] = b.roots[len(b.roots)-1]
-			b.roots = b.roots[:len(b.roots)-1]
+			//remove element from slice
+			b.roots = append(b.roots[:i], b.roots[i+1:]...)
 			return
 		}
 	}
