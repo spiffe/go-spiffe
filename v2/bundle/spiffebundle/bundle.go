@@ -69,6 +69,11 @@ func (b *Bundle) RemoveX509Root(*x509.Certificate) {
 	panic("not implemented")
 }
 
+// HasX509Root checks if the given X.509 root exists in the bundle
+func (b *Bundle) HasX509Root(root *x509.Certificate) bool {
+	panic("not implemented")
+}
+
 // JWTKeys returns the JWT keys in the bundle, keyed by key ID.
 func (b *Bundle) JWTKeys() map[string]crypto.PublicKey {
 	panic("not implemented")
