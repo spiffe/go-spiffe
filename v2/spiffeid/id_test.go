@@ -46,6 +46,12 @@ func TestMust(t *testing.T) {
 			segments:   []string{"pa:th", "elem@ent"},
 			expectedId: "spiffe://domain.test/pa:th/elem@ent",
 		},
+		{
+			name:       "segments_starting_with_slash",
+			td:         "spiffe://domain.test",
+			segments:   []string{"/path", "/element"},
+			expectedId: "spiffe://domain.test/path/element",
+		},
 	}
 
 	for _, test := range tests {
