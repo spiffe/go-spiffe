@@ -2,6 +2,7 @@ package spiffeid
 
 import (
 	"net/url"
+	"path"
 	"strings"
 
 	"github.com/zeebo/errs"
@@ -16,18 +17,16 @@ type ID struct {
 }
 
 // New creates a new ID using the trust domain (e.g. example.org) and path
-// segments. An error is returned if the trust domain is not valid (see
-// TrustDomainFromString).
-// Warning: Percent encoded characters on path segments are
-// not decoded, instead this function will percent encode symbols
-// when the ID is converted to a string.
+// segments. The resulting path after joining the segments is normalized according
+// to the rules of the standard path.Join() function. An error is returned if the
+// trust domain is not valid (see TrustDomainFromString).
 func New(trustDomain string, segments ...string) (ID, error) {
 	td, err := TrustDomainFromString(trustDomain)
 	if err != nil {
 		return ID{}, err
 	}
 
-	path := strings.Join(segments, "/")
+	path := path.Join(segments...)
 	if len(path) > 0 {
 		path = "/" + path
 	}

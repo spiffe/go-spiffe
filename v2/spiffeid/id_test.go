@@ -190,12 +190,6 @@ func TestFromString(t *testing.T) {
 			expectedId: spiffeid.Must("domain.test", "pa@th", "element:"),
 		},
 		{
-			name:       "path_starts_with_double_slash",
-			inputId:    "spiffe://domain.test//path/element",
-			expectedId: spiffeid.Must("domain.test", "", "path", "element"),
-		},
-
-		{
 			name:       "path_has_encoded_subdelims",
 			inputId:    "spiffe://domain.test/p!a$t&h'/(e)l*e+m,e;n=t",
 			expectedId: spiffeid.Must("domain.test", "p!a$t&h'", "(e)l*e+m,e;n=t"),
@@ -219,11 +213,6 @@ func TestFromString(t *testing.T) {
 			name:       "path_has_encoded_gendelim_]",
 			inputId:    "spiffe://domain.test/path/elem]ent",
 			expectedId: spiffeid.Must("domain.test", "path", "elem]ent"),
-		},
-		{
-			name:       "path_is_a_spiffe_id",
-			inputId:    "spiffe://domain.test/spiffe://domain.test/path/element",
-			expectedId: spiffeid.Must("domain.test", "spiffe:", "", "domain.test", "path", "element"),
 		},
 	}
 
@@ -386,15 +375,15 @@ func TestIDPath(t *testing.T) {
 
 	// Couple of empty segment
 	id = spiffeid.Must("domain.test", "", "")
-	assert.Equal(t, "//", id.Path())
+	assert.Equal(t, "", id.Path())
 
 	// First segment empty
 	id = spiffeid.Must("domain.test", "", "path", "element")
-	assert.Equal(t, "//path/element", id.Path())
+	assert.Equal(t, "/path/element", id.Path())
 
 	// Last segment empty
 	id = spiffeid.Must("domain.test", "path", "element", "")
-	assert.Equal(t, "/path/element/", id.Path())
+	assert.Equal(t, "/path/element", id.Path())
 }
 
 func TestIDString(t *testing.T) {
@@ -412,7 +401,7 @@ func TestIDString(t *testing.T) {
 
 	// Couple of empty segment
 	id = spiffeid.Must("domain.test", "", "")
-	assert.Equal(t, "spiffe://domain.test//", id.String())
+	assert.Equal(t, "spiffe://domain.test", id.String())
 
 	// Segment with sub-delims
 	id = spiffeid.Must("domain.test", "!p$a&t'h", "(e)l*e+m,e;n=t")
@@ -421,6 +410,16 @@ func TestIDString(t *testing.T) {
 	// Empty ID
 	id = spiffeid.ID{}
 	assert.Equal(t, "", id.String())
+
+	// Path is a spiffe id
+	id, err := spiffeid.FromString("spiffe://domain.test/spiffe://domain.test/path/element")
+	assert.NoError(t, err)
+	assert.Equal(t, "spiffe://domain.test/spiffe://domain.test/path/element", id.String())
+
+	// Path starts with double slash
+	id, err = spiffeid.FromString("spiffe://domain.test//path/element")
+	assert.NoError(t, err)
+	assert.Equal(t, "spiffe://domain.test//path/element", id.String())
 }
 
 func TestIDURL(t *testing.T) {
