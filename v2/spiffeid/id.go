@@ -1,11 +1,13 @@
 package spiffeid
 
 import (
-	"errors"
-	"fmt"
 	"net/url"
 	"strings"
+
+	"github.com/zeebo/errs"
 )
+
+var idErr = errs.Class("spiffeid")
 
 // ID is a SPIFFE ID
 type ID struct {
@@ -74,7 +76,7 @@ func MustJoin(trustDomain string, segments ...string) string {
 func FromString(s string) (ID, error) {
 	uri, err := url.Parse(s)
 	if err != nil {
-		return ID{}, fmt.Errorf("invalid SPIFFE ID: %v", err)
+		return ID{}, idErr.New("unable to parse: %w", err)
 	}
 
 	return FromURI(uri)
@@ -82,30 +84,30 @@ func FromString(s string) (ID, error) {
 
 // FromURI parses a SPIFFE ID from a URI.
 func FromURI(uri *url.URL) (ID, error) {
-	if uri == nil || *uri == (url.URL{}) {
-		return ID{}, errors.New("invalid SPIFFE ID: SPIFFE ID is empty")
-	}
-
 	// General validation
 	switch {
+	case uri == nil:
+		return ID{}, idErr.New("ID is nil")
+	case *uri == (url.URL{}):
+		return ID{}, idErr.New("ID is empty")
 	case strings.ToLower(uri.Scheme) != "spiffe":
-		return ID{}, errors.New("invalid SPIFFE ID: invalid scheme")
+		return ID{}, idErr.New("invalid scheme")
 	case uri.User != nil:
-		return ID{}, errors.New("invalid SPIFFE ID: user info is not allowed")
+		return ID{}, idErr.New("user info is not allowed")
 	case uri.Host == "":
-		return ID{}, errors.New("invalid SPIFFE ID: trust domain is empty")
+		return ID{}, idErr.New("trust domain is empty")
 	case uri.Port() != "":
-		return ID{}, errors.New("invalid SPIFFE ID: port is not allowed")
+		return ID{}, idErr.New("port is not allowed")
+	case strings.Contains(uri.Host, ":"):
+		return ID{}, idErr.New("colon is not allowed in trust domain")
 	case uri.Fragment != "":
-		return ID{}, errors.New("invalid SPIFFE ID: fragment is not allowed")
+		return ID{}, idErr.New("fragment is not allowed")
 	case uri.RawQuery != "":
-		return ID{}, errors.New("invalid SPIFFE ID: query is not allowed")
+		return ID{}, idErr.New("query is not allowed")
 	}
 
-	uri = normalizeURI(uri)
-
 	return ID{
-		td:   TrustDomain{name: uri.Host},
+		td:   TrustDomain{name: normalizeTrustDomain(uri.Host)},
 		path: uri.EscapedPath(),
 	}, nil
 }
@@ -117,7 +119,7 @@ func (id ID) TrustDomain() TrustDomain {
 
 // MemberOf returns true if the SPIFFE ID is a member of the given trust domain.
 func (id ID) MemberOf(td TrustDomain) bool {
-	return id.td.name == td.name
+	return id.td == td
 }
 
 // Path returns the path of the SPIFFE ID inside the trust domain.
@@ -150,13 +152,9 @@ func (id ID) URL() *url.URL {
 
 // Empty returns true if the SPIFFE ID is empty.
 func (id ID) Empty() bool {
-	return id.td.name == ""
+	return id.td.Empty()
 }
 
-func normalizeURI(uri *url.URL) *url.URL {
-	c := *uri
-	c.Scheme = strings.ToLower(c.Scheme)
-	// SPIFFE ID's can't contain ports so don't bother handling that here.
-	c.Host = strings.ToLower(c.Hostname())
-	return &c
+func normalizeTrustDomain(td string) string {
+	return strings.ToLower(td)
 }
