@@ -333,7 +333,7 @@ func TestFromURI(t *testing.T) {
 	}
 }
 
-func TestTrustDomain(t *testing.T) {
+func TestIDTrustDomain(t *testing.T) {
 	td := spiffeid.RequireTrustDomainFromString("domain.test")
 
 	// Common case
@@ -345,7 +345,7 @@ func TestTrustDomain(t *testing.T) {
 	assert.Equal(t, td, id.TrustDomain())
 }
 
-func TestMemberOf(t *testing.T) {
+func TestIDMemberOf(t *testing.T) {
 	td := spiffeid.RequireTrustDomainFromString("domain.test")
 
 	// Common case
@@ -361,7 +361,7 @@ func TestMemberOf(t *testing.T) {
 	assert.False(t, id.MemberOf(td))
 }
 
-func TestPath(t *testing.T) {
+func TestIDPath(t *testing.T) {
 	// Common case
 	id := spiffeid.Must("domain.test", "path", "element")
 	assert.Equal(t, "/path/element", id.Path())
@@ -387,7 +387,7 @@ func TestPath(t *testing.T) {
 	assert.Equal(t, "/path/element/", id.Path())
 }
 
-func TestString(t *testing.T) {
+func TestIDString(t *testing.T) {
 	// Common case
 	id := spiffeid.Must("domain.test", "path", "element")
 	assert.Equal(t, "spiffe://domain.test/path/element", id.String())
@@ -413,7 +413,7 @@ func TestString(t *testing.T) {
 	assert.Equal(t, "", id.String())
 }
 
-func TestURL(t *testing.T) {
+func TestIDURL(t *testing.T) {
 	asURL := func(td, path string) *url.URL {
 		return &url.URL{
 			Scheme: "spiffe",
@@ -438,6 +438,6 @@ func TestURL(t *testing.T) {
 	assert.Equal(t, &url.URL{}, id.URL())
 }
 
-func TestEmpty(t *testing.T) {
+func TestIDEmpty(t *testing.T) {
 	assert.True(t, spiffeid.ID{}.Empty())
 }
