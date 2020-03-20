@@ -15,7 +15,7 @@ type TrustDomain struct {
 // or a valid SPIFFE ID URI (e.g. spiffe://example.org), otherwise an error is
 // returned.  The trust domain is normalized to lower case.
 func TrustDomainFromString(s string) (TrustDomain, error) {
-	if !strings.HasPrefix(s, "spiffe://") {
+	if !startsWithScheme(s) {
 		s = "spiffe://" + s
 	}
 
@@ -91,4 +91,9 @@ func (td TrustDomain) NewID(path string) ID {
 // Empty returns true if the trust domain value is empty.
 func (td TrustDomain) Empty() bool {
 	return td.name == ""
+}
+
+func startsWithScheme(s string) bool {
+	parts := strings.Split(s, "://")
+	return len(parts) > 1 && !strings.Contains(parts[0], "/")
 }
