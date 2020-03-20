@@ -108,7 +108,7 @@ func FromURI(uri *url.URL) (ID, error) {
 
 	return ID{
 		td:   TrustDomain{name: normalizeTrustDomain(uri.Host)},
-		path: uri.EscapedPath(),
+		path: uri.Path,
 	}, nil
 }
 
