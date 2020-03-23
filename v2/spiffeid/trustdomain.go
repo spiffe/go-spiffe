@@ -84,7 +84,7 @@ func (td TrustDomain) IDString() string {
 func (td TrustDomain) NewID(path string) ID {
 	return ID{
 		td:   td,
-		path: path,
+		path: normalizePath(path),
 	}
 }
 
