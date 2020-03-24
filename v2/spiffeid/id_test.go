@@ -237,11 +237,6 @@ func TestFromString(t *testing.T) {
 }
 
 func TestFromURI(t *testing.T) {
-	parse := func(id string) *url.URL {
-		u, err := url.Parse(id)
-		assert.NoError(t, err)
-		return u
-	}
 	tests := []struct {
 		name          string
 		input         *url.URL
@@ -250,7 +245,7 @@ func TestFromURI(t *testing.T) {
 	}{
 		{
 			name:       "happy_path",
-			input:      parse("spiffe://domain.test/path/element"),
+			input:      parseURI(t, "spiffe://domain.test/path/element"),
 			expectedId: spiffeid.Must("domain.test", "path", "element"),
 		},
 		{
@@ -270,57 +265,57 @@ func TestFromURI(t *testing.T) {
 		},
 		{
 			name:          "invalid_scheme",
-			input:         parse("http://domain.test/path/element"),
+			input:         parseURI(t, "http://domain.test/path/element"),
 			expectedError: "spiffeid: invalid scheme",
 		},
 		{
 			name:       "scheme_mixed_case",
-			input:      parse("SPIFFE://domain.test/path/element"),
+			input:      parseURI(t, "SPIFFE://domain.test/path/element"),
 			expectedId: spiffeid.Must("domain.test", "path", "element"),
 		},
 		{
 			name:          "empty_host",
-			input:         parse("spiffe:///path/element"),
+			input:         parseURI(t, "spiffe:///path/element"),
 			expectedError: "spiffeid: trust domain is empty",
 		},
 		{
 			name:          "empty_port",
-			input:         parse("spiffe://domain.test:/path/element"),
+			input:         parseURI(t, "spiffe://domain.test:/path/element"),
 			expectedError: "spiffeid: colon is not allowed in trust domain",
 		},
 		{
 			name:          "query_not_allowed",
-			input:         parse("spiffe://domain.test/path/element?query=1"),
+			input:         parseURI(t, "spiffe://domain.test/path/element?query=1"),
 			expectedError: "spiffeid: query is not allowed",
 		},
 		{
 			name:          "fragment_not_allowed",
-			input:         parse("spiffe://domain.test/path/element?#fragment-1"),
+			input:         parseURI(t, "spiffe://domain.test/path/element?#fragment-1"),
 			expectedError: "spiffeid: fragment is not allowed",
 		},
 		{
 			name:          "port_not_allowed",
-			input:         parse("spiffe://domain.test:8080/path/element"),
+			input:         parseURI(t, "spiffe://domain.test:8080/path/element"),
 			expectedError: "spiffeid: port is not allowed",
 		},
 		{
 			name:          "user_info_not_allowed",
-			input:         parse("spiffe://user:password@test.org/path/element"),
+			input:         parseURI(t, "spiffe://user:password@test.org/path/element"),
 			expectedError: "spiffeid: user info is not allowed",
 		},
 		{
 			name:       "empty_path",
-			input:      parse("spiffe://domain.test"),
+			input:      parseURI(t, "spiffe://domain.test"),
 			expectedId: spiffeid.Must("domain.test"),
 		},
 		{
 			name:          "missing_double_slash_1",
-			input:         parse("spiffe:path/element"),
+			input:         parseURI(t, "spiffe:path/element"),
 			expectedError: "spiffeid: trust domain is empty",
 		},
 		{
 			name:          "missing_double_slash_2",
-			input:         parse("spiffe:/path/element"),
+			input:         parseURI(t, "spiffe:/path/element"),
 			expectedError: "spiffeid: trust domain is empty",
 		},
 	}
@@ -455,4 +450,10 @@ func TestIDURL(t *testing.T) {
 
 func TestIDEmpty(t *testing.T) {
 	assert.True(t, spiffeid.ID{}.Empty())
+}
+
+func parseURI(t *testing.T, id string) *url.URL {
+	u, err := url.Parse(id)
+	assert.NoError(t, err)
+	return u
 }

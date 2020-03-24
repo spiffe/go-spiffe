@@ -26,14 +26,9 @@ func New(trustDomain string, segments ...string) (ID, error) {
 		return ID{}, err
 	}
 
-	path := path.Join(segments...)
-	if len(path) > 0 && path[0] != '/' {
-		path = "/" + path
-	}
-
 	return ID{
 		td:   td,
-		path: path,
+		path: normalizePath(path.Join(segments...)),
 	}, nil
 }
 
@@ -156,4 +151,12 @@ func (id ID) Empty() bool {
 
 func normalizeTrustDomain(td string) string {
 	return strings.ToLower(td)
+}
+
+func normalizePath(path string) string {
+	if len(path) > 0 && path[0] != '/' {
+		return "/" + path
+	}
+
+	return path
 }
