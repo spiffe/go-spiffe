@@ -1,7 +1,6 @@
 package spiffeid_test
 
 import (
-	"fmt"
 	"net/url"
 	"testing"
 
@@ -79,12 +78,9 @@ func TestTrustDomainFromString(t *testing.T) {
 
 func TestRequireTrustDomainFromString(t *testing.T) {
 	// Just test the panic, the non panicing cases are already handled by TestTrustDomainFromString.
-	defer func() {
-		if p := recover(); p != nil {
-			assert.Equal(t, "spiffeid: colon is not allowed in trust domain", fmt.Sprintf("%v", p))
-		}
-	}()
-	spiffeid.RequireTrustDomainFromString("spiffe://domain.test:")
+	assert.PanicsWithError(t, "spiffeid: colon is not allowed in trust domain", func() {
+		spiffeid.RequireTrustDomainFromString("spiffe://domain.test:")
+	})
 }
 
 func TestTrustDomainFromURI(t *testing.T) {
@@ -157,12 +153,9 @@ func TestTrustDomainFromURI(t *testing.T) {
 
 func TestRequireTrustDomainFromURI(t *testing.T) {
 	// Just test the panic, the non panicing cases are already handled by TestTrustDomainFromURI.
-	defer func() {
-		if p := recover(); p != nil {
-			assert.Equal(t, "spiffeid: colon is not allowed in trust domain", fmt.Sprintf("%v", p))
-		}
-	}()
-	spiffeid.RequireTrustDomainFromURI(parseURI(t, "spiffe://domain.test:"))
+	assert.PanicsWithError(t, "spiffeid: colon is not allowed in trust domain", func() {
+		spiffeid.RequireTrustDomainFromURI(parseURI(t, "spiffe://domain.test:"))
+	})
 }
 
 func TestTrustDomainID(t *testing.T) {
