@@ -21,9 +21,9 @@ func AuthorizeID(allowed spiffeid.ID) Authorizer {
 	return AdaptMatcher(spiffeid.MatchID(allowed))
 }
 
-// AuthorizeIDs allows any SPIFFE ID in the given list of IDs.
-func AuthorizeIDs(allowed ...spiffeid.ID) Authorizer {
-	return AdaptMatcher(spiffeid.MatchIDs(allowed...))
+// AuthorizeOneOf allows any SPIFFE ID in the given list of IDs.
+func AuthorizeOneOf(allowed ...spiffeid.ID) Authorizer {
+	return AdaptMatcher(spiffeid.MatchOneOf(allowed...))
 }
 
 // AuthorizeMemberOf allows any SPIFFE ID in the given trust domain.
