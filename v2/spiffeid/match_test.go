@@ -46,8 +46,8 @@ func TestMatchID_AgainstIDWithoutPath(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestMatchIDs_OnAListOfIDs(t *testing.T) {
-	matcher := spiffeid.MatchIDs(
+func TestMatchOneOf_OnAListOfIDs(t *testing.T) {
+	matcher := spiffeid.MatchOneOf(
 		spiffeid.Must("domain.test"),
 		spiffeid.Must("domain.test", "path"),
 		spiffeid.Must("domain.test", "path", "element"),
@@ -60,8 +60,8 @@ func TestMatchIDs_OnAListOfIDs(t *testing.T) {
 	assert.EqualError(t, matcher(spiffeid.Must("domain.test", "element")), "unexpected ID \"spiffe://domain.test/element\"")
 }
 
-func TestMatchIDs_OnAnEmptyListOfIDs(t *testing.T) {
-	matcher := spiffeid.MatchIDs()
+func TestMatchOneOf_OnAnEmptyListOfIDs(t *testing.T) {
+	matcher := spiffeid.MatchOneOf()
 	assert.EqualError(t, matcher(spiffeid.Must("domain.test")), "unexpected ID \"spiffe://domain.test\"")
 	assert.EqualError(t, matcher(spiffeid.ID{}), "unexpected ID \"\"")
 }
