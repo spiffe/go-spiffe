@@ -81,12 +81,12 @@ func TestParse(t *testing.T) {
 		{
 			name:           "Parse non-PEM bytes should fail",
 			path:           "testdata/not-pem.pem",
-			expErrContains: "x509bundle: no PEM data found while decoding block",
+			expErrContains: "x509bundle: cannot parse certificate: no PEM data found while decoding block",
 		},
 		{
 			name:           "Parse should fail if block is not a certificate",
 			path:           "testdata/key.pem",
-			expErrContains: `x509bundle: block does not contain "CERTIFICATE" type, current type is: "PRIVATE KEY"`,
+			expErrContains: `x509bundle: cannot parse certificate: block does not contain expected type, expected "CERTIFICATE" but found "PRIVATE KEY"`,
 		},
 		{
 			name:           "Parse a corrupted certificate should fail",
