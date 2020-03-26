@@ -70,7 +70,7 @@ var (
 	}
 )
 
-func TestLoad_Succeds(t *testing.T) {
+func TestLoad_Succeeds(t *testing.T) {
 	svid, err := x509svid.Load("testdata/certificate-1.pem", "testdata/key-1.pem")
 	require.NoError(t, err)
 	require.NotNil(t, svid)

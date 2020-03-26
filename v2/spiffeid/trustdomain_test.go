@@ -6,6 +6,7 @@ import (
 
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestTrustDomainFromString(t *testing.T) {
@@ -48,7 +49,7 @@ func TestTrustDomainFromString(t *testing.T) {
 		{
 			name:          "missing_scheme",
 			input:         "://domain.test",
-			expectedError: "spiffeid: unable to parse: parse \"://domain.test\": missing protocol scheme",
+			expectedError: "missing protocol scheme",
 		},
 		{
 			name:          "has_port",
@@ -63,14 +64,17 @@ func TestTrustDomainFromString(t *testing.T) {
 	}
 
 	for _, test := range tests {
+		test := test
 		t.Run(test.name, func(t *testing.T) {
 			td, err := spiffeid.TrustDomainFromString(test.input)
-			if test.expectedError == "" {
-				assert.NoError(t, err)
-			} else {
-				assert.EqualError(t, err, test.expectedError)
+			if test.expectedError != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), test.expectedError)
+				assert.Empty(t, td)
+				return
 			}
 
+			assert.NoError(t, err)
 			assert.Equal(t, test.expectedTd, td.String())
 		})
 	}
@@ -138,6 +142,7 @@ func TestTrustDomainFromURI(t *testing.T) {
 	}
 
 	for _, test := range tests {
+		test := test
 		t.Run(test.name, func(t *testing.T) {
 			td, err := spiffeid.TrustDomainFromURI(test.input)
 			if test.expectedError == "" {

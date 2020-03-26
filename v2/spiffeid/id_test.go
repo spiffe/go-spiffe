@@ -7,6 +7,7 @@ import (
 
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestMust(t *testing.T) {
@@ -14,25 +15,25 @@ func TestMust(t *testing.T) {
 		name          string
 		td            string
 		segments      []string
-		expectedId    string
+		expectedID    string
 		expectedPanic string
 	}{
 		{
 			name:       "happy_path",
 			td:         "domain.test",
 			segments:   []string{"path", "element"},
-			expectedId: "spiffe://domain.test/path/element",
+			expectedID: "spiffe://domain.test/path/element",
 		},
 		{
 			name:       "empty_segments",
 			td:         "domain.test",
-			expectedId: "spiffe://domain.test",
+			expectedID: "spiffe://domain.test",
 		},
 		{
 			name:       "trust_domain_with_scheme",
 			td:         "spiffe://domain.test",
 			segments:   []string{"path", "element"},
-			expectedId: "spiffe://domain.test/path/element",
+			expectedID: "spiffe://domain.test/path/element",
 		},
 		{
 			name:          "trust_domain_empty",
@@ -44,17 +45,18 @@ func TestMust(t *testing.T) {
 			name:       "path_with_colon_and_@",
 			td:         "spiffe://domain.test",
 			segments:   []string{"pa:th", "elem@ent"},
-			expectedId: "spiffe://domain.test/pa:th/elem@ent",
+			expectedID: "spiffe://domain.test/pa:th/elem@ent",
 		},
 		{
 			name:       "segments_starting_with_slash",
 			td:         "spiffe://domain.test",
 			segments:   []string{"/path", "/element"},
-			expectedId: "spiffe://domain.test/path/element",
+			expectedID: "spiffe://domain.test/path/element",
 		},
 	}
 
 	for _, test := range tests {
+		test := test
 		t.Run(test.name, func(t *testing.T) {
 			defer func() {
 				if p := recover(); p != nil {
@@ -62,7 +64,7 @@ func TestMust(t *testing.T) {
 				}
 			}()
 			id := spiffeid.Must(test.td, test.segments...)
-			assert.Equal(t, test.expectedId, id.String())
+			assert.Equal(t, test.expectedID, id.String())
 		})
 	}
 }
@@ -72,25 +74,25 @@ func TestMustJoin(t *testing.T) {
 		name          string
 		td            string
 		segments      []string
-		expectedId    string
+		expectedID    string
 		expectedPanic string
 	}{
 		{
 			name:       "happy_path",
 			td:         "domain.test",
 			segments:   []string{"path", "element"},
-			expectedId: "spiffe://domain.test/path/element",
+			expectedID: "spiffe://domain.test/path/element",
 		},
 		{
 			name:       "empty_segments",
 			td:         "domain.test",
-			expectedId: "spiffe://domain.test",
+			expectedID: "spiffe://domain.test",
 		},
 		{
 			name:       "trust_domain_with_scheme",
 			td:         "spiffe://domain.test",
 			segments:   []string{"path", "element"},
-			expectedId: "spiffe://domain.test/path/element",
+			expectedID: "spiffe://domain.test/path/element",
 		},
 		{
 			name:          "trust_domain_empty",
@@ -101,6 +103,7 @@ func TestMustJoin(t *testing.T) {
 	}
 
 	for _, test := range tests {
+		test := test
 		t.Run(test.name, func(t *testing.T) {
 			defer func() {
 				if p := recover(); p != nil {
@@ -108,7 +111,7 @@ func TestMustJoin(t *testing.T) {
 				}
 			}()
 			idstr := spiffeid.MustJoin(test.td, test.segments...)
-			assert.Equal(t, test.expectedId, idstr)
+			assert.Equal(t, test.expectedID, idstr)
 		})
 	}
 }
@@ -116,122 +119,125 @@ func TestMustJoin(t *testing.T) {
 func TestFromString(t *testing.T) {
 	tests := []struct {
 		name          string
-		inputId       string
-		expectedId    spiffeid.ID
+		inputID       string
+		expectedID    spiffeid.ID
 		expectedError string
 	}{
 		{
 			name:       "happy_path",
-			inputId:    "spiffe://domain.test/path/element",
-			expectedId: spiffeid.Must("domain.test", "path", "element"),
+			inputID:    "spiffe://domain.test/path/element",
+			expectedID: spiffeid.Must("domain.test", "path", "element"),
 		},
 		{
 			name:          "empty_input_string",
-			inputId:       "",
+			inputID:       "",
 			expectedError: "spiffeid: ID is empty",
 		},
 		{
 			name:          "invalid_uri",
-			inputId:       "192.168.2.2:6688",
-			expectedError: "spiffeid: unable to parse: parse \"192.168.2.2:6688\": first path segment in URL cannot contain colon",
+			inputID:       "192.168.2.2:6688",
+			expectedError: "first path segment in URL cannot contain colon",
 		},
 		{
 			name:          "invalid_scheme",
-			inputId:       "http://domain.test/path/element",
+			inputID:       "http://domain.test/path/element",
 			expectedError: "spiffeid: invalid scheme",
 		},
 		{
 			name:       "scheme_mixed_case",
-			inputId:    "SPIFFE://domain.test/path/element",
-			expectedId: spiffeid.Must("domain.test", "path", "element"),
+			inputID:    "SPIFFE://domain.test/path/element",
+			expectedID: spiffeid.Must("domain.test", "path", "element"),
 		},
 		{
 			name:          "empty_host",
-			inputId:       "spiffe:///path/element",
+			inputID:       "spiffe:///path/element",
 			expectedError: "spiffeid: trust domain is empty",
 		},
 		{
 			name:          "query_not_allowed",
-			inputId:       "spiffe://domain.test/path/element?query=1",
+			inputID:       "spiffe://domain.test/path/element?query=1",
 			expectedError: "spiffeid: query is not allowed",
 		},
 		{
 			name:          "fragment_not_allowed",
-			inputId:       "spiffe://domain.test/path/element?#fragment-1",
+			inputID:       "spiffe://domain.test/path/element?#fragment-1",
 			expectedError: "spiffeid: fragment is not allowed",
 		},
 		{
 			name:          "port_not_allowed",
-			inputId:       "spiffe://domain.test:8080/path/element",
+			inputID:       "spiffe://domain.test:8080/path/element",
 			expectedError: "spiffeid: port is not allowed",
 		},
 		{
 			name:          "user_info_not_allowed",
-			inputId:       "spiffe://user:password@test.org/path/element",
+			inputID:       "spiffe://user:password@test.org/path/element",
 			expectedError: "spiffeid: user info is not allowed",
 		},
 		{
 			name:       "empty_path",
-			inputId:    "spiffe://domain.test",
-			expectedId: spiffeid.Must("domain.test"),
+			inputID:    "spiffe://domain.test",
+			expectedID: spiffeid.Must("domain.test"),
 		},
 		{
 			name:          "missing_double_slash_1",
-			inputId:       "spiffe:path/element",
+			inputID:       "spiffe:path/element",
 			expectedError: "spiffeid: trust domain is empty",
 		},
 		{
 			name:          "missing_double_slash_2",
-			inputId:       "spiffe:/path/element",
+			inputID:       "spiffe:/path/element",
 			expectedError: "spiffeid: trust domain is empty",
 		},
 		{
 			name:       "path_with_colons",
-			inputId:    "spiffe://domain.test/pa:th/element:",
-			expectedId: spiffeid.Must("domain.test", "pa:th", "element:"),
+			inputID:    "spiffe://domain.test/pa:th/element:",
+			expectedID: spiffeid.Must("domain.test", "pa:th", "element:"),
 		},
 		{
 			name:       "path_with_@",
-			inputId:    "spiffe://domain.test/pa@th/element:",
-			expectedId: spiffeid.Must("domain.test", "pa@th", "element:"),
+			inputID:    "spiffe://domain.test/pa@th/element:",
+			expectedID: spiffeid.Must("domain.test", "pa@th", "element:"),
 		},
 		{
 			name:       "path_has_encoded_subdelims",
-			inputId:    "spiffe://domain.test/p!a$t&h'/(e)l*e+m,e;n=t",
-			expectedId: spiffeid.Must("domain.test", "p!a$t&h'", "(e)l*e+m,e;n=t"),
+			inputID:    "spiffe://domain.test/p!a$t&h'/(e)l*e+m,e;n=t",
+			expectedID: spiffeid.Must("domain.test", "p!a$t&h'", "(e)l*e+m,e;n=t"),
 		},
 		{
 			name:          "path_has_invalid_percent_encoded_char",
-			inputId:       "spiffe://domain.test/path/elem%5uent",
-			expectedError: "spiffeid: unable to parse: parse \"spiffe://domain.test/path/elem%5uent\": invalid URL escape \"%5u\"",
+			inputID:       "spiffe://domain.test/path/elem%5uent",
+			expectedError: "invalid URL escape \"%5u\"",
 		},
 		{
 			name:          "path_has_invalid_percent_encoded_char_at_end_of_path",
-			inputId:       "spiffe://domain.test/path/element%5",
-			expectedError: "spiffeid: unable to parse: parse \"spiffe://domain.test/path/element%5\": invalid URL escape \"%5\"",
+			inputID:       "spiffe://domain.test/path/element%5",
+			expectedError: "invalid URL escape \"%5\"",
 		},
 		{
 			name:       "path_has_encoded_gendelim_[",
-			inputId:    "spiffe://domain.test/path/elem[ent",
-			expectedId: spiffeid.Must("domain.test", "path", "elem[ent"),
+			inputID:    "spiffe://domain.test/path/elem[ent",
+			expectedID: spiffeid.Must("domain.test", "path", "elem[ent"),
 		},
 		{
 			name:       "path_has_encoded_gendelim_]",
-			inputId:    "spiffe://domain.test/path/elem]ent",
-			expectedId: spiffeid.Must("domain.test", "path", "elem]ent"),
+			inputID:    "spiffe://domain.test/path/elem]ent",
+			expectedID: spiffeid.Must("domain.test", "path", "elem]ent"),
 		},
 	}
 
 	for _, test := range tests {
+		test := test
 		t.Run(test.name, func(t *testing.T) {
-			id, err := spiffeid.FromString(test.inputId)
-			if test.expectedError == "" {
-				assert.NoError(t, err)
-			} else {
-				assert.EqualError(t, err, test.expectedError)
+			id, err := spiffeid.FromString(test.inputID)
+			if test.expectedError != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), test.expectedError)
+				assert.Empty(t, id)
+				return
 			}
 
-			assert.Equal(t, test.expectedId, id)
+			assert.NoError(t, err)
+			assert.Equal(t, test.expectedID, id)
 		})
 	}
 }
@@ -240,13 +246,13 @@ func TestFromURI(t *testing.T) {
 	tests := []struct {
 		name          string
 		input         *url.URL
-		expectedId    spiffeid.ID
+		expectedID    spiffeid.ID
 		expectedError string
 	}{
 		{
 			name:       "happy_path",
 			input:      parseURI(t, "spiffe://domain.test/path/element"),
-			expectedId: spiffeid.Must("domain.test", "path", "element"),
+			expectedID: spiffeid.Must("domain.test", "path", "element"),
 		},
 		{
 			name:          "nil_uri",
@@ -271,7 +277,7 @@ func TestFromURI(t *testing.T) {
 		{
 			name:       "scheme_mixed_case",
 			input:      parseURI(t, "SPIFFE://domain.test/path/element"),
-			expectedId: spiffeid.Must("domain.test", "path", "element"),
+			expectedID: spiffeid.Must("domain.test", "path", "element"),
 		},
 		{
 			name:          "empty_host",
@@ -306,7 +312,7 @@ func TestFromURI(t *testing.T) {
 		{
 			name:       "empty_path",
 			input:      parseURI(t, "spiffe://domain.test"),
-			expectedId: spiffeid.Must("domain.test"),
+			expectedID: spiffeid.Must("domain.test"),
 		},
 		{
 			name:          "missing_double_slash_1",
@@ -321,14 +327,16 @@ func TestFromURI(t *testing.T) {
 	}
 
 	for _, test := range tests {
+		test := test
 		t.Run(test.name, func(t *testing.T) {
 			id, err := spiffeid.FromURI(test.input)
-			if test.expectedError == "" {
-				assert.NoError(t, err)
-			} else {
+			if test.expectedError != "" {
 				assert.EqualError(t, err, test.expectedError)
+				assert.Empty(t, id)
+				return
 			}
-			assert.Equal(t, test.expectedId, id)
+			assert.NoError(t, err)
+			assert.Equal(t, test.expectedID, id)
 		})
 	}
 }
