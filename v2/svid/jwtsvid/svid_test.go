@@ -247,7 +247,7 @@ func TestParseAndValidate(t *testing.T) {
 			// Parse and validate
 			svid, err := jwtsvid.ParseAndValidate(token, testCase.bundle, testCase.audience)
 
-			// verify returned error, in case it is expected
+			// Verify returned error, in case it is expected
 			if testCase.err != "" {
 				require.EqualError(t, err, testCase.err)
 				return
@@ -459,11 +459,11 @@ func parseToken(t testing.TB, token string) map[string]interface{} {
 
 // Generate generates a signed string token
 func generateToken(tb testing.TB, claims jwt.Claims, signer crypto.Signer, keyID string) string {
-	// get signer algorithm
+	// Get signer algorithm
 	alg, err := getSignerAlgorithm(signer)
 	require.NoError(tb, err)
 
-	// create signer using crypto.Signer and its algorithm along with provided key ID
+	// Create signer using crypto.Signer and its algorithm along with provided key ID
 	jwtSigner, err := jose.NewSigner(
 		jose.SigningKey{
 			Algorithm: alg,
@@ -476,7 +476,7 @@ func generateToken(tb testing.TB, claims jwt.Claims, signer crypto.Signer, keyID
 	)
 	require.NoError(tb, err)
 
-	// sign and serialize token
+	// Sign and serialize token
 	token, err := jwt.Signed(jwtSigner).Claims(claims).CompactSerialize()
 	require.NoError(tb, err)
 

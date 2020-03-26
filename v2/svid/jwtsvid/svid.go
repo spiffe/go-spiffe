@@ -15,7 +15,7 @@ var (
 	jwtsvidErr = errs.Class("jwtsvid")
 )
 
-// // tokenValidator validates the token and returns the claims
+// tokenValidator validates the token and returns the claims
 type tokenValidator = func(*jwt.JSONWebToken, spiffeid.TrustDomain) (map[string]interface{}, error)
 
 // SVID represents a JWT-SVID.
@@ -28,6 +28,7 @@ type SVID struct {
 	Expiry time.Time
 	// Claims is the parsed claims from token
 	Claims map[string]interface{}
+
 	// token is the serialized JWT token
 	token string
 }
