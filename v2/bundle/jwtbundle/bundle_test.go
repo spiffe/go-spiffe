@@ -195,6 +195,7 @@ func TestJWTKeysCRUD(t *testing.T) {
 
 	key, ok = b.FindJWTKey("key-3")
 	require.False(t, ok)
+	require.Nil(t, key)
 
 	require.Equal(t, true, b.HasJWTKey("key-1"))
 	b.RemoveJWTKey("key-3")

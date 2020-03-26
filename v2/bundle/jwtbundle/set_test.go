@@ -11,7 +11,6 @@ import (
 var (
 	b1  = jwtbundle.New(td)
 	td2 = spiffeid.RequireTrustDomainFromString("example-2.org")
-	b2  = jwtbundle.New(td2)
 )
 
 func TestNewSet(t *testing.T) {

@@ -6,4 +6,4 @@ jobs:
       - image: circleci/golang:1.13
     steps:
       - checkout
-      - run: make test
+      - run: make lint test
