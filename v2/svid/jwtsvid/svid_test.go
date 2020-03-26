@@ -22,26 +22,23 @@ import (
 const hs256Token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG" +
 	"4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
 
+var (
+	key1, _ = ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
+	key2, _ = rsa.GenerateKey(rand.Reader, 2048)
+)
+
 func TestParseAndValidate(t *testing.T) {
 	// Create numeric dates
 	issuedAt := jwt.NewNumericDate(time.Now())
 	expiresTime := time.Now().Add(time.Minute)
 	expires := jwt.NewNumericDate(expiresTime)
 
-	// Create keys
-	key, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
-	require.NoError(t, err)
-
-	key2, err := rsa.GenerateKey(rand.Reader, 2048)
-	require.NoError(t, err)
-
 	// Create trust domain
-	trustDomain1, err := spiffeid.TrustDomainFromString("test.domain")
-	require.NoError(t, err)
+	trustDomain1 := spiffeid.RequireTrustDomainFromString("test.domain")
 
 	// Create a bundle and add keys
 	bundle1 := jwtbundle.New(trustDomain1)
-	err = bundle1.AddJWTKey("key1", key.Public())
+	err := bundle1.AddJWTKey("key1", key1.Public())
 	require.NoError(t, err)
 	err = bundle1.AddJWTKey("key2", key2.Public())
 	require.NoError(t, err)
@@ -66,7 +63,7 @@ func TestParseAndValidate(t *testing.T) {
 					IssuedAt: issuedAt,
 				}
 
-				return generateToken(tb, claims, key, "key1")
+				return generateToken(tb, claims, key1, "key1")
 			},
 			svid: &jwtsvid.SVID{
 				ID:       trustDomain1.NewID("/host"),
@@ -75,7 +72,7 @@ func TestParseAndValidate(t *testing.T) {
 			},
 		},
 		{
-			name:   "invalid token",
+			name:   "malformed",
 			bundle: bundle1,
 			generateToken: func(tb testing.TB) string {
 				return "invalid token"
@@ -91,7 +88,7 @@ func TestParseAndValidate(t *testing.T) {
 			err: `jwtsvid: unsupported token signature algorithm "HS256"`,
 		},
 		{
-			name:   "subject not provided",
+			name:   "missing subject",
 			bundle: bundle1,
 			generateToken: func(tb testing.TB) string {
 				claims := jwt.Claims{
@@ -101,12 +98,12 @@ func TestParseAndValidate(t *testing.T) {
 					IssuedAt: issuedAt,
 				}
 
-				return generateToken(tb, claims, key, "key1")
+				return generateToken(tb, claims, key1, "key1")
 			},
 			err: "jwtsvid: token missing subject claim",
 		},
 		{
-			name:   "token has not exp claim",
+			name:   "missing expiration claim",
 			bundle: bundle1,
 			generateToken: func(tb testing.TB) string {
 				claims := jwt.Claims{
@@ -116,12 +113,12 @@ func TestParseAndValidate(t *testing.T) {
 					IssuedAt: issuedAt,
 				}
 
-				return generateToken(tb, claims, key, "key1")
+				return generateToken(tb, claims, key1, "key1")
 			},
 			err: "jwtsvid: token missing exp claim",
 		},
 		{
-			name:     "token expired",
+			name:     "expired",
 			bundle:   bundle1,
 			audience: []string{"audience"},
 			generateToken: func(tb testing.TB) string {
@@ -133,12 +130,12 @@ func TestParseAndValidate(t *testing.T) {
 					IssuedAt: issuedAt,
 				}
 
-				return generateToken(tb, claims, key, "key1")
+				return generateToken(tb, claims, key1, "key1")
 			},
 			err: "jwtsvid: token has expired",
 		},
 		{
-			name:     "token audience validation",
+			name:     "unexpected audience",
 			bundle:   bundle1,
 			audience: []string{"another"},
 			generateToken: func(tb testing.TB) string {
@@ -150,12 +147,12 @@ func TestParseAndValidate(t *testing.T) {
 					IssuedAt: issuedAt,
 				}
 
-				return generateToken(tb, claims, key, "key1")
+				return generateToken(tb, claims, key1, "key1")
 			},
 			err: `jwtsvid: expected audience in ["another"] (audience=["audience"])`,
 		},
 		{
-			name:     "token invalid subjected",
+			name:     "invalid subject claim",
 			bundle:   bundle1,
 			audience: []string{"audience"},
 			generateToken: func(tb testing.TB) string {
@@ -167,7 +164,7 @@ func TestParseAndValidate(t *testing.T) {
 					IssuedAt: issuedAt,
 				}
 
-				return generateToken(tb, claims, key, "key1")
+				return generateToken(tb, claims, key1, "key1")
 			},
 			err: "jwtsvid: token has in invalid subject claim: spiffeid: invalid scheme",
 		},
@@ -184,7 +181,7 @@ func TestParseAndValidate(t *testing.T) {
 					IssuedAt: issuedAt,
 				}
 
-				return generateToken(tb, claims, key, "")
+				return generateToken(tb, claims, key1, "")
 			},
 			err: "jwtsvid: token header missing key id",
 		},
@@ -201,7 +198,7 @@ func TestParseAndValidate(t *testing.T) {
 					IssuedAt: issuedAt,
 				}
 
-				return generateToken(tb, claims, key, "noKey")
+				return generateToken(tb, claims, key1, "noKey")
 			},
 			err: `jwtsvid: no bundle found for trust domain "another.domain"`,
 		},
@@ -218,12 +215,12 @@ func TestParseAndValidate(t *testing.T) {
 					IssuedAt: issuedAt,
 				}
 
-				return generateToken(tb, claims, key, "noKey")
+				return generateToken(tb, claims, key1, "noKey")
 			},
 			err: `jwtsvid: no key "noKey" found for trust domain "test.domain"`,
 		},
 		{
-			name:     "token signed by another bundle",
+			name:     "mismatched key",
 			bundle:   bundle1,
 			audience: []string{"audience"},
 			generateToken: func(tb testing.TB) string {
@@ -274,13 +271,8 @@ func TestParseInsecure(t *testing.T) {
 	expiresTime := time.Now().Add(time.Minute)
 	expires := jwt.NewNumericDate(expiresTime)
 
-	// Create keys
-	key, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
-	require.NoError(t, err)
-
 	// Create trust domain
-	trustDomain1, err := spiffeid.TrustDomainFromString("test.domain")
-	require.NoError(t, err)
+	trustDomain1 := spiffeid.RequireTrustDomainFromString("test.domain")
 
 	testCases := []struct {
 		name          string
@@ -300,7 +292,7 @@ func TestParseInsecure(t *testing.T) {
 					IssuedAt: issuedAt,
 				}
 
-				return generateToken(tb, claims, key, "key1")
+				return generateToken(tb, claims, key1, "key1")
 			},
 			svid: &jwtsvid.SVID{
 				ID:       trustDomain1.NewID("/host"),
@@ -309,7 +301,7 @@ func TestParseInsecure(t *testing.T) {
 			},
 		},
 		{
-			name: "invalid token",
+			name: "malformed",
 			generateToken: func(tb testing.TB) string {
 				return "invalid token"
 			},
@@ -323,7 +315,7 @@ func TestParseInsecure(t *testing.T) {
 			err: `jwtsvid: unsupported token signature algorithm "HS256"`,
 		},
 		{
-			name: "no subject claim",
+			name: "missing subject claim",
 			generateToken: func(tb testing.TB) string {
 				claims := jwt.Claims{
 					Issuer:   "issuer",
@@ -332,12 +324,12 @@ func TestParseInsecure(t *testing.T) {
 					IssuedAt: issuedAt,
 				}
 
-				return generateToken(tb, claims, key, "key1")
+				return generateToken(tb, claims, key1, "key1")
 			},
 			err: "jwtsvid: token missing subject claim",
 		},
 		{
-			name: "token has not exp claim",
+			name: "missing expiration claim",
 			generateToken: func(tb testing.TB) string {
 				claims := jwt.Claims{
 					Subject:  trustDomain1.NewID("host").String(),
@@ -346,12 +338,12 @@ func TestParseInsecure(t *testing.T) {
 					IssuedAt: issuedAt,
 				}
 
-				return generateToken(tb, claims, key, "key1")
+				return generateToken(tb, claims, key1, "key1")
 			},
 			err: "jwtsvid: token missing exp claim",
 		},
 		{
-			name:     "token expired",
+			name:     "expired",
 			audience: []string{"audience"},
 			generateToken: func(tb testing.TB) string {
 				claims := jwt.Claims{
@@ -362,12 +354,12 @@ func TestParseInsecure(t *testing.T) {
 					IssuedAt: issuedAt,
 				}
 
-				return generateToken(tb, claims, key, "key1")
+				return generateToken(tb, claims, key1, "key1")
 			},
 			err: "jwtsvid: token has expired",
 		},
 		{
-			name:     "token audience validation",
+			name:     "unexpected audience",
 			audience: []string{"another"},
 			generateToken: func(tb testing.TB) string {
 				claims := jwt.Claims{
@@ -378,12 +370,12 @@ func TestParseInsecure(t *testing.T) {
 					IssuedAt: issuedAt,
 				}
 
-				return generateToken(tb, claims, key, "key1")
+				return generateToken(tb, claims, key1, "key1")
 			},
 			err: `jwtsvid: expected audience in ["another"] (audience=["audience"])`,
 		},
 		{
-			name:     "token invalid subjected",
+			name:     "invalid subject claim",
 			audience: []string{"audience"},
 			generateToken: func(tb testing.TB) string {
 				claims := jwt.Claims{
@@ -394,7 +386,7 @@ func TestParseInsecure(t *testing.T) {
 					IssuedAt: issuedAt,
 				}
 
-				return generateToken(tb, claims, key, "key1")
+				return generateToken(tb, claims, key1, "key1")
 			},
 			err: `jwtsvid: token has in invalid subject claim: spiffeid: invalid scheme`,
 		},
@@ -428,13 +420,8 @@ func TestParseInsecure(t *testing.T) {
 }
 
 func TestMarshal(t *testing.T) {
-	// Create Key
-	key, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
-	require.NoError(t, err)
-
 	// Generate trust domain
-	trustDomain1, err := spiffeid.TrustDomainFromString("test.domain")
-	require.NoError(t, err)
+	trustDomain1 := spiffeid.RequireTrustDomainFromString("test.domain")
 
 	// Generate Token
 	claims := jwt.Claims{
@@ -444,9 +431,9 @@ func TestMarshal(t *testing.T) {
 		Audience: []string{"audience"},
 		IssuedAt: jwt.NewNumericDate(time.Now().Add(time.Minute)),
 	}
-	token := generateToken(t, claims, key, "key1")
+	token := generateToken(t, claims, key1, "key1")
 
-	// Crete SVID
+	// Create SVID
 	svid, err := jwtsvid.ParseInsecure(token, []string{"audience"})
 	require.NoError(t, err)
 	// Validate token is returned
@@ -489,7 +476,7 @@ func generateToken(tb testing.TB, claims jwt.Claims, signer crypto.Signer, keyID
 	)
 	require.NoError(tb, err)
 
-	/// sign claim and  serializes it
+	// sign and serialize token
 	token, err := jwt.Signed(jwtSigner).Claims(claims).CompactSerialize()
 	require.NoError(tb, err)
 

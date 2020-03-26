@@ -15,12 +15,12 @@ var (
 	jwtsvidErr = errs.Class("jwtsvid")
 )
 
-// getClaimsMap gets claims from JSONWebToken, applying necessary validations before parsing
-type getClaimsMap = func(*jwt.JSONWebToken, spiffeid.TrustDomain) (map[string]interface{}, error)
+// // tokenValidator validates the token and returns the claims
+type tokenValidator = func(*jwt.JSONWebToken, spiffeid.TrustDomain) (map[string]interface{}, error)
 
 // SVID represents a JWT-SVID.
 type SVID struct {
-	// SPIFFE ID of JWT-SVID present on 'sub' claim
+	// ID is the SPIFFE ID of the JWT-SVID as present in the 'sub' claim
 	ID spiffeid.ID
 	// Intended recipients of JWT-SVID present on 'aud' claim
 	Audience []string
@@ -48,13 +48,13 @@ func ParseAndValidate(token string, bundles jwtbundle.Source, audience []string)
 			return nil, jwtsvidErr.New("no bundle found for trust domain %q", trustDomain)
 		}
 
-		// Find JWT key for key present on token header
+		// Find JWT key using the key ID from the token header
 		key, ok := bundle.FindJWTKey(keyID)
 		if !ok {
 			return nil, jwtsvidErr.New("no key %q found for trust domain %q", keyID, trustDomain)
 		}
 
-		// Obtain the generic claims map verified using the obtained key
+		// Obtain and verify the token claims using the obtained key
 		claimsMap := make(map[string]interface{})
 		if err := tok.Claims(key, &claimsMap); err != nil {
 			return nil, jwtsvidErr.New("unable to get claims from token: %v", err)
@@ -68,7 +68,7 @@ func ParseAndValidate(token string, bundles jwtbundle.Source, audience []string)
 // JWT-SVID. The JWT-SVID signature is not verified.
 func ParseInsecure(token string, audience []string) (*SVID, error) {
 	return parse(token, audience, func(tok *jwt.JSONWebToken, td spiffeid.TrustDomain) (map[string]interface{}, error) {
-		// Obtain the generic claims map with unsafe claims
+		// Obtain the token claims insecurely, i.e. without signature verification
 		claimsMap := make(map[string]interface{})
 		if err := tok.UnsafeClaimsWithoutVerification(&claimsMap); err != nil {
 			return nil, jwtsvidErr.New("unable to get claims from token: %v", err)
@@ -84,7 +84,7 @@ func (svid *SVID) Marshal() string {
 	return svid.token
 }
 
-func parse(token string, audience []string, getClaims getClaimsMap) (*SVID, error) {
+func parse(token string, audience []string, getClaims tokenValidator) (*SVID, error) {
 	// Parse serialized token
 	tok, err := jwt.ParseSigned(token)
 	if err != nil {
@@ -138,10 +138,10 @@ func parse(token string, audience []string, getClaims getClaimsMap) (*SVID, erro
 
 	return &SVID{
 		ID:       spiffeID,
-		token:    token,
 		Audience: claims.Audience,
 		Expiry:   claims.Expiry.Time().UTC(),
 		Claims:   claimsMap,
+		token:    token,
 	}, nil
 }
 
