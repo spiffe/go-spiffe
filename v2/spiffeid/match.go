@@ -22,8 +22,8 @@ func MatchID(expected ID) Matcher {
 	})
 }
 
-// MatchIDs matches any SPIFFE ID in the given list of IDs.
-func MatchIDs(expected ...ID) Matcher {
+// MatchOneOf matches any SPIFFE ID in the given list of IDs.
+func MatchOneOf(expected ...ID) Matcher {
 	set := make(map[ID]struct{})
 	for _, id := range expected {
 		set[id] = struct{}{}
