@@ -3,16 +3,14 @@ package x509bundle
 import (
 	"bytes"
 	"crypto/x509"
-	"encoding/pem"
 	"io"
 	"io/ioutil"
 	"sync"
 
+	"github.com/spiffe/go-spiffe/v2/internal/pemutil"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/zeebo/errs"
 )
-
-const certType string = "CERTIFICATE"
 
 var x509bundleErr = errs.Class("x509bundle")
 
@@ -58,17 +56,8 @@ func Parse(trustDomain spiffeid.TrustDomain, b []byte) (*Bundle, error) {
 		if len(b) == 0 {
 			break
 		}
-		pemBlock, pemBytes := pem.Decode(b)
-		b = pemBytes
-		if pemBlock == nil {
-			return nil, x509bundleErr.New("no PEM data found while decoding block")
-		}
-
-		if pemBlock.Type != certType {
-			return nil, x509bundleErr.New("block does not contain %q type, current type is: %q", certType, pemBlock.Type)
-		}
-
-		cert, err := x509.ParseCertificate(pemBlock.Bytes)
+		cert, rest, err := pemutil.ParseCertificate(b)
+		b = rest
 		if err != nil {
 			return nil, x509bundleErr.New("cannot parse certificate: %v", err)
 		}
@@ -135,19 +124,7 @@ func (b *Bundle) HasX509Root(root *x509.Certificate) bool {
 func (b *Bundle) Marshal() ([]byte, error) {
 	b.rootsMtx.RLock()
 	defer b.rootsMtx.RUnlock()
-
-	var buf bytes.Buffer
-	for _, root := range b.roots {
-		err := pem.Encode(&buf, &pem.Block{
-			Type:  certType,
-			Bytes: root.Raw,
-		})
-		if err != nil {
-			return nil, x509bundleErr.New("unable to encode root certificate: %v", err)
-		}
-	}
-
-	return buf.Bytes(), nil
+	return pemutil.EncodeCertificates(b.roots), nil
 }
 
 // GetX509BundleForTrustDomain returns the X.509 bundle for the given trust
