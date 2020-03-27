@@ -148,24 +148,10 @@ func VerifyPeerCertificate(bundle x509bundle.Source, authorizer Authorizer) func
 	}
 }
 
-func getTLSCertificate(svid x509svid.Source) (*tls.Certificate, error) {
-	s, err := svid.GetX509SVID()
-	if err != nil {
-		return nil, err
-	}
-
-	cert := &tls.Certificate{
-		Certificate: make([][]byte, 0, len(s.Certificates)),
-		PrivateKey:  s.PrivateKey,
-	}
-
-	for _, svidCert := range s.Certificates {
-		cert.Certificate = append(cert.Certificate, svidCert.Raw)
-	}
-
-	return cert, nil
-}
-
+// WrapVerifyPeerCertificate wraps a VeriyPeerCertificate callback, performing
+// SPIFFE authentication against the peer certificates using the given bundle and
+// authorizer. The wrapped callback will be passed the verified chains.
+// Note: tls clients must set `InsecureSkipVerify` when doing SPIFFE authentication to disable hostname verification.
 func WrapVerifyPeerCertificate(wrapped func([][]byte, [][]*x509.Certificate) error, bundle x509bundle.Source, authorizer Authorizer) func([][]byte, [][]*x509.Certificate) error {
 	if wrapped == nil {
 		return VerifyPeerCertificate(bundle, authorizer)
@@ -183,6 +169,24 @@ func WrapVerifyPeerCertificate(wrapped func([][]byte, [][]*x509.Certificate) err
 
 		return wrapped(raw, certs)
 	}
+}
+
+func getTLSCertificate(svid x509svid.Source) (*tls.Certificate, error) {
+	s, err := svid.GetX509SVID()
+	if err != nil {
+		return nil, err
+	}
+
+	cert := &tls.Certificate{
+		Certificate: make([][]byte, 0, len(s.Certificates)),
+		PrivateKey:  s.PrivateKey,
+	}
+
+	for _, svidCert := range s.Certificates {
+		cert.Certificate = append(cert.Certificate, svidCert.Raw)
+	}
+
+	return cert, nil
 }
 
 func resetAuthFields(config *tls.Config) {
