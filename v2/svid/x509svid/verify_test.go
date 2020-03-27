@@ -15,7 +15,7 @@ import (
 func TestVerify(t *testing.T) {
 	ca1 := test.NewCA(t)
 	leaf1, _ := ca1.CreateX509SVID("spiffe://domain1.test/workload")
-	leaf1NoUri := removeURIs(leaf1[0])
+	leaf1NoURI := removeURIs(leaf1[0])
 	leaf1DupUris := dupURIs(leaf1[0])
 	leaf1IsCA := setIsCA(leaf1[0])
 	leaf1WithCertSign := setKeyUsage(leaf1[0], x509.KeyUsageCertSign)
@@ -34,7 +34,7 @@ func TestVerify(t *testing.T) {
 		name       string
 		chain      []*x509.Certificate
 		bundle     x509bundle.Source
-		expectedId spiffeid.ID
+		expectedID spiffeid.ID
 		err        string
 	}{
 		{
@@ -79,7 +79,7 @@ func TestVerify(t *testing.T) {
 		},
 		{
 			name:   "no URI SAN",
-			chain:  leaf1NoUri,
+			chain:  leaf1NoURI,
 			bundle: bundle1,
 			err:    "x509svid: could not get SPIFFE ID: x509svid: leaf certificate contains no URI SAN",
 		},
@@ -116,9 +116,9 @@ func TestVerify(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			_, verifiedChains, err := x509svid.Verify(testCase.chain, testCase.bundle)
-			if testCase.err != "" {
-				require.EqualError(t, err, testCase.err)
+			_, verifiedChains, err := x509svid.Verify(testCase.chain, testCase.bundle) //nolint
+			if testCase.err != "" {                                                    //nolint
+				require.EqualError(t, err, testCase.err) //nolint
 				return
 			}
 			require.NoError(t, err)
@@ -164,6 +164,6 @@ func setIsCA(cert *x509.Certificate) []*x509.Certificate {
 
 func setKeyUsage(cert *x509.Certificate, ku x509.KeyUsage) []*x509.Certificate {
 	c := *cert
-	c.KeyUsage = c.KeyUsage | ku
+	c.KeyUsage |= ku
 	return []*x509.Certificate{&c}
 }
