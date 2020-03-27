@@ -151,7 +151,7 @@ func VerifyPeerCertificate(bundle x509bundle.Source, authorizer Authorizer) func
 // WrapVerifyPeerCertificate wraps a VeriyPeerCertificate callback, performing
 // SPIFFE authentication against the peer certificates using the given bundle and
 // authorizer. The wrapped callback will be passed the verified chains.
-// Note: tls clients must set `InsecureSkipVerify` when doing SPIFFE authentication to disable hostname verification.
+// Note: TLS clients must set `InsecureSkipVerify` when doing SPIFFE authentication to disable hostname verification.
 func WrapVerifyPeerCertificate(wrapped func([][]byte, [][]*x509.Certificate) error, bundle x509bundle.Source, authorizer Authorizer) func([][]byte, [][]*x509.Certificate) error {
 	if wrapped == nil {
 		return VerifyPeerCertificate(bundle, authorizer)
