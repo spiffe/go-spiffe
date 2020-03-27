@@ -113,9 +113,8 @@ func MTLSWebServerConfig(cert *tls.Certificate, bundle x509bundle.Source, author
 // it will be wrapped by by this package and invoked after SPIFFE
 // authentication has completed.
 func HookMTLSWebServerConfig(config *tls.Config, cert *tls.Certificate, bundle x509bundle.Source, authorizer Authorizer) {
-	config.GetClientCertificate = func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
-		return cert, nil
-	}
+	resetAuthFields(config)
+	config.Certificates = []tls.Certificate{*cert}
 	config.VerifyPeerCertificate = wrapVerifyPeerCertificate(config.VerifyPeerCertificate, bundle, authorizer)
 }
 
