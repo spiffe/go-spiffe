@@ -110,7 +110,7 @@ func HookTLSServerConfig(config *tls.Config, svid x509svid.Source) {
 	config.InsecureSkipVerify = false
 	config.GetCertificate = GetCertificate(svid)
 
-	// No required by server
+	// No used by server
 	config.ClientAuth = tls.NoClientCert
 	config.GetClientCertificate = nil
 	config.Certificates = nil
@@ -138,7 +138,7 @@ func HookMTLSServerConfig(config *tls.Config, svid x509svid.Source, bundle x509b
 	config.GetClientCertificate = GetClientCertificate(svid)
 	config.VerifyPeerCertificate = wrapVerifyPeerCertificate(config.VerifyPeerCertificate, VerifyPeerCertificate(bundle, authorizer))
 
-	// No required by server
+	// No used by server
 	config.Certificates = nil
 	config.RootCAs = nil
 	config.NameToCertificate = nil
@@ -165,7 +165,7 @@ func HookMTLSWebServerConfig(config *tls.Config, cert *tls.Certificate, bundle x
 	}
 	config.VerifyPeerCertificate = wrapVerifyPeerCertificate(config.VerifyPeerCertificate, VerifyPeerCertificate(bundle, authorizer))
 
-	// No required by server
+	// No used by server
 	config.Certificates = nil
 	config.RootCAs = nil
 	config.NameToCertificate = nil
