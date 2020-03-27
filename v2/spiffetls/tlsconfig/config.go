@@ -8,8 +8,6 @@ import (
 	"github.com/spiffe/go-spiffe/v2/svid/x509svid"
 )
 
-type verifyPeerCertificate = func(raw [][]byte, certs [][]*x509.Certificate) error
-
 // TLSClientConfig returns a TLS configuration which verifies and authorizes
 // the server X509-SVID.
 func TLSClientConfig(bundle x509bundle.Source, authorizer Authorizer) *tls.Config {
@@ -25,7 +23,7 @@ func TLSClientConfig(bundle x509bundle.Source, authorizer Authorizer) *tls.Confi
 func HookTLSClientConfig(config *tls.Config, bundle x509bundle.Source, authorizer Authorizer) {
 	resetAuthFields(config)
 	config.InsecureSkipVerify = true
-	config.VerifyPeerCertificate = wrapVerifyPeerCertificate(config.VerifyPeerCertificate, bundle, authorizer)
+	config.VerifyPeerCertificate = WrapVerifyPeerCertificate(config.VerifyPeerCertificate, bundle, authorizer)
 }
 
 // MTLSClientConfig returns a TLS configuration which presents an X509-SVID
@@ -44,7 +42,7 @@ func HookMTLSClientConfig(config *tls.Config, svid x509svid.Source, bundle x509b
 	resetAuthFields(config)
 	config.GetClientCertificate = GetClientCertificate(svid)
 	config.InsecureSkipVerify = true
-	config.VerifyPeerCertificate = wrapVerifyPeerCertificate(config.VerifyPeerCertificate, bundle, authorizer)
+	config.VerifyPeerCertificate = WrapVerifyPeerCertificate(config.VerifyPeerCertificate, bundle, authorizer)
 }
 
 // MTLSWebClientConfig returns a TLS configuration which presents an X509-SVID
@@ -95,7 +93,7 @@ func HookMTLSServerConfig(config *tls.Config, svid x509svid.Source, bundle x509b
 	resetAuthFields(config)
 	config.ClientAuth = tls.RequireAndVerifyClientCert
 	config.GetCertificate = GetCertificate(svid)
-	config.VerifyPeerCertificate = wrapVerifyPeerCertificate(config.VerifyPeerCertificate, bundle, authorizer)
+	config.VerifyPeerCertificate = WrapVerifyPeerCertificate(config.VerifyPeerCertificate, bundle, authorizer)
 }
 
 // MTLSWebServerConfig returns a TLS configuration which presents a web
@@ -116,7 +114,7 @@ func HookMTLSWebServerConfig(config *tls.Config, cert *tls.Certificate, bundle x
 	resetAuthFields(config)
 	config.ClientAuth = tls.RequireAndVerifyClientCert
 	config.Certificates = []tls.Certificate{*cert}
-	config.VerifyPeerCertificate = wrapVerifyPeerCertificate(config.VerifyPeerCertificate, bundle, authorizer)
+	config.VerifyPeerCertificate = WrapVerifyPeerCertificate(config.VerifyPeerCertificate, bundle, authorizer)
 }
 
 // GetCertificate returns a GetCertificate callback for tls.Config. It uses the
@@ -168,7 +166,7 @@ func getTLSCertificate(svid x509svid.Source) (*tls.Certificate, error) {
 	return cert, nil
 }
 
-func wrapVerifyPeerCertificate(wrapped verifyPeerCertificate, bundle x509bundle.Source, authorizer Authorizer) verifyPeerCertificate {
+func WrapVerifyPeerCertificate(wrapped func([][]byte, [][]*x509.Certificate) error, bundle x509bundle.Source, authorizer Authorizer) func([][]byte, [][]*x509.Certificate) error {
 	if wrapped == nil {
 		return VerifyPeerCertificate(bundle, authorizer)
 	}
