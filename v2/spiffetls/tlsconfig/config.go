@@ -114,6 +114,7 @@ func MTLSWebServerConfig(cert *tls.Certificate, bundle x509bundle.Source, author
 // authentication has completed.
 func HookMTLSWebServerConfig(config *tls.Config, cert *tls.Certificate, bundle x509bundle.Source, authorizer Authorizer) {
 	resetAuthFields(config)
+	config.ClientAuth = tls.RequireAndVerifyClientCert
 	config.Certificates = []tls.Certificate{*cert}
 	config.VerifyPeerCertificate = wrapVerifyPeerCertificate(config.VerifyPeerCertificate, bundle, authorizer)
 }
