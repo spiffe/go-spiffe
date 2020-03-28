@@ -1,13 +1,13 @@
 package x509bundle
 
 import (
-	"bytes"
 	"crypto/x509"
 	"io"
 	"io/ioutil"
 	"sync"
 
 	"github.com/spiffe/go-spiffe/v2/internal/pemutil"
+	"github.com/spiffe/go-spiffe/v2/internal/x509util"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/zeebo/errs"
 )
@@ -26,6 +26,14 @@ type Bundle struct {
 func New(trustDomain spiffeid.TrustDomain) *Bundle {
 	return &Bundle{
 		trustDomain: trustDomain,
+	}
+}
+
+// FromX509Roots creates a bundle from X.509 certificates.
+func FromX509Roots(trustDomain spiffeid.TrustDomain, roots []*x509.Certificate) *Bundle {
+	return &Bundle{
+		trustDomain: trustDomain,
+		roots:       roots,
 	}
 }
 
@@ -85,7 +93,7 @@ func (b *Bundle) AddX509Root(root *x509.Certificate) {
 	defer b.rootsMtx.Unlock()
 
 	for _, r := range b.roots {
-		if areCertsEqual(r, root) {
+		if x509util.CertsEqual(r, root) {
 			return
 		}
 	}
@@ -99,7 +107,7 @@ func (b *Bundle) RemoveX509Root(root *x509.Certificate) {
 	defer b.rootsMtx.Unlock()
 
 	for i, r := range b.roots {
-		if areCertsEqual(r, root) {
+		if x509util.CertsEqual(r, root) {
 			//remove element from slice
 			b.roots = append(b.roots[:i], b.roots[i+1:]...)
 			return
@@ -113,7 +121,7 @@ func (b *Bundle) HasX509Root(root *x509.Certificate) bool {
 	defer b.rootsMtx.RUnlock()
 
 	for _, r := range b.roots {
-		if areCertsEqual(r, root) {
+		if x509util.CertsEqual(r, root) {
 			return true
 		}
 	}
@@ -136,16 +144,4 @@ func (b *Bundle) GetX509BundleForTrustDomain(trustDomain spiffeid.TrustDomain) (
 	}
 
 	return b, nil
-}
-
-// areCertsEqual checks if two X.509 certificates are equal by comparing its raw bytes
-func areCertsEqual(a, b *x509.Certificate) bool {
-	if a == nil && b == nil {
-		return true
-	}
-	if a == nil || b == nil {
-		return false
-	}
-
-	return bytes.Equal(a.Raw, b.Raw)
 }

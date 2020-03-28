@@ -44,6 +44,16 @@ func TestNew(t *testing.T) {
 	require.Equal(t, td, b.TrustDomain())
 }
 
+func TestFromJWTKeys(t *testing.T) {
+	jwtKeys := map[string]crypto.PublicKey{
+		"key-1": "test-1",
+		"key-2": "test-2",
+	}
+	b := jwtbundle.FromJWTKeys(td, jwtKeys)
+	require.NotNil(t, b)
+	assert.Equal(t, b.JWTKeys(), jwtKeys)
+}
+
 func TestLoad(t *testing.T) {
 	testCases := []struct {
 		tf  testFile
