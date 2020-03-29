@@ -54,8 +54,8 @@ var (
 			err:      "spiffebundle: missing use for key entry 1",
 		},
 		testCase{
-			filePath: "testdata/spiffebundle_unrecognized_use.json",
-			err:      "spiffebundle: unrecognized use \"invalid\" for key entry 1",
+			filePath: "testdata/spiffebundle_no_keys.json",
+			err:      "spiffebundle: no keys found",
 		},
 		testCase{
 			filePath: "testdata/spiffebundle_multiple_x509.json",

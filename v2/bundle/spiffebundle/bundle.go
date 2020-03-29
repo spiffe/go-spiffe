@@ -88,8 +88,15 @@ func Parse(trustDomain spiffeid.TrustDomain, bundleBytes []byte) (*Bundle, error
 	if jwks.SequenceNumber > 0 {
 		bundle.sequenceNumber = &jwks.SequenceNumber
 	}
+
+	if jwks.Keys == nil {
+		// The parameter keys MUST be present.
+		// https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE_Trust_Domain_and_Bundle.md#413-keys
+		return nil, spiffebundleErr.New("no keys found")
+	}
 	for i, key := range jwks.Keys {
 		switch key.Use {
+		// Two SVID types are supported: x509-svid and jwt-svid.
 		case x509SVIDUse:
 			if len(key.Certificates) != 1 {
 				return nil, spiffebundleErr.New("expected a single certificate in %s entry %d; got %d", x509SVIDUse, i, len(key.Certificates))
@@ -100,9 +107,9 @@ func Parse(trustDomain spiffeid.TrustDomain, bundleBytes []byte) (*Bundle, error
 				return nil, spiffebundleErr.New("error adding key %d of JWKS: %v", i, errs.Unwrap(err))
 			}
 		case "":
+			// The use parameter MUST be set.
+			// https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE_Trust_Domain_and_Bundle.md#422-public-key-use
 			return nil, spiffebundleErr.New("missing use for key entry %d", i)
-		default:
-			return nil, spiffebundleErr.New("unrecognized use %q for key entry %d", key.Use, i)
 		}
 	}
 
