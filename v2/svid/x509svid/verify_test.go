@@ -18,8 +18,8 @@ func TestVerify(t *testing.T) {
 	leaf1NoURI := removeURIs(leaf1[0])
 	leaf1DupUris := dupURIs(leaf1[0])
 	leaf1IsCA := setIsCA(leaf1[0])
-	leaf1WithCertSign := setKeyUsage(leaf1[0], x509.KeyUsageCertSign)
-	leaf1WithCRLSign := setKeyUsage(leaf1[0], x509.KeyUsageCRLSign)
+	leaf1WithCertSign := appendKeyUsage(leaf1[0], x509.KeyUsageCertSign)
+	leaf1WithCRLSign := appendKeyUsage(leaf1[0], x509.KeyUsageCRLSign)
 	bundle1 := ca1.Bundle(spiffeid.RequireTrustDomainFromString("spiffe://domain1.test"))
 
 	ca2 := test.NewCA(t)
