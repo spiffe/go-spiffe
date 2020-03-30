@@ -1,11 +1,13 @@
 package x509svid_test
 
 import (
+	"crypto/x509"
 	"errors"
 	"io/ioutil"
 	"os"
 	"testing"
 
+	"github.com/spiffe/go-spiffe/v2/internal/pemutil"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/spiffe/go-spiffe/v2/svid/x509svid"
 	"github.com/stretchr/testify/assert"
@@ -14,35 +16,25 @@ import (
 
 type fileSet struct {
 	certPathPEM string
-	certPathDER string
 	keyPathPEM  string
-	keyPathDER  string
 }
 
 var (
 	fileSetSingleCert fileSet = fileSet{
 		certPathPEM: "testdata/certificate-1.pem",
-		certPathDER: "testdata/certificate-1.der",
 		keyPathPEM:  "testdata/key-1.pem",
-		keyPathDER:  "testdata/key-1.der",
 	}
 	fileSetMultipleCerts fileSet = fileSet{
 		certPathPEM: "testdata/certificate-2.pem",
-		certPathDER: "testdata/certificate-2.der",
 		keyPathPEM:  "testdata/key-2.pem",
-		keyPathDER:  "testdata/key-2.der",
 	}
 	fileSetCorruptedCert fileSet = fileSet{
 		certPathPEM: "testdata/corrupted",
-		certPathDER: "testdata/corrupted",
 		keyPathPEM:  "testdata/key-1.pem",
-		keyPathDER:  "testdata/key-1.der",
 	}
 	fileSetCorruptedKey fileSet = fileSet{
 		certPathPEM: "testdata/certificate-1.pem",
-		certPathDER: "testdata/certificate-1.der",
 		keyPathPEM:  "testdata/corrupted",
-		keyPathDER:  "testdata/corrupted",
 	}
 	fileSetKeyAndCertSameFile fileSet = fileSet{
 		certPathPEM: "testdata/key-and-certificate.pem",
@@ -59,6 +51,10 @@ var (
 	fileSetMissingKey fileSet = fileSet{
 		certPathPEM: "testdata/certificate-1.pem",
 		keyPathPEM:  "testdata/certificate-1.pem",
+	}
+	fileSetCertKeyMissmatch fileSet = fileSet{
+		certPathPEM: "testdata/certificate-1.pem",
+		keyPathPEM:  "testdata/key-2.pem",
 	}
 	fileSetCertWithoutID fileSet = fileSet{
 		certPathPEM: "testdata/certificate-without-id.pem",
@@ -128,12 +124,12 @@ func TestParse(t *testing.T) {
 		{
 			name:           "Missing certificate",
 			fs:             fileSetMissingCert,
-			expErrContains: "x509svid: no certificates found",
+			expErrContains: "x509svid: certificate validation failed: no certificates found",
 		},
 		{
 			name:           "Missing private key",
 			fs:             fileSetMissingKey,
-			expErrContains: "x509svid: no private key found",
+			expErrContains: "x509svid: private key validation failed: no private key found",
 		},
 		{
 			name:           "Corrupted private key",
@@ -146,14 +142,19 @@ func TestParse(t *testing.T) {
 			expErrContains: "x509svid: cannot parse PEM encoded certificate: no PEM data found while decoding block",
 		},
 		{
+			name:           "Certificate does not match private key",
+			fs:             fileSetCertKeyMissmatch,
+			expErrContains: "x509svid: private key validation failed: leaf certificate does not match private key",
+		},
+		{
 			name:           "Certificate without SPIFFE ID",
 			fs:             fileSetCertWithoutID,
-			expErrContains: "x509svid: cannot get SPIFFE ID: certificate does not contain URIs",
+			expErrContains: "x509svid: certificate validation failed: cannot get leaf certificate SPIFFE ID: leaf certificate contains no URI SAN",
 		},
 		{
 			name:           "Certificate with wrong SPIFFE ID",
 			fs:             fileSetCertWrongID,
-			expErrContains: "x509svid: cannot get SPIFFE ID: unable to parse ID",
+			expErrContains: "x509svid: certificate validation failed: cannot get leaf certificate SPIFFE ID: spiffeid: invalid scheme",
 		},
 	}
 
@@ -181,31 +182,6 @@ func TestParse(t *testing.T) {
 	}
 }
 
-func TestMarshal_Succeeds(t *testing.T) {
-	certBytes, err := ioutil.ReadFile("testdata/certificate-1.pem")
-	require.NoError(t, err)
-	keyBytes, err := ioutil.ReadFile("testdata/key-1.pem")
-	require.NoError(t, err)
-	svid, err := x509svid.Parse(certBytes, keyBytes)
-	require.NoError(t, err)
-
-	mCertBytes, mKeyBytes, err := svid.Marshal()
-	require.NoError(t, err)
-	require.Equal(t, certBytes, mCertBytes)
-	require.Equal(t, keyBytes, mKeyBytes)
-}
-
-func TestMarshal_Fails(t *testing.T) {
-	svid, err := x509svid.Load("testdata/certificate-1.pem", "testdata/key-1.pem")
-	require.NoError(t, err)
-	svid.PrivateKey = nil // Set private key to nil to force an error
-	mCertBytes, mKeyBytes, err := svid.Marshal()
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "cannot encode private key")
-	assert.Nil(t, mCertBytes)
-	assert.Nil(t, mKeyBytes)
-}
-
 func TestGetX509SVID(t *testing.T) {
 	s, err := x509svid.Load("testdata/certificate-1.pem", "testdata/key-1.pem")
 	require.NoError(t, err)
@@ -214,22 +190,70 @@ func TestGetX509SVID(t *testing.T) {
 	assert.Equal(t, s, svid)
 }
 
-func TestMarshalRaw_Succeeds(t *testing.T) {
-	s, err := x509svid.Load("testdata/certificate-1.pem", "testdata/key-1.pem")
-	require.NoError(t, err)
+func TestMarshal(t *testing.T) {
+	tests := []struct {
+		name           string
+		fs             fileSet
+		modifySVID     func(*x509svid.SVID)
+		expErrContains string
+	}{
+		{
+			name: "Single certificate and key",
+			fs:   fileSetSingleCert,
+		},
+		{
+			name: "Multiple certificates and key",
+			fs:   fileSetMultipleCerts,
+		},
+		{
+			name:           "Fails to encode private key",
+			fs:             fileSetSingleCert,
+			expErrContains: "cannot encode private key",
+			modifySVID: func(s *x509svid.SVID) {
+				s.PrivateKey = nil // Set private key to nil to force an error
+			},
+		},
+		{
+			name:           "Fails to marshal certificates",
+			fs:             fileSetSingleCert,
+			expErrContains: "no certificates to marshal",
+			modifySVID: func(s *x509svid.SVID) {
+				s.Certificates = nil // Set certificates to nil to force an error
+			},
+		},
+	}
 
-	rawCert, rawKey, err := s.MarshalRaw()
-	require.NoError(t, err)
-	require.NotNil(t, rawCert)
-	require.NotNil(t, rawKey)
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			s, err := x509svid.Load(test.fs.certPathPEM, test.fs.keyPathPEM)
+			require.NoError(t, err)
 
-	expRawCert, err := ioutil.ReadFile("testdata/certificate-1.der")
-	require.NoError(t, err)
-	assert.Equal(t, expRawCert, rawCert)
+			if test.modifySVID != nil {
+				test.modifySVID(s)
+			}
 
-	expRawKey, err := ioutil.ReadFile("testdata/key-1.der")
-	require.NoError(t, err)
-	assert.Equal(t, expRawKey, rawKey)
+			certs, key, err := s.Marshal()
+			if test.expErrContains != "" {
+				require.Error(t, err)
+				require.Nil(t, certs)
+				require.Nil(t, key)
+				assert.Contains(t, err.Error(), test.expErrContains)
+				return
+			}
+			require.NoError(t, err)
+			require.NotNil(t, certs)
+			require.NotNil(t, key)
+
+			expCerts, err := ioutil.ReadFile(test.fs.certPathPEM)
+			require.NoError(t, err)
+			assert.Equal(t, expCerts, certs)
+
+			expKey, err := ioutil.ReadFile(test.fs.keyPathPEM)
+			require.NoError(t, err)
+			assert.Equal(t, expKey, key)
+		})
+	}
 }
 
 func TestMarshalRaw(t *testing.T) {
@@ -253,6 +277,14 @@ func TestMarshalRaw(t *testing.T) {
 			expErrContains: "cannot marshal private key",
 			modifySVID: func(s *x509svid.SVID) {
 				s.PrivateKey = nil // Set private key to nil to force an error
+			},
+		},
+		{
+			name:           "Fails to marshal certificates",
+			fs:             fileSetSingleCert,
+			expErrContains: "no certificates to marshal",
+			modifySVID: func(s *x509svid.SVID) {
+				s.Certificates = nil // Set private key to nil to force an error
 			},
 		},
 	}
@@ -279,12 +311,9 @@ func TestMarshalRaw(t *testing.T) {
 			require.NotNil(t, rawCert)
 			require.NotNil(t, rawKey)
 
-			expRawCert, err := ioutil.ReadFile(test.fs.certPathDER)
-			require.NoError(t, err)
+			expRawCert := loadRawCertificates(t, test.fs.certPathPEM)
 			assert.Equal(t, expRawCert, rawCert)
-
-			expRawKey, err := ioutil.ReadFile(test.fs.keyPathDER)
-			require.NoError(t, err)
+			expRawKey := loadRawKey(t, test.fs.keyPathPEM)
 			assert.Equal(t, expRawKey, rawKey)
 		})
 	}
@@ -294,24 +323,32 @@ func TestParseRaw(t *testing.T) {
 	tests := []struct {
 		name           string
 		fs             fileSet
+		rawCerts       []byte
+		rawKey         []byte
 		expErrContains string
 	}{
 		{
-			name: "Single certificate and key",
-			fs:   fileSetSingleCert,
+			name:     "Single certificate and key",
+			fs:       fileSetSingleCert,
+			rawCerts: loadRawCertificates(t, fileSetSingleCert.certPathPEM),
+			rawKey:   loadRawKey(t, fileSetSingleCert.keyPathPEM),
 		},
 		{
-			name: "Multiple certificates and key",
-			fs:   fileSetMultipleCerts,
+			name:     "Multiple certificates and key",
+			fs:       fileSetMultipleCerts,
+			rawCerts: loadRawCertificates(t, fileSetMultipleCerts.certPathPEM),
+			rawKey:   loadRawKey(t, fileSetMultipleCerts.keyPathPEM),
 		},
 		{
 			name:           "Certificate bytes are not DER encoded",
-			fs:             fileSetCorruptedCert,
+			rawCerts:       []byte("not-DER-encoded"),
+			rawKey:         loadRawKey(t, fileSetSingleCert.keyPathPEM),
 			expErrContains: "x509svid: cannot parse DER encoded certificate",
 		},
 		{
 			name:           "Key bytes are not DER encoded",
-			fs:             fileSetCorruptedKey,
+			rawCerts:       loadRawCertificates(t, fileSetSingleCert.certPathPEM),
+			rawKey:         []byte("not-DER-encoded"),
 			expErrContains: "x509svid: cannot parse DER encoded private key",
 		},
 	}
@@ -319,12 +356,7 @@ func TestParseRaw(t *testing.T) {
 	for _, test := range tests {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
-			rawCert, err := ioutil.ReadFile(test.fs.certPathDER)
-			require.NoError(t, err)
-			rawKey, err := ioutil.ReadFile(test.fs.keyPathDER)
-			require.NoError(t, err)
-
-			svid, err := x509svid.ParseRaw(rawCert, rawKey)
+			svid, err := x509svid.ParseRaw(test.rawCerts, test.rawKey)
 			if test.expErrContains != "" {
 				require.Error(t, err)
 				require.Nil(t, svid)
@@ -338,4 +370,31 @@ func TestParseRaw(t *testing.T) {
 			assert.Equal(t, expectedSVID, svid)
 		})
 	}
+}
+
+func loadRawCertificates(t *testing.T, path string) []byte {
+	certsBytes, err := ioutil.ReadFile(path)
+	require.NoError(t, err)
+
+	certs, err := pemutil.ParseCertificates(certsBytes)
+	require.NoError(t, err)
+
+	var rawBytes []byte
+	for _, cert := range certs {
+		rawBytes = append(rawBytes, cert.Raw...)
+	}
+	return rawBytes
+}
+
+func loadRawKey(t *testing.T, path string) []byte {
+	keyBytes, err := ioutil.ReadFile(path)
+	require.NoError(t, err)
+
+	key, err := pemutil.ParsePrivateKey(keyBytes)
+	require.NoError(t, err)
+
+	rawKey, err := x509.MarshalPKCS8PrivateKey(key)
+	require.NoError(t, err)
+
+	return rawKey
 }

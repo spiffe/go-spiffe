@@ -75,9 +75,9 @@ func ParseAndVerify(rawCerts [][]byte, bundleSource x509bundle.Source) (spiffeid
 func getIDFromCertificate(cert *x509.Certificate) (spiffeid.ID, error) {
 	switch {
 	case len(cert.URIs) == 0:
-		return spiffeid.ID{}, x509svidErr.New("leaf certificate contains no URI SAN")
+		return spiffeid.ID{}, errs.New("leaf certificate contains no URI SAN")
 	case len(cert.URIs) > 1:
-		return spiffeid.ID{}, x509svidErr.New("leaf certificate contains more than one URI SAN")
+		return spiffeid.ID{}, errs.New("leaf certificate contains more than one URI SAN")
 	}
 	return spiffeid.FromURI(cert.URIs[0])
 }
