@@ -140,7 +140,7 @@ func TestX509RootCRUD(t *testing.T) {
 	assert.True(t, bundle1.HasX509Root(bundle2.X509Roots()[0]))
 	assert.True(t, bundle1.HasX509Root(bundle2.X509Roots()[1]))
 
-	// Removing a root, decreases the root slice lenght
+	// Removing a root, decreases the root slice length
 	cert := bundle1.X509Roots()[0]
 	bundle1.RemoveX509Root(cert)
 	assert.Len(t, bundle1.X509Roots(), 1)
