@@ -162,7 +162,7 @@ func setIsCA(cert *x509.Certificate) []*x509.Certificate {
 	return []*x509.Certificate{&c}
 }
 
-func setKeyUsage(cert *x509.Certificate, ku x509.KeyUsage) []*x509.Certificate {
+func appendKeyUsage(cert *x509.Certificate, ku x509.KeyUsage) []*x509.Certificate {
 	c := *cert
 	c.KeyUsage |= ku
 	return []*x509.Certificate{&c}
