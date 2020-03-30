@@ -115,10 +115,11 @@ func TestVerify(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
+		testCase := testCase // alias loop var as it is used in the closure
 		t.Run(testCase.name, func(t *testing.T) {
-			_, verifiedChains, err := x509svid.Verify(testCase.chain, testCase.bundle) //nolint
-			if testCase.err != "" {                                                    //nolint
-				require.EqualError(t, err, testCase.err) //nolint
+			_, verifiedChains, err := x509svid.Verify(testCase.chain, testCase.bundle)
+			if testCase.err != "" {
+				require.EqualError(t, err, testCase.err)
 				return
 			}
 			require.NoError(t, err)
