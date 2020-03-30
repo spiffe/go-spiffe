@@ -46,18 +46,6 @@ func (ca *CA) CreateX509SVID(spiffeID string) ([]*x509.Certificate, crypto.Signe
 	return append([]*x509.Certificate{cert}, ca.chain(false)...), key
 }
 
-func (ca *CA) chain(includeRoot bool) []*x509.Certificate {
-	chain := []*x509.Certificate{}
-	next := ca
-	for next != nil {
-		if includeRoot || next.parent != nil {
-			chain = append(chain, next.cert)
-		}
-		next = next.parent
-	}
-	return chain
-}
-
 func (ca *CA) Roots() []*x509.Certificate {
 	root := ca
 	for root.parent != nil {
@@ -103,7 +91,7 @@ func CreateX509SVID(tb testing.TB, parent *x509.Certificate, parentKey crypto.Si
 	tmpl := &x509.Certificate{
 		SerialNumber: serial,
 		Subject: pkix.Name{
-			CommonName: fmt.Sprintf("CA %x", serial),
+			CommonName: fmt.Sprintf("X509-SVID %x", serial),
 		},
 		NotBefore: now,
 		NotAfter:  now.Add(time.Hour),
@@ -125,4 +113,16 @@ func NewSerial(tb testing.TB) *big.Int {
 	_, err := rand.Read(b)
 	require.NoError(tb, err)
 	return new(big.Int).SetBytes(b)
+}
+
+func (ca *CA) chain(includeRoot bool) []*x509.Certificate {
+	chain := []*x509.Certificate{}
+	next := ca
+	for next != nil {
+		if includeRoot || next.parent != nil {
+			chain = append(chain, next.cert)
+		}
+		next = next.parent
+	}
+	return chain
 }
