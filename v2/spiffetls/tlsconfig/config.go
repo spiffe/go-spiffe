@@ -91,7 +91,7 @@ func MTLSServerConfig(svid x509svid.Source, bundle x509bundle.Source, authorizer
 // completed.
 func HookMTLSServerConfig(config *tls.Config, svid x509svid.Source, bundle x509bundle.Source, authorizer Authorizer) {
 	resetAuthFields(config)
-	config.ClientAuth = tls.RequireAndVerifyClientCert
+	config.ClientAuth = tls.RequireAnyClientCert
 	config.GetCertificate = GetCertificate(svid)
 	config.VerifyPeerCertificate = WrapVerifyPeerCertificate(config.VerifyPeerCertificate, bundle, authorizer)
 }
@@ -112,8 +112,11 @@ func MTLSWebServerConfig(cert *tls.Certificate, bundle x509bundle.Source, author
 // authentication has completed.
 func HookMTLSWebServerConfig(config *tls.Config, cert *tls.Certificate, bundle x509bundle.Source, authorizer Authorizer) {
 	resetAuthFields(config)
-	config.ClientAuth = tls.RequireAndVerifyClientCert
+	config.ClientAuth = tls.RequireAnyClientCert
 	config.Certificates = []tls.Certificate{*cert}
+	//config.GetCertificate = func(info *tls.ClientHelloInfo) (certificate *tls.Certificate, err error) {
+	//return cert, nil
+	//}
 	config.VerifyPeerCertificate = WrapVerifyPeerCertificate(config.VerifyPeerCertificate, bundle, authorizer)
 }
 
@@ -194,7 +197,7 @@ func resetAuthFields(config *tls.Config) {
 	config.ClientAuth = tls.NoClientCert
 	config.GetCertificate = nil
 	config.GetClientCertificate = nil
-	config.InsecureSkipVerify = true
-	config.NameToCertificate = nil
+	config.InsecureSkipVerify = false
+	config.NameToCertificate = nil //nolint:staticcheck // setting to nil is OK
 	config.RootCAs = nil
 }
