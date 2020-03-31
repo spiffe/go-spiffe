@@ -39,7 +39,7 @@ func TestTLSClientConfig(t *testing.T) {
 func TestHookTLSClientConfig(t *testing.T) {
 	trustDomain := spiffeid.RequireTrustDomainFromString("test.domain")
 	bundle := x509bundle.New(trustDomain)
-	base := createBaseTlsConfig()
+	base := createBaseTLSConfig()
 	config := createTestTLSConfig(base)
 
 	tlsconfig.HookTLSClientConfig(config, bundle, tlsconfig.AuthorizeAny())
@@ -74,7 +74,7 @@ func TestHookMTLSClientConfig(t *testing.T) {
 	trustDomain := spiffeid.RequireTrustDomainFromString("test.domain")
 	bundle := x509bundle.New(trustDomain)
 	svid := &x509svid.SVID{}
-	base := createBaseTlsConfig()
+	base := createBaseTLSConfig()
 	config := createTestTLSConfig(base)
 
 	tlsconfig.HookMTLSClientConfig(config, svid, bundle, tlsconfig.AuthorizeAny())
@@ -105,7 +105,7 @@ func TestMTLSWebClientConfig(t *testing.T) {
 
 func TestHookMTLSWebClientConfig(t *testing.T) {
 	svid := &x509svid.SVID{}
-	base := createBaseTlsConfig()
+	base := createBaseTLSConfig()
 	config := createTestTLSConfig(base)
 
 	tlsconfig.HookMTLSWebClientConfig(config, svid)
@@ -137,7 +137,7 @@ func TestTLSServerConfig(t *testing.T) {
 
 func TestHookTLSServerConfig(t *testing.T) {
 	svid := &x509svid.SVID{}
-	base := createBaseTlsConfig()
+	base := createBaseTLSConfig()
 	config := createTestTLSConfig(base)
 
 	tlsconfig.HookTLSServerConfig(config, svid)
@@ -172,7 +172,7 @@ func TestHookMTLSServerConfig(t *testing.T) {
 	trustDomain := spiffeid.RequireTrustDomainFromString("test.domain")
 	bundle := x509bundle.New(trustDomain)
 	svid := &x509svid.SVID{}
-	base := createBaseTlsConfig()
+	base := createBaseTLSConfig()
 	config := createTestTLSConfig(base)
 
 	tlsconfig.HookMTLSServerConfig(config, svid, bundle, tlsconfig.AuthorizeAny())
@@ -207,7 +207,7 @@ func TestHookMTLSWebServerConfig(t *testing.T) {
 	trustDomain := spiffeid.RequireTrustDomainFromString("test.domain")
 	bundle := x509bundle.New(trustDomain)
 	tlsCert := &tls.Certificate{Certificate: [][]byte{[]byte("body")}}
-	base := createBaseTlsConfig()
+	base := createBaseTLSConfig()
 	config := createTestTLSConfig(base)
 
 	tlsconfig.HookMTLSWebServerConfig(config, tlsCert, bundle, tlsconfig.AuthorizeAny())
@@ -791,7 +791,7 @@ func createTestTLSConfig(base *tls.Config) *tls.Config {
 		ServerName:                  base.ServerName,
 		ClientCAs:                   base.ClientCAs,
 		CipherSuites:                base.CipherSuites,
-		PreferServerCipherSuites:    base.PreferServerCipherSuites,
+		PreferServerCipherSuites:    base.PreferServerCipherSuites, //nolint:gosec // setting to true is OK, for this test
 		SessionTicketsDisabled:      base.SessionTicketsDisabled,
 		SessionTicketKey:            base.SessionTicketKey,
 		ClientSessionCache:          base.ClientSessionCache,
@@ -819,7 +819,7 @@ func createTestTLSConfig(base *tls.Config) *tls.Config {
 	}
 }
 
-func createBaseTlsConfig() *tls.Config {
+func createBaseTLSConfig() *tls.Config {
 	return &tls.Config{
 		Rand: strings.NewReader("my rand"),
 		Time: time.Now().Add(-time.Minute).UTC,
@@ -830,12 +830,12 @@ func createBaseTlsConfig() *tls.Config {
 		ServerName:                  "Server1",
 		ClientCAs:                   x509.NewCertPool(),
 		CipherSuites:                []uint16{12},
-		PreferServerCipherSuites:    true,
+		PreferServerCipherSuites:    true, //nolint:gosec // setting to true is OK, for this test
 		SessionTicketsDisabled:      true,
 		SessionTicketKey:            [32]byte{32},
 		ClientSessionCache:          tls.NewLRUClientSessionCache(32),
-		MinVersion:                  12,
-		MaxVersion:                  34,
+		MinVersion:                  999, //nolint:gosec // setting to 999 is OK, for this test
+		MaxVersion:                  999,
 		CurvePreferences:            []tls.CurveID{tls.CurveP256},
 		DynamicRecordSizingDisabled: true,
 		Renegotiation:               32,
