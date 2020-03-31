@@ -207,12 +207,12 @@ func validateSigningCertificates(signingCerts []*x509.Certificate) error {
 
 func validateKeyUsage(leaf *x509.Certificate) error {
 	switch {
+	case leaf.KeyUsage&x509.KeyUsageDigitalSignature == 0:
+		return errs.New("leaf certificate must have 'digitalSignature' set as key usage")
 	case leaf.KeyUsage&x509.KeyUsageCertSign > 0:
 		return errs.New("leaf certificate must not have 'keyCertSign' set as key usage")
 	case leaf.KeyUsage&x509.KeyUsageCRLSign > 0:
 		return errs.New("leaf certificate must not have 'cRLSign' set as key usage")
-	case leaf.KeyUsage&x509.KeyUsageDigitalSignature == 0:
-		return errs.New("leaf certificate must have 'digitalSignature' set as key usage")
 	}
 	return nil
 }
