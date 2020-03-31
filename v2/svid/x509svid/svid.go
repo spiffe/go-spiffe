@@ -246,7 +246,7 @@ func validatePrivateKey(privateKey crypto.PrivateKey, leaf *x509.Certificate) (c
 
 	matched, err := keyMatches(privateKey, leaf.PublicKey)
 	if err != nil {
-		return nil, errs.New("cannot check certificate and key match")
+		return nil, err
 	}
 	if !matched {
 		return nil, errs.New("leaf certificate does not match private key")
