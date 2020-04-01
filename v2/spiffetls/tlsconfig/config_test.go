@@ -254,11 +254,9 @@ func TestGetCertificate(t *testing.T) {
 	for _, testCase := range testCases {
 		testCase := testCase
 		t.Run(testCase.name, func(t *testing.T) {
-			// Create getCertificate callback using fake source
 			getCertificate := tlsconfig.GetCertificate(testCase.source)
 			require.NotNil(t, getCertificate)
 
-			//  Execute getCertificate
 			tlsCert, err := getCertificate(&tls.ClientHelloInfo{})
 			if testCase.err != "" {
 				require.EqualError(t, err, testCase.err)
@@ -304,11 +302,9 @@ func TestGetClientCertificate(t *testing.T) {
 	for _, testCase := range testCases {
 		testCase := testCase
 		t.Run(testCase.name, func(t *testing.T) {
-			// Create GetClientCertificate using fake source
 			getClientCertificate := tlsconfig.GetClientCertificate(testCase.source)
 			require.NotNil(t, getClientCertificate)
 
-			//  Execute getCertificate
 			tlsCert, err := getClientCertificate(&tls.CertificateRequestInfo{})
 			if testCase.err != "" {
 				require.EqualError(t, err, testCase.err)
@@ -462,12 +458,10 @@ func TestWrapVerifyPeerCertificate(t *testing.T) {
 }
 
 func TestTLSHandshake(t *testing.T) {
-	// Create Bundle1
 	td := spiffeid.RequireTrustDomainFromString("domain1.test")
 	ca1 := test.NewCA(t)
 	bundle1 := ca1.Bundle(td)
 
-	// Create SVID
 	svid1ID := td.NewID("server")
 	svid1Certs, key1 := ca1.CreateX509SVID(svid1ID.String())
 	serverSVID := &x509svid.SVID{
@@ -476,7 +470,6 @@ func TestTLSHandshake(t *testing.T) {
 		PrivateKey:   key1,
 	}
 
-	// Create Bundle2
 	td2 := spiffeid.RequireTrustDomainFromString("domain2.test")
 	ca2 := test.NewCA(t)
 	bundle2 := ca2.Bundle(td2)
@@ -518,12 +511,10 @@ func TestTLSHandshake(t *testing.T) {
 }
 
 func TestMTLSHandshake(t *testing.T) {
-	// Create Bundle1
 	td := spiffeid.RequireTrustDomainFromString("domain1.test")
 	ca1 := test.NewCA(t)
 	bundle1 := ca1.Bundle(td)
 
-	// Create Server SVID
 	svid1ID := td.NewID("server")
 	svid1Certs, key1 := ca1.CreateX509SVID(svid1ID.String())
 	serverSVID := &x509svid.SVID{
@@ -532,7 +523,6 @@ func TestMTLSHandshake(t *testing.T) {
 		PrivateKey:   key1,
 	}
 
-	// Create Client SVID
 	svid2ID := td.NewID("client")
 	svid2Certs, key2 := ca1.CreateX509SVID(svid2ID.String())
 	clientSVID := &x509svid.SVID{
@@ -541,7 +531,6 @@ func TestMTLSHandshake(t *testing.T) {
 		PrivateKey:   key2,
 	}
 
-	// Create Bundle2
 	td2 := spiffeid.RequireTrustDomainFromString("domain2.test")
 	ca2 := test.NewCA(t)
 	bundle2 := ca2.Bundle(td2)
@@ -597,23 +586,17 @@ func TestMTLSHandshake(t *testing.T) {
 }
 
 func TestMTLSWebHandshake(t *testing.T) {
-	// Create Bundle1
 	td := spiffeid.RequireTrustDomainFromString("domain1.test")
 	ca1 := test.NewCA(t)
 	bundle1 := ca1.Bundle(td)
 
-	// Create Server SVID
 	svid1ID := td.NewID("server")
 	svid1Certs, _ := ca1.CreateX509SVID(svid1ID.String())
 
-	// Create web credentials
 	poolCert, tlsCert := createWebCredentials(t)
-
-	// Create secundary cert pool
 	poolCert2 := x509.NewCertPool()
 	poolCert2.AddCert(svid1Certs[0])
 
-	// Create Client SVID
 	svid2ID := td.NewID("client")
 	svid2Certs, key2 := ca1.CreateX509SVID(svid2ID.String())
 	clientSVID := &x509svid.SVID{
@@ -622,7 +605,6 @@ func TestMTLSWebHandshake(t *testing.T) {
 		PrivateKey:   key2,
 	}
 
-	// Create Bundle2
 	td2 := spiffeid.RequireTrustDomainFromString("domain2.test")
 	ca2 := test.NewCA(t)
 	bundle2 := ca2.Bundle(td2)
@@ -678,9 +660,8 @@ func TestMTLSWebHandshake(t *testing.T) {
 
 func createWebCredentials(t testing.TB) (*x509.CertPool, *tls.Certificate) {
 	now := time.Now()
-
-	// Create root certificate
 	serial := test.NewSerial(t)
+
 	rootKey := test.NewEC256Key(t)
 	tmpl := &x509.Certificate{
 		SerialNumber: serial,
@@ -693,14 +674,10 @@ func createWebCredentials(t testing.TB) (*x509.CertPool, *tls.Certificate) {
 		NotBefore:             now,
 		NotAfter:              now.Add(time.Hour),
 	}
-
 	rootCert := test.CreateCertificate(t, tmpl, tmpl, rootKey.Public(), rootKey)
-
-	// Create cert pool
 	certPool := x509.NewCertPool()
 	certPool.AddCert(rootCert)
 
-	// Create child certificate
 	childKey := test.NewEC256Key(t)
 	tmpl = &x509.Certificate{
 		SerialNumber: serial,
@@ -751,12 +728,9 @@ func testConnection(t testing.TB, serverConfig *tls.Config, clientConfig *tls.Co
 			return err
 		}()
 	}()
-	go func() {
-
-	}()
 
 	conn, err := tls.Dial("tcp", ln.Addr().String(), clientConfig)
-	// Only expecting handshake errors
+	// Only expecting errors on client when a remote error is expected on server side
 	if clientErr != "" && serverErr == "remote error: tls: bad certificate" {
 		if conn != nil {
 			conn.Close()
