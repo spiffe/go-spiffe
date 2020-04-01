@@ -114,9 +114,6 @@ func HookMTLSWebServerConfig(config *tls.Config, cert *tls.Certificate, bundle x
 	resetAuthFields(config)
 	config.ClientAuth = tls.RequireAnyClientCert
 	config.Certificates = []tls.Certificate{*cert}
-	//config.GetCertificate = func(info *tls.ClientHelloInfo) (certificate *tls.Certificate, err error) {
-	//return cert, nil
-	//}
 	config.VerifyPeerCertificate = WrapVerifyPeerCertificate(config.VerifyPeerCertificate, bundle, authorizer)
 }
 
