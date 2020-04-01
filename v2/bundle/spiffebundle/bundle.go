@@ -402,3 +402,10 @@ func (b *Bundle) GetJWTBundleForTrustDomain(trustDomain spiffeid.TrustDomain) (*
 
 	return b.JWTBundle(), nil
 }
+
+func (b *Bundle) Equal(other *Bundle) bool {
+	if b == nil || other == nil {
+		return b == other
+	}
+	return *b == *other
+}
