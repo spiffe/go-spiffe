@@ -238,7 +238,7 @@ func TestMarshal(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, bundleBytesMarshal)
 
-	// Prase the marshaled bundle
+	// Parse the marshaled bundle
 	bundleParsed, err := jwtbundle.Parse(td, bundleBytesMarshal)
 	require.NoError(t, err)
 

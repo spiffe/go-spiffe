@@ -32,24 +32,24 @@ var (
 		Raw: []byte("CERT 2"),
 	}
 	testCases = []testCase{
-		testCase{
+		{
 			filePath: "testdata/does-not-exist.json",
 		},
-		testCase{
+		{
 			filePath:  "testdata/spiffebundle_valid_1.json",
 			keysCount: 1,
 		},
-		testCase{
+		{
 			filePath:       "testdata/spiffebundle_valid_2.json",
 			keysCount:      6,
 			refreshHint:    60 * time.Second,
 			sequenceNumber: 1,
 		},
-		testCase{
+		{
 			filePath: "testdata/spiffebundle_missing_kid.json",
 			err:      "spiffebundle: error adding key 1 of JWKS: keyID cannot be empty",
 		},
-		testCase{
+		{
 			filePath: "testdata/spiffebundle_missing_use.json",
 			err:      "spiffebundle: missing use for key entry 1",
 		},
@@ -57,7 +57,7 @@ var (
 			filePath: "testdata/spiffebundle_no_keys.json",
 			err:      "spiffebundle: no keys found",
 		},
-		testCase{
+		{
 			filePath: "testdata/spiffebundle_multiple_x509.json",
 			err:      "spiffebundle: expected a single certificate in x509-svid entry 0; got 2",
 		},
@@ -119,16 +119,17 @@ func TestFromX509Bundle(t *testing.T) {
 	sb := spiffebundle.FromX509Bundle(xb)
 	require.NotNil(t, sb)
 	assert.Equal(t, xb.X509Roots(), sb.X509Roots())
-	assert.Equal(t, &spiffebundle.Bundle{}, spiffebundle.FromX509Bundle(nil))
+	assert.PanicsWithError(t, "spiffebundle: no X.509 bundle", func() { spiffebundle.FromX509Bundle(nil) })
 }
 
 func TestFromJWTBundle(t *testing.T) {
 	jb := jwtbundle.New(td)
-	jb.AddJWTKey("key-1", "test-1")
+	err := jb.AddJWTKey("key-1", "test-1")
+	require.NoError(t, err)
 	sb := spiffebundle.FromJWTBundle(jb)
 	require.NotNil(t, sb)
 	assert.Equal(t, jb.JWTKeys(), sb.JWTKeys())
-	assert.Equal(t, &spiffebundle.Bundle{}, spiffebundle.FromJWTBundle(nil))
+	assert.PanicsWithError(t, "spiffebundle: no JWT bundle", func() { spiffebundle.FromJWTBundle(nil) })
 }
 
 func TestFromX509Roots(t *testing.T) {
@@ -183,6 +184,7 @@ func TestJWTKeysCRUD(t *testing.T) {
 	require.Equal(t, "test-1", key)
 
 	key, ok = b.FindJWTKey("key-3")
+	require.Nil(t, key)
 	require.False(t, ok)
 
 	require.Equal(t, true, b.HasJWTKey("key-1"))
@@ -277,7 +279,7 @@ func TestMarshal(t *testing.T) {
 	bundleBytesMarshal, err := bundle.Marshal()
 	require.NoError(t, err)
 
-	// Prase the marshaled bundle
+	// Parse the marshaled bundle
 	bundleParsed, err := spiffebundle.Parse(td, bundleBytesMarshal)
 	require.NoError(t, err)
 
@@ -294,7 +296,8 @@ func TestX509Bundle(t *testing.T) {
 
 func TestJWTBundle(t *testing.T) {
 	sb := spiffebundle.New(td)
-	sb.AddJWTKey("key-1", "test-1")
+	err := sb.AddJWTKey("key-1", "test-1")
+	require.NoError(t, err)
 	jb := sb.JWTBundle()
 	require.Equal(t, true, jb.HasJWTKey("key-1"))
 }
@@ -312,8 +315,8 @@ func TestGetBundleForTrustDomain(t *testing.T) {
 }
 
 func TestGetX509BundleForTrustDomain(t *testing.T) {
-	sb := spiffebundle.New(td)
-	xb1 := x509bundle.New(td)
+	xb1 := x509bundle.FromX509Roots(td, []*x509.Certificate{x509Cert1, x509Cert2})
+	sb := spiffebundle.FromX509Bundle(xb1)
 	xb2, err := sb.GetX509BundleForTrustDomain(td)
 	require.NoError(t, err)
 	require.Equal(t, xb1, xb2)
@@ -325,8 +328,8 @@ func TestGetX509BundleForTrustDomain(t *testing.T) {
 }
 
 func TestGetJWTBundleForTrustDomain(t *testing.T) {
-	sb := spiffebundle.New(td)
-	jb1 := jwtbundle.New(td)
+	jb1 := jwtbundle.FromJWTKeys(td, map[string]crypto.PublicKey{"key-1": "test-1"})
+	sb := spiffebundle.FromJWTBundle(jb1)
 	jb2, err := sb.GetJWTBundleForTrustDomain(td)
 	require.NoError(t, err)
 	require.Equal(t, jb1, jb2)

@@ -11,7 +11,6 @@ import (
 
 	"github.com/spiffe/go-spiffe/v2/bundle/jwtbundle"
 	"github.com/spiffe/go-spiffe/v2/bundle/x509bundle"
-	"github.com/spiffe/go-spiffe/v2/internal/x509util"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/zeebo/errs"
 	"gopkg.in/square/go-jose.v2"
@@ -28,8 +27,8 @@ var (
 
 type bundleDoc struct {
 	jose.JSONWebKeySet
-	SequenceNumber uint64 `json:"spiffe_sequence,omitempty"`
-	RefreshHint    int64  `json:"spiffe_refresh_hint,omitempty"`
+	SequenceNumber *uint64 `json:"spiffe_sequence,omitempty"`
+	RefreshHint    *int64  `json:"spiffe_refresh_hint,omitempty"`
 }
 
 // Bundle is a collection of trusted public key material for a trust domain,
@@ -40,7 +39,7 @@ type Bundle struct {
 	trustDomain spiffeid.TrustDomain
 
 	mtx            sync.RWMutex
-	refreshHint    *int64
+	refreshHint    *time.Duration
 	sequenceNumber *uint64
 	jwtKeys        map[string]crypto.PublicKey
 	x509Roots      []*x509.Certificate
@@ -82,11 +81,11 @@ func Parse(trustDomain spiffeid.TrustDomain, bundleBytes []byte) (*Bundle, error
 	}
 
 	bundle := New(trustDomain)
-	if jwks.RefreshHint > 0 {
-		bundle.refreshHint = &jwks.RefreshHint
+	if jwks.RefreshHint != nil {
+		bundle.SetRefreshHint(time.Second * time.Duration(*jwks.RefreshHint))
 	}
-	if jwks.SequenceNumber > 0 {
-		bundle.sequenceNumber = &jwks.SequenceNumber
+	if jwks.SequenceNumber != nil {
+		bundle.SetSequenceNumber(*jwks.SequenceNumber)
 	}
 
 	if jwks.Keys == nil {
@@ -117,6 +116,7 @@ func Parse(trustDomain spiffeid.TrustDomain, bundleBytes []byte) (*Bundle, error
 }
 
 // FromX509Bundle creates a bundle from an X.509 bundle.
+// The function panics in case of a nil X.509 bundle.
 func FromX509Bundle(x509Bundle *x509bundle.Bundle) *Bundle {
 	if x509Bundle != nil {
 		return &Bundle{
@@ -124,10 +124,11 @@ func FromX509Bundle(x509Bundle *x509bundle.Bundle) *Bundle {
 			x509Roots:   x509Bundle.X509Roots(),
 		}
 	}
-	return &Bundle{}
+	panic(spiffebundleErr.New("no X.509 bundle"))
 }
 
 // FromJWTBundle creates a bundle from a JWT bundle.
+// The function panics in case of a nil JWT bundle.
 func FromJWTBundle(jwtBundle *jwtbundle.Bundle) *Bundle {
 	if jwtBundle != nil {
 		return &Bundle{
@@ -135,7 +136,7 @@ func FromJWTBundle(jwtBundle *jwtbundle.Bundle) *Bundle {
 			jwtKeys:     jwtBundle.JWTKeys(),
 		}
 	}
-	return &Bundle{}
+	panic(spiffebundleErr.New("no JWT bundle"))
 }
 
 // FromX509Roots creates a bundle from X.509 certificates.
@@ -164,7 +165,7 @@ func (b *Bundle) X509Roots() []*x509.Certificate {
 	b.mtx.RLock()
 	defer b.mtx.RUnlock()
 
-	return b.x509Roots
+	return copyX509Roots(b.x509Roots)
 }
 
 // AddX509Root adds an X.509 root to the bundle. If the root already
@@ -174,7 +175,7 @@ func (b *Bundle) AddX509Root(x509Root *x509.Certificate) {
 	defer b.mtx.Unlock()
 
 	for _, r := range b.x509Roots {
-		if x509util.CertsEqual(r, x509Root) {
+		if r.Equal(x509Root) {
 			return
 		}
 	}
@@ -188,7 +189,7 @@ func (b *Bundle) RemoveX509Root(x509Root *x509.Certificate) {
 	defer b.mtx.Unlock()
 
 	for i, r := range b.x509Roots {
-		if x509util.CertsEqual(r, x509Root) {
+		if r.Equal(x509Root) {
 			b.x509Roots = append(b.x509Roots[:i], b.x509Roots[i+1:]...)
 			return
 		}
@@ -201,7 +202,7 @@ func (b *Bundle) HasX509Root(root *x509.Certificate) bool {
 	defer b.mtx.RUnlock()
 
 	for _, r := range b.x509Roots {
-		if x509util.CertsEqual(r, root) {
+		if r.Equal(root) {
 			return true
 		}
 	}
@@ -213,7 +214,7 @@ func (b *Bundle) JWTKeys() map[string]crypto.PublicKey {
 	b.mtx.RLock()
 	defer b.mtx.RUnlock()
 
-	return b.jwtKeys
+	return copyJWTKeys(b.jwtKeys)
 }
 
 // FindJWTKey finds the JWT key with the given key id from the bundle. If the key
@@ -223,10 +224,8 @@ func (b *Bundle) FindJWTKey(keyID string) (crypto.PublicKey, bool) {
 	b.mtx.RLock()
 	defer b.mtx.RUnlock()
 
-	if jwtKey, ok := b.jwtKeys[keyID]; ok {
-		return jwtKey, true
-	}
-	return nil, false
+	jwtKey, ok := b.jwtKeys[keyID]
+	return jwtKey, ok
 }
 
 // HasJWTKey returns true if the bundle has a JWT key with the given key id.
@@ -268,7 +267,7 @@ func (b *Bundle) RefreshHint() (refreshHint time.Duration, ok bool) {
 	defer b.mtx.RUnlock()
 
 	if b.refreshHint != nil {
-		return time.Second * time.Duration(*b.refreshHint), true
+		return *b.refreshHint, true
 	}
 	return 0, false
 }
@@ -279,8 +278,7 @@ func (b *Bundle) SetRefreshHint(refreshHint time.Duration) {
 	b.mtx.Lock()
 	defer b.mtx.Unlock()
 
-	truncatedRefreshHint := int64((refreshHint + (time.Second - 1)) / time.Second)
-	b.refreshHint = &truncatedRefreshHint
+	b.refreshHint = &refreshHint
 }
 
 // ClearRefreshHint clears the refresh hint.
@@ -329,11 +327,10 @@ func (b *Bundle) Marshal() ([]byte, error) {
 
 	jwks := bundleDoc{}
 	if b.refreshHint != nil {
-		jwks.RefreshHint = *b.refreshHint
+		tr := int64((*b.refreshHint + (time.Second - 1)) / time.Second)
+		jwks.RefreshHint = &tr
 	}
-	if b.sequenceNumber != nil {
-		jwks.SequenceNumber = *b.sequenceNumber
-	}
+	jwks.SequenceNumber = b.sequenceNumber
 	for _, rootCA := range b.x509Roots {
 		jwks.Keys = append(jwks.Keys, jose.JSONWebKey{
 			Key:          rootCA.PublicKey,
@@ -359,7 +356,7 @@ func (b *Bundle) X509Bundle() *x509bundle.Bundle {
 	b.mtx.RLock()
 	defer b.mtx.RUnlock()
 
-	return x509bundle.FromX509Roots(b.trustDomain, b.x509Roots)
+	return x509bundle.FromX509Roots(b.trustDomain, copyX509Roots(b.x509Roots))
 }
 
 // JWTBundle returns a JWT bundle containing the JWT keys in the SPIFFE bundle.
@@ -367,7 +364,7 @@ func (b *Bundle) JWTBundle() *jwtbundle.Bundle {
 	b.mtx.RLock()
 	defer b.mtx.RUnlock()
 
-	return jwtbundle.FromJWTKeys(b.trustDomain, b.jwtKeys)
+	return jwtbundle.FromJWTKeys(b.trustDomain, copyJWTKeys(b.jwtKeys))
 }
 
 // GetBundleForTrustDomain returns the SPIFFE bundle for the given trust
@@ -410,4 +407,19 @@ func (b *Bundle) GetJWTBundleForTrustDomain(trustDomain spiffeid.TrustDomain) (*
 	}
 
 	return b.JWTBundle(), nil
+}
+
+func copyX509Roots(x509Roots []*x509.Certificate) []*x509.Certificate {
+	copiedX509Roots := make([]*x509.Certificate, len(x509Roots))
+	copy(copiedX509Roots, x509Roots)
+
+	return copiedX509Roots
+}
+
+func copyJWTKeys(jwtKeys map[string]crypto.PublicKey) map[string]crypto.PublicKey {
+	copiedJWTKeys := make(map[string]crypto.PublicKey)
+	for key, jwtKey := range jwtKeys {
+		copiedJWTKeys[key] = jwtKey
+	}
+	return copiedJWTKeys
 }

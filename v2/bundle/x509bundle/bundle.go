@@ -7,7 +7,6 @@ import (
 	"sync"
 
 	"github.com/spiffe/go-spiffe/v2/internal/pemutil"
-	"github.com/spiffe/go-spiffe/v2/internal/x509util"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/zeebo/errs"
 )
@@ -93,7 +92,7 @@ func (b *Bundle) AddX509Root(root *x509.Certificate) {
 	defer b.rootsMtx.Unlock()
 
 	for _, r := range b.roots {
-		if x509util.CertsEqual(r, root) {
+		if r.Equal(root) {
 			return
 		}
 	}
@@ -107,7 +106,7 @@ func (b *Bundle) RemoveX509Root(root *x509.Certificate) {
 	defer b.rootsMtx.Unlock()
 
 	for i, r := range b.roots {
-		if x509util.CertsEqual(r, root) {
+		if r.Equal(root) {
 			//remove element from slice
 			b.roots = append(b.roots[:i], b.roots[i+1:]...)
 			return
@@ -121,7 +120,7 @@ func (b *Bundle) HasX509Root(root *x509.Certificate) bool {
 	defer b.rootsMtx.RUnlock()
 
 	for _, r := range b.roots {
-		if x509util.CertsEqual(r, root) {
+		if r.Equal(root) {
 			return true
 		}
 	}
