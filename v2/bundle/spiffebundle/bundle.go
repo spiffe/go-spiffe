@@ -105,10 +105,6 @@ func Parse(trustDomain spiffeid.TrustDomain, bundleBytes []byte) (*Bundle, error
 			if err := bundle.AddJWTKey(key.KeyID, key.Key); err != nil {
 				return nil, spiffebundleErr.New("error adding key %d of JWKS: %v", i, errs.Unwrap(err))
 			}
-		case "":
-			// The use parameter MUST be set.
-			// https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE_Trust_Domain_and_Bundle.md#422-public-key-use
-			return nil, spiffebundleErr.New("missing use for key entry %d", i)
 		}
 	}
 
