@@ -32,6 +32,14 @@ func New(trustDomain spiffeid.TrustDomain) *Bundle {
 	}
 }
 
+// FromJWTKeys creates a new bundle from JWT public keys.
+func FromJWTKeys(trustDomain spiffeid.TrustDomain, jwtKeys map[string]crypto.PublicKey) *Bundle {
+	return &Bundle{
+		trustDomain: trustDomain,
+		jwtKeys:     jwtKeys,
+	}
+}
+
 // Load loads a bundle from a file on disk.
 func Load(trustDomain spiffeid.TrustDomain, path string) (*Bundle, error) {
 	bundleBytes, err := ioutil.ReadFile(path)
