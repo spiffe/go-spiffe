@@ -148,10 +148,6 @@ func validateCertificates(certificates []*x509.Certificate) (*spiffeid.ID, error
 		return nil, err
 	}
 
-	if len(certificates) == 1 {
-		return leafID, nil
-	}
-
 	err = validateSigningCertificates(certificates[1:])
 	if err != nil {
 		return nil, err
