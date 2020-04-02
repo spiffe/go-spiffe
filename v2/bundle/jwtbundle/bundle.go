@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"sync"
 
+	"github.com/spiffe/go-spiffe/v2/internal/jwtutil"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/zeebo/errs"
 	"gopkg.in/square/go-jose.v2"
@@ -29,6 +30,14 @@ func New(trustDomain spiffeid.TrustDomain) *Bundle {
 	return &Bundle{
 		trustDomain: trustDomain,
 		jwtKeys:     make(map[string]crypto.PublicKey),
+	}
+}
+
+// FromJWTKeys creates a new bundle from JWT public keys.
+func FromJWTKeys(trustDomain spiffeid.TrustDomain, jwtKeys map[string]crypto.PublicKey) *Bundle {
+	return &Bundle{
+		trustDomain: trustDomain,
+		jwtKeys:     jwtutil.CopyJWTKeys(jwtKeys),
 	}
 }
 
@@ -79,7 +88,7 @@ func (b *Bundle) JWTKeys() map[string]crypto.PublicKey {
 	b.mtx.RLock()
 	defer b.mtx.RUnlock()
 
-	return b.jwtKeys
+	return jwtutil.CopyJWTKeys(b.jwtKeys)
 }
 
 // FindJWTKey finds the JWT key with the given key id from the bundle. If the key

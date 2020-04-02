@@ -1,31 +1,47 @@
-package x509bundle
+package x509bundle_test
 
 import (
+	"crypto/x509"
 	"io/ioutil"
 	"os"
 	"testing"
 
+	"github.com/spiffe/go-spiffe/v2/bundle/x509bundle"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestNew(t *testing.T) {
-	bundle := New(spiffeid.RequireTrustDomainFromString("example.org"))
+	bundle := x509bundle.New(spiffeid.RequireTrustDomainFromString("example.org"))
 	require.NotNil(t, bundle)
 	assert.Len(t, bundle.X509Roots(), 0)
 	assert.Equal(t, spiffeid.RequireTrustDomainFromString("example.org"), bundle.TrustDomain())
 }
 
+func TestFromX509Roots(t *testing.T) {
+	x509Cert1 := &x509.Certificate{
+		Raw: []byte("CERT 1"),
+	}
+	x509Cert2 := &x509.Certificate{
+		Raw: []byte("CERT 2"),
+	}
+
+	x509roots := []*x509.Certificate{x509Cert1, x509Cert2}
+	b := x509bundle.FromX509Roots(spiffeid.RequireTrustDomainFromString("example.org"), x509roots)
+	require.NotNil(t, b)
+	assert.Equal(t, b.X509Roots(), x509roots)
+}
+
 func TestLoad_Succeeds(t *testing.T) {
-	bundle, err := Load(spiffeid.RequireTrustDomainFromString("example.org"), "testdata/certs.pem")
+	bundle, err := x509bundle.Load(spiffeid.RequireTrustDomainFromString("example.org"), "testdata/certs.pem")
 	require.NoError(t, err)
 	require.NotNil(t, bundle)
 	assert.Len(t, bundle.X509Roots(), 2)
 }
 
 func TestLoad_Fails(t *testing.T) {
-	bundle, err := Load(spiffeid.RequireTrustDomainFromString("example.org"), "testdata/non-existent-file.pem")
+	bundle, err := x509bundle.Load(spiffeid.RequireTrustDomainFromString("example.org"), "testdata/non-existent-file.pem")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "x509bundle: unable to load X.509 bundle file")
 	assert.Nil(t, bundle)
@@ -36,7 +52,7 @@ func TestRead_Succeeds(t *testing.T) {
 	require.NoError(t, err)
 	defer file.Close()
 
-	bundle, err := Read(spiffeid.RequireTrustDomainFromString("example.org"), file)
+	bundle, err := x509bundle.Read(spiffeid.RequireTrustDomainFromString("example.org"), file)
 	require.NoError(t, err)
 	require.NotNil(t, bundle)
 	assert.Len(t, bundle.X509Roots(), 2)
@@ -49,7 +65,7 @@ func TestRead_Fails(t *testing.T) {
 	// Close file prematurely to cause an error while reading
 	file.Close()
 
-	bundle, err := Read(spiffeid.RequireTrustDomainFromString("example.org"), file)
+	bundle, err := x509bundle.Read(spiffeid.RequireTrustDomainFromString("example.org"), file)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "x509bundle: unable to read")
 	assert.Nil(t, bundle)
@@ -101,7 +117,7 @@ func TestParse(t *testing.T) {
 			fileBytes, err := ioutil.ReadFile(test.path)
 			require.NoError(t, err)
 
-			bundle, err := Parse(spiffeid.RequireTrustDomainFromString("example.org"), fileBytes)
+			bundle, err := x509bundle.Parse(spiffeid.RequireTrustDomainFromString("example.org"), fileBytes)
 			if test.expErrContains != "" {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), test.expErrContains)
@@ -116,13 +132,13 @@ func TestParse(t *testing.T) {
 
 func TestX509RootCRUD(t *testing.T) {
 	// Load bundle1, which contains a single certificate
-	bundle1, err := Load(spiffeid.RequireTrustDomainFromString("example-1.org"), "testdata/cert.pem")
+	bundle1, err := x509bundle.Load(spiffeid.RequireTrustDomainFromString("example-1.org"), "testdata/cert.pem")
 	require.NoError(t, err)
 	assert.Len(t, bundle1.X509Roots(), 1)
 
 	// Load bundle2, which contains 2 certificates
 	// The first certificate is the same than the one used in bundle1
-	bundle2, err := Load(spiffeid.RequireTrustDomainFromString("example-2.org"), "testdata/certs.pem")
+	bundle2, err := x509bundle.Load(spiffeid.RequireTrustDomainFromString("example-2.org"), "testdata/certs.pem")
 	require.NoError(t, err)
 	assert.Len(t, bundle2.X509Roots(), 2)
 	assert.True(t, bundle2.HasX509Root(bundle1.X509Roots()[0]))
@@ -154,7 +170,7 @@ func TestX509RootCRUD(t *testing.T) {
 
 func TestMarshal(t *testing.T) {
 	// Load a bundle to marshal
-	bundle, err := Load(spiffeid.RequireTrustDomainFromString("example.org"), "testdata/certs.pem")
+	bundle, err := x509bundle.Load(spiffeid.RequireTrustDomainFromString("example.org"), "testdata/certs.pem")
 	require.NoError(t, err)
 
 	// Marshal the bundle
@@ -171,7 +187,7 @@ func TestMarshal(t *testing.T) {
 }
 
 func TestGetX509BundleForTrustDomain_Succeeds(t *testing.T) {
-	bundle, err := Load(spiffeid.RequireTrustDomainFromString("example.org"), "testdata/certs.pem")
+	bundle, err := x509bundle.Load(spiffeid.RequireTrustDomainFromString("example.org"), "testdata/certs.pem")
 	require.NoError(t, err)
 
 	b, err := bundle.GetX509BundleForTrustDomain(spiffeid.RequireTrustDomainFromString("example.org"))
@@ -181,7 +197,7 @@ func TestGetX509BundleForTrustDomain_Succeeds(t *testing.T) {
 }
 
 func TestGetX509BundleForTrustDomain_Fails(t *testing.T) {
-	bundle, err := Load(spiffeid.RequireTrustDomainFromString("example.org"), "testdata/certs.pem")
+	bundle, err := x509bundle.Load(spiffeid.RequireTrustDomainFromString("example.org"), "testdata/certs.pem")
 	require.NoError(t, err)
 
 	b, err := bundle.GetX509BundleForTrustDomain(spiffeid.RequireTrustDomainFromString("another-td.org"))
