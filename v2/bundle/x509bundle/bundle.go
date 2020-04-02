@@ -60,15 +60,14 @@ func Read(trustDomain spiffeid.TrustDomain, r io.Reader) (*Bundle, error) {
 // Parse parses a bundle from bytes.
 func Parse(trustDomain spiffeid.TrustDomain, b []byte) (*Bundle, error) {
 	bundle := New(trustDomain)
-	for {
-		if len(b) == 0 {
-			break
-		}
-		cert, rest, err := pemutil.ParseCertificate(b)
-		b = rest
-		if err != nil {
-			return nil, x509bundleErr.New("cannot parse certificate: %v", err)
-		}
+	certs, err := pemutil.ParseCertificates(b)
+	if err != nil {
+		return nil, x509bundleErr.New("cannot parse certificate: %v", err)
+	}
+	if len(certs) == 0 {
+		return nil, x509bundleErr.New("no certificates found")
+	}
+	for _, cert := range certs {
 		bundle.AddX509Root(cert)
 	}
 	return bundle, nil

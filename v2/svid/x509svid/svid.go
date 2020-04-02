@@ -2,17 +2,15 @@ package x509svid
 
 import (
 	"crypto"
+	"crypto/ecdsa"
+	"crypto/rsa"
 	"crypto/x509"
-	"errors"
-	"fmt"
 	"io/ioutil"
 
 	"github.com/spiffe/go-spiffe/v2/internal/pemutil"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/zeebo/errs"
 )
-
-var x509SVIDErr = errs.Class("x509svid")
 
 // SVID represents a SPIFFE X509-SVID.
 type SVID struct {
@@ -34,12 +32,12 @@ type SVID struct {
 func Load(certFile, keyFile string) (*SVID, error) {
 	certBytes, err := ioutil.ReadFile(certFile)
 	if err != nil {
-		return nil, x509SVIDErr.New("cannot read certificate file: %w", err)
+		return nil, x509svidErr.New("cannot read certificate file: %w", err)
 	}
 
 	keyBytes, err := ioutil.ReadFile(keyFile)
 	if err != nil {
-		return nil, x509SVIDErr.New("cannot read key file: %w", err)
+		return nil, x509svidErr.New("cannot read key file: %w", err)
 	}
 
 	return Parse(certBytes, keyBytes)
@@ -49,36 +47,14 @@ func Load(certFile, keyFile string) (*SVID, error) {
 // bytes. The certificate must be one or more PEM blocks with ASN.1 DER. The
 // key must be a PEM block with PKCS#8 ASN.1 DER.
 func Parse(certBytes, keyBytes []byte) (*SVID, error) {
-	certs := []*x509.Certificate{}
-	for {
-		if len(certBytes) == 0 {
-			break
-		}
-		cert, rest, err := pemutil.ParseCertificate(certBytes)
-		certBytes = rest
-		if errors.Is(err, pemutil.ErrUnexpectedBlockType) {
-			continue
-		}
-		if err != nil {
-			return nil, x509SVIDErr.New("cannot parse PEM encoded certificate: %v", err)
-		}
-		certs = append(certs, cert)
+	certs, err := pemutil.ParseCertificates(certBytes)
+	if err != nil {
+		return nil, x509svidErr.New("cannot parse PEM encoded certificate: %v", err)
 	}
 
-	var privateKey crypto.PrivateKey
-	var err error
-	for {
-		if len(keyBytes) == 0 {
-			break
-		}
-		privateKey, keyBytes, err = pemutil.ParsePrivateKey(keyBytes)
-		if errors.Is(err, pemutil.ErrUnexpectedBlockType) {
-			continue
-		}
-		if err != nil {
-			return nil, x509SVIDErr.New("cannot parse PEM encoded private key: %v", err)
-		}
-		break
+	privateKey, err := pemutil.ParsePrivateKey(keyBytes)
+	if err != nil {
+		return nil, x509svidErr.New("cannot parse PEM encoded private key: %v", err)
 	}
 
 	return newSVID(certs, privateKey)
@@ -91,12 +67,12 @@ func Parse(certBytes, keyBytes []byte) (*SVID, error) {
 func ParseRaw(certBytes, keyBytes []byte) (*SVID, error) {
 	certificates, err := x509.ParseCertificates(certBytes)
 	if err != nil {
-		return nil, x509SVIDErr.New("cannot parse DER encoded certificate: %v", err)
+		return nil, x509svidErr.New("cannot parse DER encoded certificate: %v", err)
 	}
 
 	privateKey, err := x509.ParsePKCS8PrivateKey(keyBytes)
 	if err != nil {
-		return nil, x509SVIDErr.New("cannot parse DER encoded private key: %v", err)
+		return nil, x509svidErr.New("cannot parse DER encoded private key: %v", err)
 	}
 
 	return newSVID(certificates, privateKey)
@@ -105,10 +81,13 @@ func ParseRaw(certBytes, keyBytes []byte) (*SVID, error) {
 // Marshal marshals the X509-SVID and returns PEM encoded blocks for the SVID
 // and private key.
 func (s *SVID) Marshal() ([]byte, []byte, error) {
+	if len(s.Certificates) == 0 {
+		return nil, nil, x509svidErr.New("no certificates to marshal")
+	}
 	certBytes := pemutil.EncodeCertificates(s.Certificates)
 	keyBytes, err := pemutil.EncodePKCS8PrivateKey(s.PrivateKey)
 	if err != nil {
-		return nil, nil, x509SVIDErr.New("cannot encode private key: %v", err)
+		return nil, nil, x509svidErr.New("cannot encode private key: %v", err)
 	}
 
 	return certBytes, keyBytes, nil
@@ -120,9 +99,12 @@ func (s *SVID) Marshal() ([]byte, []byte, error) {
 func (s *SVID) MarshalRaw() ([]byte, []byte, error) {
 	key, err := x509.MarshalPKCS8PrivateKey(s.PrivateKey)
 	if err != nil {
-		return nil, nil, x509SVIDErr.New("cannot marshal private key: %v", err)
+		return nil, nil, x509svidErr.New("cannot marshal private key: %v", err)
 	}
 
+	if len(s.Certificates) == 0 {
+		return nil, nil, x509svidErr.New("no certificates to marshal")
+	}
 	certBytes := []byte{}
 	for _, cert := range s.Certificates {
 		certBytes = append(certBytes, cert.Raw...)
@@ -136,41 +118,124 @@ func (s *SVID) GetX509SVID() (*SVID, error) {
 	return s, nil
 }
 
-func newSVID(certificates []*x509.Certificate, privateKey interface{}) (*SVID, error) {
-	if len(certificates) == 0 {
-		return nil, x509SVIDErr.New("no certificates found")
-	}
-
-	spiffeID, err := getSPIFFEID(certificates[0])
+func newSVID(certificates []*x509.Certificate, privateKey crypto.PrivateKey) (*SVID, error) {
+	spiffeID, err := validateCertificates(certificates)
 	if err != nil {
-		return nil, x509SVIDErr.New("cannot get SPIFFE ID: %v", err)
+		return nil, x509svidErr.New("certificate validation failed: %v", err)
 	}
 
-	if privateKey == nil {
-		return nil, x509SVIDErr.New("no private key found")
-	}
-
-	signer, ok := privateKey.(crypto.Signer)
-	if !ok {
-		return nil, x509SVIDErr.New("expected crypto.Signer; got %T", privateKey)
+	signer, err := validatePrivateKey(privateKey, certificates[0])
+	if err != nil {
+		return nil, x509svidErr.New("private key validation failed: %v", err)
 	}
 
 	return &SVID{
 		Certificates: certificates,
 		PrivateKey:   signer,
-		ID:           spiffeID,
+		ID:           *spiffeID,
 	}, nil
 }
 
-func getSPIFFEID(cert *x509.Certificate) (spiffeid.ID, error) {
-	if len(cert.URIs) == 0 {
-		return spiffeid.ID{}, errors.New("certificate does not contain URIs")
+// validate the slice of certificates constitutes a valid SVID chain according
+// to the spiffe standard and returns the spiffe id of the leaf certificate
+func validateCertificates(certificates []*x509.Certificate) (*spiffeid.ID, error) {
+	if len(certificates) == 0 {
+		return nil, errs.New("no certificates found")
 	}
 
-	id, err := spiffeid.FromURI(cert.URIs[0])
+	leafID, err := validateLeafCertificate(certificates[0])
 	if err != nil {
-		return spiffeid.ID{}, fmt.Errorf("unable to parse ID: %v", err)
+		return nil, err
 	}
 
-	return id, nil
+	err = validateSigningCertificates(certificates[1:])
+	if err != nil {
+		return nil, err
+	}
+
+	return leafID, nil
+}
+
+func validateLeafCertificate(leaf *x509.Certificate) (*spiffeid.ID, error) {
+	leafID, err := getIDFromCertificate(leaf)
+	if err != nil {
+		return nil, errs.New("cannot get leaf certificate SPIFFE ID: %v", err)
+	}
+	if leaf.IsCA {
+		return nil, errs.New("leaf certificate must not have CA flag set to true")
+	}
+
+	err = validateKeyUsage(leaf)
+	if err != nil {
+		return nil, err
+	}
+
+	return &leafID, err
+}
+
+func validateSigningCertificates(signingCerts []*x509.Certificate) error {
+	for _, cert := range signingCerts {
+		if !cert.IsCA {
+			return errs.New("signing certificate must have CA flag set to true")
+		}
+		if cert.KeyUsage&x509.KeyUsageCertSign == 0 {
+			return errs.New("signing certificate must have 'keyCertSign' set as key usage")
+		}
+	}
+
+	return nil
+}
+
+func validateKeyUsage(leaf *x509.Certificate) error {
+	switch {
+	case leaf.KeyUsage&x509.KeyUsageDigitalSignature == 0:
+		return errs.New("leaf certificate must have 'digitalSignature' set as key usage")
+	case leaf.KeyUsage&x509.KeyUsageCertSign > 0:
+		return errs.New("leaf certificate must not have 'keyCertSign' set as key usage")
+	case leaf.KeyUsage&x509.KeyUsageCRLSign > 0:
+		return errs.New("leaf certificate must not have 'cRLSign' set as key usage")
+	}
+	return nil
+}
+
+func validatePrivateKey(privateKey crypto.PrivateKey, leaf *x509.Certificate) (crypto.Signer, error) {
+	if privateKey == nil {
+		return nil, errs.New("no private key found")
+	}
+
+	matched, err := keyMatches(privateKey, leaf.PublicKey)
+	if err != nil {
+		return nil, err
+	}
+	if !matched {
+		return nil, errs.New("leaf certificate does not match private key")
+	}
+
+	signer, ok := privateKey.(crypto.Signer)
+	if !ok {
+		return nil, errs.New("expected crypto.Signer; got %T", privateKey)
+	}
+
+	return signer, nil
+}
+
+func keyMatches(privateKey crypto.PrivateKey, publicKey crypto.PublicKey) (bool, error) {
+	switch privateKey := privateKey.(type) {
+	case *rsa.PrivateKey:
+		rsaPublicKey, ok := publicKey.(*rsa.PublicKey)
+		return ok && rsaPublicKeyEqual(&privateKey.PublicKey, rsaPublicKey), nil
+	case *ecdsa.PrivateKey:
+		ecdsaPublicKey, ok := publicKey.(*ecdsa.PublicKey)
+		return ok && ecdsaPublicKeyEqual(&privateKey.PublicKey, ecdsaPublicKey), nil
+	default:
+		return false, errs.New("unsupported private key type %T", privateKey)
+	}
+}
+
+func rsaPublicKeyEqual(a, b *rsa.PublicKey) bool {
+	return a.E == b.E && a.N.Cmp(b.N) == 0
+}
+
+func ecdsaPublicKeyEqual(a, b *ecdsa.PublicKey) bool {
+	return a.Curve == b.Curve && a.X.Cmp(b.X) == 0 && a.Y.Cmp(b.Y) == 0
 }
