@@ -135,7 +135,7 @@ func FromJWTBundle(jwtBundle *jwtbundle.Bundle) *Bundle {
 func FromX509Roots(trustDomain spiffeid.TrustDomain, x509Roots []*x509.Certificate) *Bundle {
 	return &Bundle{
 		trustDomain: trustDomain,
-		x509Roots:   x509Roots,
+		x509Roots:   x509util.CopyX509Roots(x509Roots),
 	}
 }
 
@@ -143,7 +143,7 @@ func FromX509Roots(trustDomain spiffeid.TrustDomain, x509Roots []*x509.Certifica
 func FromJWTKeys(trustDomain spiffeid.TrustDomain, jwtKeys map[string]crypto.PublicKey) *Bundle {
 	return &Bundle{
 		trustDomain: trustDomain,
-		jwtKeys:     jwtKeys,
+		jwtKeys:     jwtutil.CopyJWTKeys(jwtKeys),
 	}
 }
 
@@ -348,7 +348,8 @@ func (b *Bundle) X509Bundle() *x509bundle.Bundle {
 	b.mtx.RLock()
 	defer b.mtx.RUnlock()
 
-	return x509bundle.FromX509Roots(b.trustDomain, x509util.CopyX509Roots(b.x509Roots))
+	// FromX509Roots makes a copy, so we can pass our internal slice directly.
+	return x509bundle.FromX509Roots(b.trustDomain, b.x509Roots)
 }
 
 // JWTBundle returns a JWT bundle containing the JWT keys in the SPIFFE bundle.
@@ -356,7 +357,8 @@ func (b *Bundle) JWTBundle() *jwtbundle.Bundle {
 	b.mtx.RLock()
 	defer b.mtx.RUnlock()
 
-	return jwtbundle.FromJWTKeys(b.trustDomain, jwtutil.CopyJWTKeys(b.jwtKeys))
+	// FromJWTBundle makes a copy, so we can pass our internal slice directly.
+	return jwtbundle.FromJWTKeys(b.trustDomain, b.jwtKeys)
 }
 
 // GetBundleForTrustDomain returns the SPIFFE bundle for the given trust

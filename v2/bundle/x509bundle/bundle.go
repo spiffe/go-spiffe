@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/spiffe/go-spiffe/v2/internal/pemutil"
+	"github.com/spiffe/go-spiffe/v2/internal/x509util"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/zeebo/errs"
 )
@@ -32,7 +33,7 @@ func New(trustDomain spiffeid.TrustDomain) *Bundle {
 func FromX509Roots(trustDomain spiffeid.TrustDomain, roots []*x509.Certificate) *Bundle {
 	return &Bundle{
 		trustDomain: trustDomain,
-		roots:       roots,
+		roots:       x509util.CopyX509Roots(roots),
 	}
 }
 
@@ -82,7 +83,7 @@ func (b *Bundle) TrustDomain() spiffeid.TrustDomain {
 func (b *Bundle) X509Roots() []*x509.Certificate {
 	b.rootsMtx.RLock()
 	defer b.rootsMtx.RUnlock()
-	return b.roots
+	return x509util.CopyX509Roots(b.roots)
 }
 
 // AddX509Root adds an X.509 root to the bundle. If the root already
