@@ -165,9 +165,6 @@ func validateLeafCertificate(leaf *x509.Certificate) (*spiffeid.ID, error) {
 	if err != nil {
 		return nil, errs.New("cannot get leaf certificate SPIFFE ID: %v", err)
 	}
-	if leafID.Path() == "" {
-		return nil, errs.New("leaf certificate SPIFFE ID must have a non-root path component but has: %q", leafID.String())
-	}
 	if leaf.IsCA {
 		return nil, errs.New("leaf certificate must not have CA flag set to true")
 	}
@@ -177,23 +174,11 @@ func validateLeafCertificate(leaf *x509.Certificate) (*spiffeid.ID, error) {
 		return nil, err
 	}
 
-	err = validateExtKeyUsage(leaf)
-	if err != nil {
-		return nil, err
-	}
-
 	return &leafID, err
 }
 
 func validateSigningCertificates(signingCerts []*x509.Certificate) error {
 	for _, cert := range signingCerts {
-		id, err := getIDFromCertificate(cert)
-		if err != nil {
-			return errs.New("cannot get signing certificate SPIFFE ID: %v", err)
-		}
-		if id.Path() != "" {
-			return errs.New("signing certificate SPIFFE ID must not have a path component but has: %q", id.Path())
-		}
 		if !cert.IsCA {
 			return errs.New("signing certificate must have CA flag set to true")
 		}
@@ -214,28 +199,6 @@ func validateKeyUsage(leaf *x509.Certificate) error {
 	case leaf.KeyUsage&x509.KeyUsageCRLSign > 0:
 		return errs.New("leaf certificate must not have 'cRLSign' set as key usage")
 	}
-	return nil
-}
-
-func validateExtKeyUsage(leafCertificate *x509.Certificate) error {
-	if len(leafCertificate.ExtKeyUsage) == 0 {
-		return nil
-	}
-
-	clientAuthSet := false
-	serverAuthSet := false
-	for _, extKeyUsage := range leafCertificate.ExtKeyUsage {
-		switch {
-		case extKeyUsage == x509.ExtKeyUsageClientAuth:
-			clientAuthSet = true
-		case extKeyUsage == x509.ExtKeyUsageServerAuth:
-			serverAuthSet = true
-		}
-	}
-	if !(clientAuthSet && serverAuthSet) {
-		return errs.New("leaf certificate includes extended key usage without  'id-kp-serverAuth' and 'id-kp-clientAuth' fields")
-	}
-
 	return nil
 }
 

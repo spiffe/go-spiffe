@@ -17,15 +17,11 @@ import (
 var (
 	keyRSA                 = "testdata/key-pkcs8-rsa.pem"
 	certSingle             = "testdata/good-leaf-only.pem"
-	leafOnlyRootID         = "testdata/wrong-leaf-id-only-root.pem"
 	leafNoDigitalSignature = "testdata/wrong-leaf-no-digital-signature.pem"
 	leafCRLSign            = "testdata/wrong-leaf-crl-sign.pem"
 	leafCertSign           = "testdata/wrong-leaf-cert-sign.pem"
 	leafCAtrue             = "testdata/wrong-leaf-ca-true.pem"
 	leafEmptyID            = "testdata/wrong-leaf-empty-id.pem"
-	leafExtKeyIncomplete   = "testdata/wrong-leaf-ext-key-usage-incomplete.pem"
-	signEmptyID            = "testdata/wrong-intermediate-empty-id.pem"
-	signNonRootID          = "testdata/wrong-intermediate-non-root-id.pem"
 	signNoCA               = "testdata/wrong-intermediate-no-ca.pem"
 	signNoKeyCertSign      = "testdata/wrong-intermediate-no-key-cert-sign.pem"
 
@@ -134,12 +130,6 @@ func TestParse(t *testing.T) {
 			expErrContains: "x509svid: certificate validation failed: cannot get leaf certificate SPIFFE ID: certificate contains no URI SAN",
 		},
 		{
-			name:           "Leaf certificate with only root SPIFFE ID",
-			certsPath:      leafOnlyRootID,
-			keyPath:        keyRSA,
-			expErrContains: `x509svid: certificate validation failed: leaf certificate SPIFFE ID must have a non-root path component but has: "spiffe://example.org"`,
-		},
-		{
 			name:           "Leaf certificate with CA flag set to true",
 			certsPath:      leafCAtrue,
 			keyPath:        keyRSA,
@@ -162,24 +152,6 @@ func TestParse(t *testing.T) {
 			certsPath:      leafCRLSign,
 			keyPath:        keyRSA,
 			expErrContains: "x509svid: certificate validation failed: leaf certificate must not have 'cRLSign' set as key usage",
-		},
-		{
-			name:           "Leaf certificate with extended key usage but not serverAuth set",
-			certsPath:      leafExtKeyIncomplete,
-			keyPath:        keyRSA,
-			expErrContains: "x509svid: certificate validation failed: leaf certificate includes extended key usage without  'id-kp-serverAuth' and 'id-kp-clientAuth' fields",
-		},
-		{
-			name:           "Signing certificate with empty ID",
-			certsPath:      signEmptyID,
-			keyPath:        keyRSA,
-			expErrContains: "x509svid: certificate validation failed: cannot get signing certificate SPIFFE ID: certificate contains no URI SAN",
-		},
-		{
-			name:           "Signing certificate with non root ID",
-			certsPath:      signNonRootID,
-			keyPath:        keyRSA,
-			expErrContains: `x509svid: certificate validation failed: signing certificate SPIFFE ID must not have a path component but has: "/workload-1"`,
 		},
 		{
 			name:           "Signing certificate without CA flag",
