@@ -403,6 +403,8 @@ func (b *Bundle) GetJWTBundleForTrustDomain(trustDomain spiffeid.TrustDomain) (*
 	return b.JWTBundle(), nil
 }
 
+// WARNING!: This implementation was added just to be able to test WatchBundle
+// function. Replace with the actual implementation!
 func (b *Bundle) Equal(other *Bundle) bool {
 	if b == nil || other == nil {
 		return b == other
