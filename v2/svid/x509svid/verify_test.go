@@ -69,7 +69,7 @@ func TestVerify(t *testing.T) {
 			name:   "bad leaf cert id",
 			chain:  leafBad,
 			bundle: bundle1,
-			err:    "x509svid: could not get SPIFFE ID: spiffeid: invalid scheme",
+			err:    "x509svid: could not get leaf SPIFFE ID: spiffeid: invalid scheme",
 		},
 		{
 			name:   "verification fails",
@@ -81,13 +81,13 @@ func TestVerify(t *testing.T) {
 			name:   "no URI SAN",
 			chain:  leaf1NoURI,
 			bundle: bundle1,
-			err:    "x509svid: could not get SPIFFE ID: x509svid: leaf certificate contains no URI SAN",
+			err:    "x509svid: could not get leaf SPIFFE ID: certificate contains no URI SAN",
 		},
 		{
 			name:   "more than one URI SAN",
 			chain:  leaf1DupUris,
 			bundle: bundle1,
-			err:    "x509svid: could not get SPIFFE ID: x509svid: leaf certificate contains more than one URI SAN",
+			err:    "x509svid: could not get leaf SPIFFE ID: certificate contains more than one URI SAN",
 		},
 		{
 			name:   "leaf is CA",
