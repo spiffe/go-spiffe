@@ -17,6 +17,8 @@ type fakewatcher struct {
 	expectedBundle *spiffebundle.Bundle
 	expectedErr    string
 	cancel         context.CancelFunc
+	onUpdateCalls  int
+	onErrorCalls   int
 }
 
 func (w *fakewatcher) NextRefresh(refreshHint time.Duration) time.Duration {
@@ -24,11 +26,13 @@ func (w *fakewatcher) NextRefresh(refreshHint time.Duration) time.Duration {
 }
 
 func (w *fakewatcher) OnUpdate(bundle *spiffebundle.Bundle) {
+	w.onUpdateCalls++
 	assert.True(w.t, bundle.Equal(w.expectedBundle))
 	w.cancel()
 }
 
 func (w *fakewatcher) OnError(err error) {
+	w.onErrorCalls++
 	assert.EqualError(w.t, err, w.expectedErr)
 	w.cancel()
 }
@@ -49,6 +53,8 @@ func TestWatchBundle_OnUpate(t *testing.T) {
 	}
 
 	err := WatchBundle(ctx, td, "some url", watcher)
+	assert.Equal(t, 1, watcher.onUpdateCalls)
+	assert.Equal(t, 0, watcher.onErrorCalls)
 	assert.Equal(t, context.Canceled, err)
 }
 
@@ -68,6 +74,8 @@ func TestWatchBundle_OnError(t *testing.T) {
 	}
 
 	err := WatchBundle(ctx, td, "some url", watcher)
+	assert.Equal(t, 0, watcher.onUpdateCalls)
+	assert.Equal(t, 1, watcher.onErrorCalls)
 	assert.Equal(t, context.Canceled, err)
 }
 
