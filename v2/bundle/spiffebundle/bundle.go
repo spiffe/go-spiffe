@@ -11,6 +11,8 @@ import (
 
 	"github.com/spiffe/go-spiffe/v2/bundle/jwtbundle"
 	"github.com/spiffe/go-spiffe/v2/bundle/x509bundle"
+	"github.com/spiffe/go-spiffe/v2/internal/jwtutil"
+	"github.com/spiffe/go-spiffe/v2/internal/x509util"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/zeebo/errs"
 	"gopkg.in/square/go-jose.v2"
@@ -114,25 +116,19 @@ func Parse(trustDomain spiffeid.TrustDomain, bundleBytes []byte) (*Bundle, error
 // FromX509Bundle creates a bundle from an X.509 bundle.
 // The function panics in case of a nil X.509 bundle.
 func FromX509Bundle(x509Bundle *x509bundle.Bundle) *Bundle {
-	if x509Bundle != nil {
-		return &Bundle{
-			trustDomain: x509Bundle.TrustDomain(),
-			x509Roots:   x509Bundle.X509Roots(),
-		}
+	return &Bundle{
+		trustDomain: x509Bundle.TrustDomain(),
+		x509Roots:   x509Bundle.X509Roots(),
 	}
-	panic(spiffebundleErr.New("no X.509 bundle"))
 }
 
 // FromJWTBundle creates a bundle from a JWT bundle.
 // The function panics in case of a nil JWT bundle.
 func FromJWTBundle(jwtBundle *jwtbundle.Bundle) *Bundle {
-	if jwtBundle != nil {
-		return &Bundle{
-			trustDomain: jwtBundle.TrustDomain(),
-			jwtKeys:     jwtBundle.JWTKeys(),
-		}
+	return &Bundle{
+		trustDomain: jwtBundle.TrustDomain(),
+		jwtKeys:     jwtBundle.JWTKeys(),
 	}
-	panic(spiffebundleErr.New("no JWT bundle"))
 }
 
 // FromX509Roots creates a bundle from X.509 certificates.
@@ -161,7 +157,7 @@ func (b *Bundle) X509Roots() []*x509.Certificate {
 	b.mtx.RLock()
 	defer b.mtx.RUnlock()
 
-	return copyX509Roots(b.x509Roots)
+	return x509util.CopyX509Roots(b.x509Roots)
 }
 
 // AddX509Root adds an X.509 root to the bundle. If the root already
@@ -210,7 +206,7 @@ func (b *Bundle) JWTKeys() map[string]crypto.PublicKey {
 	b.mtx.RLock()
 	defer b.mtx.RUnlock()
 
-	return copyJWTKeys(b.jwtKeys)
+	return jwtutil.CopyJWTKeys(b.jwtKeys)
 }
 
 // FindJWTKey finds the JWT key with the given key id from the bundle. If the key
@@ -352,7 +348,7 @@ func (b *Bundle) X509Bundle() *x509bundle.Bundle {
 	b.mtx.RLock()
 	defer b.mtx.RUnlock()
 
-	return x509bundle.FromX509Roots(b.trustDomain, copyX509Roots(b.x509Roots))
+	return x509bundle.FromX509Roots(b.trustDomain, x509util.CopyX509Roots(b.x509Roots))
 }
 
 // JWTBundle returns a JWT bundle containing the JWT keys in the SPIFFE bundle.
@@ -360,7 +356,7 @@ func (b *Bundle) JWTBundle() *jwtbundle.Bundle {
 	b.mtx.RLock()
 	defer b.mtx.RUnlock()
 
-	return jwtbundle.FromJWTKeys(b.trustDomain, copyJWTKeys(b.jwtKeys))
+	return jwtbundle.FromJWTKeys(b.trustDomain, jwtutil.CopyJWTKeys(b.jwtKeys))
 }
 
 // GetBundleForTrustDomain returns the SPIFFE bundle for the given trust
@@ -403,19 +399,4 @@ func (b *Bundle) GetJWTBundleForTrustDomain(trustDomain spiffeid.TrustDomain) (*
 	}
 
 	return b.JWTBundle(), nil
-}
-
-func copyX509Roots(x509Roots []*x509.Certificate) []*x509.Certificate {
-	copiedX509Roots := make([]*x509.Certificate, len(x509Roots))
-	copy(copiedX509Roots, x509Roots)
-
-	return copiedX509Roots
-}
-
-func copyJWTKeys(jwtKeys map[string]crypto.PublicKey) map[string]crypto.PublicKey {
-	copiedJWTKeys := make(map[string]crypto.PublicKey)
-	for key, jwtKey := range jwtKeys {
-		copiedJWTKeys[key] = jwtKey
-	}
-	return copiedJWTKeys
 }

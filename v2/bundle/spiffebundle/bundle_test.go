@@ -115,7 +115,6 @@ func TestFromX509Bundle(t *testing.T) {
 	sb := spiffebundle.FromX509Bundle(xb)
 	require.NotNil(t, sb)
 	assert.Equal(t, xb.X509Roots(), sb.X509Roots())
-	assert.PanicsWithError(t, "spiffebundle: no X.509 bundle", func() { spiffebundle.FromX509Bundle(nil) })
 }
 
 func TestFromJWTBundle(t *testing.T) {
@@ -125,7 +124,6 @@ func TestFromJWTBundle(t *testing.T) {
 	sb := spiffebundle.FromJWTBundle(jb)
 	require.NotNil(t, sb)
 	assert.Equal(t, jb.JWTKeys(), sb.JWTKeys())
-	assert.PanicsWithError(t, "spiffebundle: no JWT bundle", func() { spiffebundle.FromJWTBundle(nil) })
 }
 
 func TestFromX509Roots(t *testing.T) {
