@@ -6,7 +6,10 @@ import (
 	"github.com/spiffe/go-spiffe/v2/bundle/spiffebundle"
 	"github.com/spiffe/go-spiffe/v2/bundle/x509bundle"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
+	"github.com/zeebo/errs"
 )
+
+var federationErr = errs.Class("federation")
 
 // FetchOption is an option used when dialing the bundle endpoint.
 type FetchOption interface{}
