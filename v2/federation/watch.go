@@ -20,8 +20,8 @@ type BundleWatcher interface {
 	// NextRefresh is called by WatchBundle to determine when the next refresh
 	// should take place. A refresh hint is provided, which can be zero, meaning
 	// the watcher is free to choose its own refresh cadence. If the refresh hint
-	// is non-zero, the watcher SHOULD return a next refresh time at or below
-	// that to ensure the bundle stays up-to-date.
+	// is greater than zero, the watcher SHOULD return a next refresh time at or
+	// below that to ensure the bundle stays up-to-date.
 	NextRefresh(refreshHint time.Duration) time.Duration
 
 	// OnUpdate is called when a bundle has been updated. If a bundle is
