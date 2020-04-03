@@ -21,14 +21,14 @@ func CopyX509Roots(x509Roots []*x509.Certificate) []*x509.Certificate {
 	return copiedX509Roots
 }
 
-// RootsEqual returns true if the slices of X.509 root certificates are equal.
-func RootsEqual(a, b []*x509.Certificate) bool {
+// CertsEqual returns true if the slices of X.509 certificates are equal.
+func CertsEqual(a, b []*x509.Certificate) bool {
 	if len(a) != len(b) {
 		return false
 	}
 
-	for i, root := range a {
-		if !root.Equal(b[i]) {
+	for i, cert := range a {
+		if !cert.Equal(b[i]) {
 			return false
 		}
 	}

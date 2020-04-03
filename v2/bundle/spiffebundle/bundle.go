@@ -412,7 +412,7 @@ func (b *Bundle) Equal(other *Bundle) bool {
 		refreshHintEqual(b.refreshHint, other.refreshHint) &&
 		sequenceNumberEqual(b.sequenceNumber, other.sequenceNumber) &&
 		jwtutil.JWTKeysEqual(b.jwtKeys, other.jwtKeys) &&
-		x509util.RootsEqual(b.x509Roots, other.x509Roots)
+		x509util.CertsEqual(b.x509Roots, other.x509Roots)
 }
 
 func refreshHintEqual(a, b *time.Duration) bool {
