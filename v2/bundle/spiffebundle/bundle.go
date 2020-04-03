@@ -402,3 +402,31 @@ func (b *Bundle) GetJWTBundleForTrustDomain(trustDomain spiffeid.TrustDomain) (*
 
 	return b.JWTBundle(), nil
 }
+
+func (b *Bundle) Equal(other *Bundle) bool {
+	if b == nil || other == nil {
+		return b == other
+	}
+
+	return b.trustDomain == other.trustDomain &&
+		refreshHintEqual(b.refreshHint, other.refreshHint) &&
+		sequenceNumberEqual(b.sequenceNumber, other.sequenceNumber) &&
+		jwtutil.JWTKeysEqual(b.jwtKeys, other.jwtKeys) &&
+		x509util.CertsEqual(b.x509Roots, other.x509Roots)
+}
+
+func refreshHintEqual(a, b *time.Duration) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+
+	return *a == *b
+}
+
+func sequenceNumberEqual(a, b *uint64) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+
+	return *a == *b
+}
