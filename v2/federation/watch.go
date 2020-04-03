@@ -26,15 +26,15 @@ type BundleWatcher interface {
 
 	// OnUpdate is called when a bundle has been updated. If a bundle is
 	// fetched but has not changed from the previously fetched bundle, OnUpdate
-	// will not be called. This function is called synchronously from WatchBundle
-	// so all the time this function takes to finish is added to the time taken
-	// by fetching the bundle.
+	// will not be called. This function is called synchronously by WatchBundle
+	// and therefore should have a short execution time to prevent blocking the
+	// 	watch.
 	OnUpdate(*spiffebundle.Bundle)
 
 	// OnError is called if there is an error fetching the bundle from the
-	// endpoint. This function is called synchronously from WatchBundle
-	// so all the time this function takes to finish is added to the time taken
-	// by fetching the bundle.
+	// endpoint. This function is called synchronously by WatchBundle
+	// and therefore should have a short execution time to prevent blocking the
+	// 	watch.
 	OnError(err error)
 }
 
@@ -45,10 +45,8 @@ func WatchBundle(ctx context.Context, trustDomain spiffeid.TrustDomain, url stri
 		return federationErr.New("watcher cannot be nil")
 	}
 
-	var lastBundle *spiffebundle.Bundle
-	d := watcher.NextRefresh(0)
-	timer := time.NewTimer(d)
-	defer timer.Stop()
+	latestBundle := &spiffebundle.Bundle{}
+	var timer *time.Timer
 	for {
 		bundle, err := fetchBundleCallback(ctx, trustDomain, url, options)
 		switch {
@@ -59,15 +57,27 @@ func WatchBundle(ctx context.Context, trustDomain spiffeid.TrustDomain, url stri
 			return ctx.Err()
 		case err != nil:
 			watcher.OnError(err)
-		case !lastBundle.Equal(bundle):
+		case !latestBundle.Equal(bundle):
 			watcher.OnUpdate(bundle)
-			lastBundle = bundle
+			latestBundle = bundle
+		}
+
+		var nextRefresh time.Duration
+		if refreshHint, ok := latestBundle.RefreshHint(); ok {
+			nextRefresh = watcher.NextRefresh(refreshHint)
+		} else {
+			nextRefresh = watcher.NextRefresh(0)
+		}
+
+		if timer == nil {
+			timer = time.NewTimer(nextRefresh)
+			defer timer.Stop()
+		} else {
+			timer.Reset(nextRefresh)
 		}
 
 		select {
 		case <-timer.C:
-			d = watcher.NextRefresh(0)
-			timer.Reset(d)
 		case <-ctx.Done():
 			return ctx.Err()
 		}

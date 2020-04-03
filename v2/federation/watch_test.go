@@ -11,49 +11,38 @@ import (
 	"github.com/zeebo/errs"
 )
 
-type fakewatcher struct {
-	t              *testing.T
-	nextRefresh    time.Duration
-	expectedBundle *spiffebundle.Bundle
-	expectedErr    string
-	cancel         context.CancelFunc
-	onUpdateCalls  int
-	onErrorCalls   int
-}
-
-func (w *fakewatcher) NextRefresh(refreshHint time.Duration) time.Duration {
-	return w.nextRefresh
-}
-
-func (w *fakewatcher) OnUpdate(bundle *spiffebundle.Bundle) {
-	w.onUpdateCalls++
-	assert.True(w.t, bundle.Equal(w.expectedBundle))
-	w.cancel()
-}
-
-func (w *fakewatcher) OnError(err error) {
-	w.onErrorCalls++
-	assert.EqualError(w.t, err, w.expectedErr)
-	w.cancel()
-}
-
 func TestWatchBundle_OnUpate(t *testing.T) {
-	bundle1 := &spiffebundle.Bundle{}
-	fetchBundleCallback = func(ctx context.Context, trustDomain spiffeid.TrustDomain, url string, option ...FetchOption) (*spiffebundle.Bundle, error) {
-		return bundle1, nil
-	}
-
+	var watcher *fakewatcher
 	td := spiffeid.RequireTrustDomainFromString("domain.test")
+	bundle1 := spiffebundle.New(td)
+	bundle1.SetSequenceNumber(1)
+	bundle1.SetRefreshHint(500 * time.Millisecond)
+	bundle2 := spiffebundle.New(td)
+	bundle2.SetSequenceNumber(2)
+	bundle2.SetRefreshHint(200 * time.Millisecond)
+	bundles := []*spiffebundle.Bundle{bundle1, bundle2}
+	fetchBundleCallback = func(ctx context.Context, trustDomain spiffeid.TrustDomain, url string, option ...FetchOption) (*spiffebundle.Bundle, error) {
+		assert.Greater(t, len(bundles), 0)
+		b := bundles[0]
+		bundles = bundles[1:]
+		return b, nil
+	}
 	ctx, cancel := context.WithCancel(context.Background())
-	watcher := &fakewatcher{
-		t:              t,
-		nextRefresh:    1 * time.Second,
-		expectedBundle: bundle1,
-		cancel:         cancel,
+
+	watcher = &fakewatcher{
+		t:               t,
+		nextRefresh:     1 * time.Second,
+		expectedBundles: bundles[0:],
+		cancel: func() {
+			if watcher.onUpdateCalls > 1 {
+				cancel()
+			}
+		},
+		latestBundle: &spiffebundle.Bundle{},
 	}
 
 	err := WatchBundle(ctx, td, "some url", watcher)
-	assert.Equal(t, 1, watcher.onUpdateCalls)
+	assert.Equal(t, 2, watcher.onUpdateCalls)
 	assert.Equal(t, 0, watcher.onErrorCalls)
 	assert.Equal(t, context.Canceled, err)
 }
@@ -67,10 +56,11 @@ func TestWatchBundle_OnError(t *testing.T) {
 	td := spiffeid.RequireTrustDomainFromString("domain.test")
 	ctx, cancel := context.WithCancel(context.Background())
 	watcher := &fakewatcher{
-		t:           t,
-		nextRefresh: 1 * time.Second,
-		expectedErr: fetchErr.Error(),
-		cancel:      cancel,
+		t:            t,
+		nextRefresh:  1 * time.Second,
+		expectedErr:  fetchErr.Error(),
+		cancel:       cancel,
+		latestBundle: &spiffebundle.Bundle{},
 	}
 
 	err := WatchBundle(ctx, td, "some url", watcher)
@@ -100,4 +90,37 @@ func TestWatchBundle_FetchBundleCanceled(t *testing.T) {
 
 	err := WatchBundle(ctx, td, "some url", watcher)
 	assert.Equal(t, context.Canceled, err)
+}
+
+type fakewatcher struct {
+	t               *testing.T
+	nextRefresh     time.Duration
+	expectedBundles []*spiffebundle.Bundle
+	expectedErr     string
+	cancel          context.CancelFunc
+	onUpdateCalls   int
+	onErrorCalls    int
+	latestBundle    *spiffebundle.Bundle
+}
+
+func (w *fakewatcher) NextRefresh(refreshHint time.Duration) time.Duration {
+	if rh, ok := w.latestBundle.RefreshHint(); ok {
+		assert.Equal(w.t, rh, refreshHint)
+	} else {
+		assert.Equal(w.t, time.Duration(0), refreshHint)
+	}
+	return w.nextRefresh
+}
+
+func (w *fakewatcher) OnUpdate(bundle *spiffebundle.Bundle) {
+	w.latestBundle = bundle
+	assert.True(w.t, bundle.Equal(w.expectedBundles[w.onUpdateCalls]))
+	w.onUpdateCalls++
+	w.cancel()
+}
+
+func (w *fakewatcher) OnError(err error) {
+	assert.EqualError(w.t, err, w.expectedErr)
+	w.onErrorCalls++
+	w.cancel()
 }

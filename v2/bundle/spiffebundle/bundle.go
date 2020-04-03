@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"io"
 	"io/ioutil"
+	"reflect"
 	"sync"
 	"time"
 
@@ -403,11 +404,27 @@ func (b *Bundle) GetJWTBundleForTrustDomain(trustDomain spiffeid.TrustDomain) (*
 	return b.JWTBundle(), nil
 }
 
-// WARNING!: This implementation was added just to be able to test WatchBundle
-// function. Replace with the actual implementation!
 func (b *Bundle) Equal(other *Bundle) bool {
-	if b == nil || other == nil {
+	switch {
+	case b == nil || other == nil:
 		return b == other
+	case b.trustDomain != other.trustDomain:
+		return false
+	case !reflect.DeepEqual(b.refreshHint, other.refreshHint):
+		return false
+	case !reflect.DeepEqual(b.sequenceNumber, other.sequenceNumber):
+		return false
+	case !reflect.DeepEqual(b.jwtKeys, other.jwtKeys):
+		return false
+	case len(b.x509Roots) != len(other.x509Roots):
+		return false
 	}
-	return *b == *other
+
+	for i, root := range b.x509Roots {
+		if !root.Equal(other.x509Roots[i]) {
+			return false
+		}
+	}
+
+	return true
 }
