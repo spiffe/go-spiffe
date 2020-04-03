@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"io"
 	"io/ioutil"
-	"reflect"
 	"sync"
 	"time"
 
@@ -405,26 +404,29 @@ func (b *Bundle) GetJWTBundleForTrustDomain(trustDomain spiffeid.TrustDomain) (*
 }
 
 func (b *Bundle) Equal(other *Bundle) bool {
-	switch {
-	case b == nil || other == nil:
+	if b == nil || other == nil {
 		return b == other
-	case b.trustDomain != other.trustDomain:
-		return false
-	case !reflect.DeepEqual(b.refreshHint, other.refreshHint):
-		return false
-	case !reflect.DeepEqual(b.sequenceNumber, other.sequenceNumber):
-		return false
-	case !reflect.DeepEqual(b.jwtKeys, other.jwtKeys):
-		return false
-	case len(b.x509Roots) != len(other.x509Roots):
-		return false
 	}
 
-	for i, root := range b.x509Roots {
-		if !root.Equal(other.x509Roots[i]) {
-			return false
-		}
+	return b.trustDomain == other.trustDomain &&
+		refreshHintEqual(b.refreshHint, other.refreshHint) &&
+		sequenceNumberEqual(b.sequenceNumber, other.sequenceNumber) &&
+		jwtutil.JWTKeysEqual(b.jwtKeys, other.jwtKeys) &&
+		x509util.RootsEqual(b.x509Roots, other.x509Roots)
+}
+
+func refreshHintEqual(a, b *time.Duration) bool {
+	if a == nil || b == nil {
+		return a == b
 	}
 
-	return true
+	return *a == *b
+}
+
+func sequenceNumberEqual(a, b *uint64) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+
+	return *a == *b
 }

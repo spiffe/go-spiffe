@@ -28,13 +28,13 @@ type BundleWatcher interface {
 	// fetched but has not changed from the previously fetched bundle, OnUpdate
 	// will not be called. This function is called synchronously by WatchBundle
 	// and therefore should have a short execution time to prevent blocking the
-	// 	watch.
+	// watch.
 	OnUpdate(*spiffebundle.Bundle)
 
 	// OnError is called if there is an error fetching the bundle from the
 	// endpoint. This function is called synchronously by WatchBundle
 	// and therefore should have a short execution time to prevent blocking the
-	// 	watch.
+	// watch.
 	OnError(err error)
 }
 
