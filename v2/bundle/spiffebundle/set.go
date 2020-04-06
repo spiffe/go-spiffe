@@ -63,12 +63,12 @@ func (s *Set) GetBundleForTrustDomain(trustDomain spiffeid.TrustDomain) (*Bundle
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
 
-	_, ok := s.bundles[trustDomain]
+	bundle, ok := s.bundles[trustDomain]
 	if !ok {
 		return nil, spiffebundleErr.New("no SPIFFE bundle for trust domain %q", trustDomain)
 	}
 
-	return s.bundles[trustDomain], nil
+	return bundle, nil
 }
 
 // GetX509BundleForTrustDomain returns the X.509 bundle for the given trust
@@ -77,12 +77,12 @@ func (s *Set) GetX509BundleForTrustDomain(trustDomain spiffeid.TrustDomain) (*x5
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
 
-	_, ok := s.bundles[trustDomain]
+	bundle, ok := s.bundles[trustDomain]
 	if !ok {
 		return nil, spiffebundleErr.New("no SPIFFE bundle for trust domain %q", trustDomain)
 	}
 
-	return s.bundles[trustDomain].X509Bundle(), nil
+	return bundle.X509Bundle(), nil
 }
 
 // GetJWTBundleForTrustDomain returns the JWT bundle for the given trust
@@ -91,10 +91,10 @@ func (s *Set) GetJWTBundleForTrustDomain(trustDomain spiffeid.TrustDomain) (*jwt
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
 
-	_, ok := s.bundles[trustDomain]
+	bundle, ok := s.bundles[trustDomain]
 	if !ok {
 		return nil, spiffebundleErr.New("no SPIFFE bundle for trust domain %q", trustDomain)
 	}
 
-	return s.bundles[trustDomain].JWTBundle(), nil
+	return bundle.JWTBundle(), nil
 }
