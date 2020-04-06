@@ -61,7 +61,8 @@ func (s *Set) GetJWTBundleForTrustDomain(trustDomain spiffeid.TrustDomain) (*Bun
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
 
-	if !s.Has(trustDomain) {
+	_, ok := s.bundles[trustDomain]
+	if !ok {
 		return nil, jwtbundleErr.New("no JWT bundle for trust domain %q", trustDomain)
 	}
 

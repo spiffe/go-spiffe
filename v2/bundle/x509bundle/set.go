@@ -61,7 +61,8 @@ func (s *Set) GetX509BundleForTrustDomain(trustDomain spiffeid.TrustDomain) (*Bu
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
 
-	if !s.Has(trustDomain) {
+	_, ok := s.bundles[trustDomain]
+	if !ok {
 		return nil, x509bundleErr.New("no X.509 bundle for trust domain %q", trustDomain)
 	}
 

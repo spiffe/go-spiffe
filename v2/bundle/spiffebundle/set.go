@@ -63,7 +63,8 @@ func (s *Set) GetBundleForTrustDomain(trustDomain spiffeid.TrustDomain) (*Bundle
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
 
-	if !s.Has(trustDomain) {
+	_, ok := s.bundles[trustDomain]
+	if !ok {
 		return nil, spiffebundleErr.New("no SPIFFE bundle for trust domain %q", trustDomain)
 	}
 
@@ -76,7 +77,8 @@ func (s *Set) GetX509BundleForTrustDomain(trustDomain spiffeid.TrustDomain) (*x5
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
 
-	if !s.Has(trustDomain) {
+	_, ok := s.bundles[trustDomain]
+	if !ok {
 		return nil, spiffebundleErr.New("no SPIFFE bundle for trust domain %q", trustDomain)
 	}
 
@@ -89,7 +91,8 @@ func (s *Set) GetJWTBundleForTrustDomain(trustDomain spiffeid.TrustDomain) (*jwt
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
 
-	if !s.Has(trustDomain) {
+	_, ok := s.bundles[trustDomain]
+	if !ok {
 		return nil, spiffebundleErr.New("no SPIFFE bundle for trust domain %q", trustDomain)
 	}
 
