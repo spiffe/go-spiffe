@@ -135,6 +135,22 @@ func (b *Bundle) RemoveJWTKey(keyID string) {
 	delete(b.jwtKeys, keyID)
 }
 
+// SetJWTKeys sets the JWT keys in the bundle.
+func (b *Bundle) SetJWTKeys(jwtKeys map[string]crypto.PublicKey) {
+	b.mtx.Lock()
+	defer b.mtx.Unlock()
+
+	b.jwtKeys = jwtutil.CopyJWTKeys(jwtKeys)
+}
+
+// Empty returns true if the bundle has no JWT keys.
+func (b *Bundle) Empty() bool {
+	b.mtx.RLock()
+	defer b.mtx.RUnlock()
+
+	return len(b.jwtKeys) == 0
+}
+
 // Marshal marshals the JWT bundle into a standard RFC 7517 JWKS document. The
 // JWKS does not contain any SPIFFE-specific parameters.
 func (b *Bundle) Marshal() ([]byte, error) {

@@ -1,6 +1,7 @@
 package spiffebundle
 
 import (
+	"sort"
 	"sync"
 
 	"github.com/spiffe/go-spiffe/v2/bundle/jwtbundle"
@@ -55,6 +56,40 @@ func (s *Set) Has(trustDomain spiffeid.TrustDomain) bool {
 
 	_, ok := s.bundles[trustDomain]
 	return ok
+}
+
+// Get returns a bundle for the given trust domain. If the bundle is in the set
+// it is returned and the boolean is true. Otherwise, the returned value is
+// nil and the boolean is false.
+func (s *Set) Get(trustDomain spiffeid.TrustDomain) (*Bundle, bool) {
+	s.mtx.RLock()
+	defer s.mtx.RUnlock()
+
+	bundle, ok := s.bundles[trustDomain]
+	return bundle, ok
+}
+
+// Bundles returns the bundles in the set sorted by trust domain.
+func (s *Set) Bundles() []*Bundle {
+	s.mtx.RLock()
+	defer s.mtx.RUnlock()
+
+	out := make([]*Bundle, 0, len(s.bundles))
+	for _, bundle := range s.bundles {
+		out = append(out, bundle)
+	}
+	sort.Slice(out, func(a, b int) bool {
+		return out[a].TrustDomain().Compare(out[b].TrustDomain()) < 0
+	})
+	return out
+}
+
+// Len returns the number of bundles in the set.
+func (s *Set) Len() int {
+	s.mtx.RLock()
+	defer s.mtx.RUnlock()
+
+	return len(s.bundles)
 }
 
 // GetBundleForTrustDomain returns the SPIFFE bundle for the given trust
