@@ -93,8 +93,8 @@ func TestHandler(t *testing.T) {
 				return http.Get(server.URL)
 			},
 			statusCode: http.StatusInternalServerError,
-			response:   "unable to get bundle for provided trust domain \"test.domain\"\n",
-			log:        "unable to get bundle for provided trust domain \"test.domain\": bundle not found",
+			response:   "unable to serve bundle for \"test.domain\"\n",
+			log:        "unable to get bundle for trust domain \"test.domain\": bundle not found",
 		},
 		{
 			name: "marshaling error",
@@ -110,7 +110,7 @@ func TestHandler(t *testing.T) {
 				return http.Get(server.URL)
 			},
 			statusCode: http.StatusInternalServerError,
-			response:   "unable to marshal bundle for trust domain \"test.domain\"\n",
+			response:   "unable to serve bundle for \"test.domain\"\n",
 			log:        "unable to marshal bundle for trust domain \"test.domain\": json: error calling MarshalJSON",
 		},
 	}

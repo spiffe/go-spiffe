@@ -115,7 +115,7 @@ func ExampleHandler_webPKI() {
 	}
 	defer bundleSource.Close()
 
-	handler := federation.Handler(trustDomain, bundleSource, &logger.NullLogger{})
+	handler := federation.Handler(trustDomain, bundleSource, logger.Null)
 
 	if err := http.ListenAndServeTLS(":8443", "cert.pem", "key.pem", handler); err != nil {
 		// TODO: handle error
@@ -144,7 +144,7 @@ func ExampleHandler_sPIFFEAuth() {
 
 	server := http.Server{
 		Addr:      ":8443",
-		Handler:   federation.Handler(trustDomain, bundleSource, &logger.NullLogger{}),
+		Handler:   federation.Handler(trustDomain, bundleSource, logger.Null),
 		TLSConfig: tlsconfig.TLSServerConfig(x509Source),
 	}
 	if err := server.ListenAndServeTLS("", ""); err != nil {

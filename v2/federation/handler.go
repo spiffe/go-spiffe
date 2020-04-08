@@ -25,14 +25,14 @@ func Handler(trustDomain spiffeid.TrustDomain, source spiffebundle.Source, log l
 
 		bundle, err := source.GetBundleForTrustDomain(trustDomain)
 		if err != nil {
-			log.Errorf("unable to get bundle for provided trust domain %q: %v", trustDomain, err)
-			http.Error(w, fmt.Sprintf("unable to get bundle for provided trust domain %q", trustDomain), http.StatusInternalServerError)
+			log.Errorf("unable to get bundle for trust domain %q: %v", trustDomain, err)
+			http.Error(w, fmt.Sprintf("unable to serve bundle for %q", trustDomain), http.StatusInternalServerError)
 			return
 		}
 		data, err := bundle.Marshal()
 		if err != nil {
 			log.Errorf("unable to marshal bundle for trust domain %q: %v", trustDomain, err)
-			http.Error(w, fmt.Sprintf("unable to marshal bundle for trust domain %q", trustDomain), http.StatusInternalServerError)
+			http.Error(w, fmt.Sprintf("unable to serve bundle for %q", trustDomain), http.StatusInternalServerError)
 			return
 		}
 
