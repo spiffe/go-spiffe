@@ -19,11 +19,11 @@ type FetchOption interface {
 }
 
 type fetchOptions struct {
-	transport http.RoundTripper
+	transport *http.Transport
 }
 
 var defaultFetchOptions = fetchOptions{
-	transport: http.DefaultTransport,
+	transport: http.DefaultTransport.(*http.Transport),
 }
 
 // WithSPIFFEAuth authenticates the bundle endpoint with SPIFFE authentication
@@ -31,9 +31,7 @@ var defaultFetchOptions = fetchOptions{
 // expected SPIFFE ID.
 func WithSPIFFEAuth(bundleSource x509bundle.Source, endpointID spiffeid.ID) FetchOption {
 	return fetchOption(func(o *fetchOptions) {
-		o.transport = &http.Transport{
-			TLSClientConfig: tlsconfig.TLSClientConfig(bundleSource, tlsconfig.AuthorizeID(endpointID)),
-		}
+		o.transport.TLSClientConfig = tlsconfig.TLSClientConfig(bundleSource, tlsconfig.AuthorizeID(endpointID))
 	})
 }
 
