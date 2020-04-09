@@ -48,7 +48,7 @@ func WatchBundle(ctx context.Context, trustDomain spiffeid.TrustDomain, url stri
 	latestBundle := &spiffebundle.Bundle{}
 	var timer *time.Timer
 	for {
-		bundle, err := fetchBundleCallback(ctx, trustDomain, url, options)
+		bundle, err := fetchBundleCallback(ctx, trustDomain, url, options...)
 		switch {
 		// Context was canceled when fetching bundle, so to avoid
 		// more calls to FetchBundle (because the timer could be expired at
