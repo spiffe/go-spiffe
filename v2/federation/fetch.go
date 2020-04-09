@@ -22,10 +22,6 @@ type fetchOptions struct {
 	transport *http.Transport
 }
 
-var defaultFetchOptions = fetchOptions{
-	transport: http.DefaultTransport.(*http.Transport),
-}
-
 // WithSPIFFEAuth authenticates the bundle endpoint with SPIFFE authentication
 // using the provided root store. It validates that the endpoint presents the
 // expected SPIFFE ID.
@@ -37,7 +33,9 @@ func WithSPIFFEAuth(bundleSource x509bundle.Source, endpointID spiffeid.ID) Fetc
 
 // FetchBundle retrieves a bundle from a bundle endpoint.
 func FetchBundle(ctx context.Context, trustDomain spiffeid.TrustDomain, url string, option ...FetchOption) (*spiffebundle.Bundle, error) {
-	opts := defaultFetchOptions
+	opts := fetchOptions{
+		transport: http.DefaultTransport.(*http.Transport).Clone(),
+	}
 	for _, o := range option {
 		o.apply(&opts)
 	}
