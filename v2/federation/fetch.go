@@ -2,6 +2,8 @@ package federation
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"net/http"
 
 	"github.com/spiffe/go-spiffe/v2/bundle/spiffebundle"
@@ -28,6 +30,16 @@ type fetchOptions struct {
 func WithSPIFFEAuth(bundleSource x509bundle.Source, endpointID spiffeid.ID) FetchOption {
 	return fetchOption(func(o *fetchOptions) {
 		o.transport.TLSClientConfig = tlsconfig.TLSClientConfig(bundleSource, tlsconfig.AuthorizeID(endpointID))
+	})
+}
+
+// WithWebAuth authenticates the bundle endpoint with Web PKI authentication
+// using the provided X.509 root certificates instead of the system ones.
+func WithWebPKIAuth(rootCAs *x509.CertPool) FetchOption {
+	return fetchOption(func(o *fetchOptions) {
+		o.transport.TLSClientConfig = &tls.Config{
+			RootCAs: rootCAs,
+		}
 	})
 }
 
