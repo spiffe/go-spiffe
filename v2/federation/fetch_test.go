@@ -71,7 +71,7 @@ func TestFetchBundle_SPIFFEAuth_UnexpectedID(t *testing.T) {
 	defer cancel()
 	fetchedBundle, err := federation.FetchBundle(ctx, td, "https://localhost:1025/test-bundle",
 		federation.WithSPIFFEAuth(bundle, td.NewID("other/id")))
-	assert.EqualError(t, err, `federation: could not GET bundle: Get "https://localhost:1025/test-bundle": unexpected ID "spiffe://domain.test/control-plane/test-bundle-endpoint"`)
+	assert.Regexp(t, `federation: could not GET bundle: Get "?https://localhost:1025/test-bundle"?: unexpected ID "spiffe://domain.test/control-plane/test-bundle-endpoint"`, err.Error())
 	assert.Nil(t, fetchedBundle)
 }
 
@@ -93,7 +93,7 @@ func TestFetchBundle_ErrorGettingBundle(t *testing.T) {
 
 	fetchedBundle, err := federation.FetchBundle(ctx, td, "https://127.0.0.1:1025/test-bundle",
 		federation.WithWebPKIAuth(be.RootCAs()))
-	assert.EqualError(t, err, `federation: could not GET bundle: Get "https://127.0.0.1:1025/test-bundle": context canceled`)
+	assert.Regexp(t, `federation: could not GET bundle: Get "?https://127.0.0.1:1025/test-bundle"?: context canceled`, err.Error())
 	assert.Nil(t, fetchedBundle)
 }
 
