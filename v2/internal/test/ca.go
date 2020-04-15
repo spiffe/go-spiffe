@@ -119,7 +119,7 @@ func CreateX509Certificate(tb testing.TB, parent *x509.Certificate, parentKey cr
 }
 
 func CreateX509SVID(tb testing.TB, parent *x509.Certificate, parentKey crypto.Signer, spiffeID string, options ...CertificateOption) (*x509.Certificate, crypto.Signer) {
-	id, err := spiffeid.FromString(spiffeID)
+	uriSAN, err := url.Parse(spiffeID)
 	require.NoError(tb, err)
 
 	serial := NewSerial(tb)
@@ -128,7 +128,7 @@ func CreateX509SVID(tb testing.TB, parent *x509.Certificate, parentKey crypto.Si
 		WithSubject(pkix.Name{
 			CommonName: fmt.Sprintf("X509-SVID %x", serial),
 		}),
-		WithURIs([]*url.URL{id.URL()}))
+		WithURIs([]*url.URL{uriSAN}))
 
 	return CreateX509Certificate(tb, parent, parentKey, options...)
 }
