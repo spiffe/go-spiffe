@@ -93,7 +93,7 @@ func TestFetchBundle_ErrorGettingBundle(t *testing.T) {
 
 	fetchedBundle, err := federation.FetchBundle(ctx, td, "https://127.0.0.1:1025/test-bundle",
 		federation.WithWebPKIAuth(be.RootCAs()))
-	assert.EqualError(t, err, `federation: could not GET bundle: Get "http://localhost:1025/test-bundle": context canceled`)
+	assert.EqualError(t, err, `federation: could not GET bundle: Get "https://127.0.0.1:1025/test-bundle": context canceled`)
 	assert.Nil(t, fetchedBundle)
 }
 
