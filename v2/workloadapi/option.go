@@ -6,25 +6,45 @@ import (
 	"google.golang.org/grpc"
 )
 
+type clientOption struct {
+	address     string
+	dialOptions []grpc.DialOption
+	log         logger.Logger
+}
+
 // ClientOption is an option used when creating a new Client.
-type ClientOption interface{}
+type ClientOption interface {
+	apply(*clientOption)
+}
+
+type funcClientOption func(*clientOption)
+
+func (fn funcClientOption) apply(do *clientOption) {
+	fn(do)
+}
 
 // WithAddr provides an address for the Workload API. The value of the
 // SPIFFE_ENDPOINT_SOCKET environment variable will be used if the option
 // is unused.
 func WithAddr(addr string) ClientOption {
-	panic("not implemented")
+	return funcClientOption(func(c *clientOption) {
+		c.address = addr
+	})
 }
 
 // WithDialOptions provides extra GRPC dialing options when dialing the
 // Workload API.
 func WithDialOptions(options ...grpc.DialOption) ClientOption {
-	panic("not implemented")
+	return funcClientOption(func(c *clientOption) {
+		c.dialOptions = append(c.dialOptions, options...)
+	})
 }
 
 // WithLogger provides a logger to the Client.
 func WithLogger(logger logger.Logger) ClientOption {
-	panic("not implemented")
+	return funcClientOption(func(c *clientOption) {
+		c.log = logger
+	})
 }
 
 // SourceOption are options that are shared among all option types.
