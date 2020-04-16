@@ -20,7 +20,7 @@ type BundleSource struct {
 	mtx     sync.RWMutex
 	bundles *spiffebundle.Set
 
-	closeMtx sync.Mutex
+	closeMtx sync.RWMutex
 	closed   bool
 }
 
@@ -161,8 +161,8 @@ func (s *BundleSource) setJWTBundles(bundles *jwtbundle.Set) {
 }
 
 func (s *BundleSource) checkClosed() error {
-	s.closeMtx.Lock()
-	defer s.closeMtx.Unlock()
+	s.closeMtx.RLock()
+	defer s.closeMtx.RUnlock()
 	if s.closed {
 		return bundlesourceErr.New("source is closed")
 	}

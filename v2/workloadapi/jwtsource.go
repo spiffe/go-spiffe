@@ -20,7 +20,7 @@ type JWTSource struct {
 	mtx     sync.RWMutex
 	bundles *jwtbundle.Set
 
-	closeMtx sync.Mutex
+	closeMtx sync.RWMutex
 	closed   bool
 }
 
@@ -79,8 +79,8 @@ func (s *JWTSource) setJWTBundles(bundles *jwtbundle.Set) {
 }
 
 func (s *JWTSource) checkClosed() error {
-	s.closeMtx.Lock()
-	defer s.closeMtx.Unlock()
+	s.closeMtx.RLock()
+	defer s.closeMtx.RUnlock()
 	if s.closed {
 		return jwtsourceErr.New("source is closed")
 	}

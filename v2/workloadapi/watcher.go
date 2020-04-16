@@ -138,7 +138,7 @@ func (w *watcher) OnX509ContextUpdate(x509Context *X509Context) {
 
 func (w *watcher) OnX509ContextWatchError(err error) {
 	// The watcher doesn't do anything special with the error. If logging is
-	// desired, it should be provided to the workload API client.
+	// desired, it should be provided to the Workload API client.
 }
 
 func (w *watcher) OnJWTBundlesUpdate(jwtBundles *jwtbundle.Set) {
@@ -150,5 +150,5 @@ func (w *watcher) OnJWTBundlesUpdate(jwtBundles *jwtbundle.Set) {
 
 func (w *watcher) OnJWTBundlesWatchError(error) {
 	// The watcher doesn't do anything special with the error. If logging is
-	// desired, it should be provided to the workload API client.
+	// desired, it should be provided to the Workload API client.
 }

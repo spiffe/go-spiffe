@@ -267,7 +267,7 @@ func (b *Bundle) SetJWTKeys(jwtKeys map[string]crypto.PublicKey) {
 	b.jwtKeys = jwtutil.CopyJWTKeys(jwtKeys)
 }
 
-// Empty returns true if the bundle has no X.509 roots or JWT keys.
+// Empty returns true if the bundle has no X.509 roots and no JWT keys.
 func (b *Bundle) Empty() bool {
 	b.mtx.RLock()
 	defer b.mtx.RUnlock()

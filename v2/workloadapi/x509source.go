@@ -22,7 +22,7 @@ type X509Source struct {
 	svid    *x509svid.SVID
 	bundles *x509bundle.Set
 
-	closeMtx sync.Mutex
+	closeMtx sync.RWMutex
 	closed   bool
 }
 
@@ -103,8 +103,8 @@ func (s *X509Source) setX509Context(x509Context *X509Context) {
 }
 
 func (s *X509Source) checkClosed() error {
-	s.closeMtx.Lock()
-	defer s.closeMtx.Unlock()
+	s.closeMtx.RLock()
+	defer s.closeMtx.RUnlock()
 	if s.closed {
 		return x509sourceErr.New("source is closed")
 	}
