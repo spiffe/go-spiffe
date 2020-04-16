@@ -28,15 +28,15 @@ func NewListener(ctx context.Context, inner net.Listener, authorizer tlsconfig.A
 }
 
 // ListenWithMode creates a TLS listener accepting connections on the given
-// network address using net.Listen. The given mode controls the the
-// authentication and authorization exercised during the TLS handshake.
+// network address using net.Listen. The given mode controls the authentication
+// and authorization exercised during the TLS handshake.
 func ListenWithMode(ctx context.Context, network, laddr string, mode ListenMode, options ...ListenOption) (net.Listener, error) {
 	panic("not implemented")
 }
 
 // NewListenerWithMode creates a TLS listener which accepts connections from an
 // inner Listener and wraps each connection with tls.Server. The given mode
-// controls the the authentication and authorization exercised during the TLS
+// controls the authentication and authorization exercised during the TLS
 // handshake.
 func NewListenerWithMode(ctx context.Context, inner net.Listener, mode ListenMode, options ...ListenOption) (net.Listener, error) {
 	panic("not implemented")

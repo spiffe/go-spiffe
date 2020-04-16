@@ -47,7 +47,7 @@ func HookMTLSClientConfig(config *tls.Config, svid x509svid.Source, bundle x509b
 
 // MTLSWebClientConfig returns a TLS configuration which presents an X509-SVID
 // to the server and verifies the server certificate using provided roots (or
-// the system roots if nil)
+// the system roots if nil).
 func MTLSWebClientConfig(svid x509svid.Source, roots *x509.CertPool) *tls.Config {
 	config := new(tls.Config)
 	HookMTLSWebClientConfig(config, svid, roots)
@@ -55,7 +55,7 @@ func MTLSWebClientConfig(svid x509svid.Source, roots *x509.CertPool) *tls.Config
 }
 
 // HookMTLSWebClientConfig sets up the TLS configuration to present an
-// X509-SVID to the server and verified the server certificate using the
+// X509-SVID to the server and verifies the server certificate using the
 // provided roots (or the system roots if nil).
 func HookMTLSWebClientConfig(config *tls.Config, svid x509svid.Source, roots *x509.CertPool) {
 	resetAuthFields(config)

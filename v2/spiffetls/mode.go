@@ -29,18 +29,18 @@ func TLSClientWithSource(source *workloadapi.X509Source, authorizer tlsconfig.Au
 	panic("not implemented")
 }
 
-// TLSClientWithSourceOptions configures the dialing for TLS. The server X509-SVID is
-// authenticated using X.509 bundles obtained via a new Workload API X.509
-// source created with the provided source options. The authorizer is used to
-// authorize the server X509-SVID.
+// TLSClientWithSourceOptions configures the dialing for TLS. The server
+// X509-SVID is authenticated using X.509 bundles obtained via a new Workload
+// API X.509 source created with the provided source options. The authorizer is
+// used to authorize the server X509-SVID.
 func TLSClientWithSourceOptions(options []workloadapi.X509SourceOption, authorizer tlsconfig.Authorizer) DialMode {
 	panic("not implemented")
 }
 
 // TLSClientWithConfig configures the dialing for TLS. The server X509-SVID is
-// authenticated using X.509 bundles obtained via the provided source. The
-// source must remain valid for the lifetime of the connection. The authorizer
-// is used to authorize the server X509-SVID.
+// authenticated using X.509 bundles obtained via the provided X.509 bundle
+// source. The source must remain valid for the lifetime of the connection. The
+// authorizer is used to authorize the server X509-SVID.
 func TLSClientWithConfig(bundle x509bundle.Source, authorizer tlsconfig.Authorizer) DialMode {
 	panic("not implemented")
 }
@@ -73,42 +73,43 @@ func MTLSClientWithSourceOptions(options []workloadapi.X509SourceOption, authori
 
 // MTLSClientWithConfig configures the dialing for mutually authenticated TLS
 // (mTLS). The client X509-SVID and the X.509 bundles used to authenticate the
-// server X509-SVID are obtained via the provided sources. The sources must
-// remain valid for the lifetime of the connection. The authorizer is used to
-// authorize the server X509-SVID.
+// server X509-SVID are obtained via the provided X509-SVID and X.509 bundle
+// sources. The sources must remain valid for the lifetime of the connection.
+// The authorizer is used to authorize the server X509-SVID.
 func MTLSClientWithConfig(svid x509svid.Source, bundle x509bundle.Source, authorizer tlsconfig.Authorizer) DialMode {
 	panic("not implemented")
 }
 
 // MTLSWebClient configures the dialing for mutually authenticated TLS (mTLS).
 // The client X509-SVID is obtained via the Workload API. The roots (or the
-// system roots if nil) are used to authenticate the server certificate).
+// system roots if nil) are used to authenticate the server certificate.
 func MTLSWebClient(roots *x509.CertPool) DialMode {
 	panic("not implemented")
 }
 
 // MTLSWebClientWithSource configures the dialing for mutually authenticated
-// TLS (mTLS).  The client X509-SVID is obtained via the provided Workload API
-// X.509 source.  The source must remain valid for the lifetime of the
+// TLS (mTLS). The client X509-SVID is obtained via the provided Workload API
+// X.509 source. The source must remain valid for the lifetime of the
 // connection. The roots (or the system roots if nil) are used to authenticate
-// the server certificate).
+// the server certificate.
 func MTLSWebClientWithSource(source *workloadapi.X509Source, roots *x509.CertPool) DialMode {
 	panic("not implemented")
 }
 
 // MTLSWebClientWithSourceOptions configures the dialing for mutually
-// authenticated TLS (mTLS).  The client X509-SVID is obtained via a new
+// authenticated TLS (mTLS). The client X509-SVID is obtained via a new
 // Workload API X.509 source created with the provided source options. The
 // roots (or the system roots if nil) are used to authenticate the server
-// certificate).
+// certificate.
 func MTLSWebClientWithSourceOptions(options []workloadapi.X509SourceOption, roots *x509.CertPool) DialMode {
 	panic("not implemented")
 }
 
 // MTLSWebClientWithConfig configures the dialing for mutually authenticated
-// TLS (mTLS). The client X509-SVID is obtained via the provided source. The
-// source must remain valid for the lifetime of the connection. The roots (or
-// the system roots if nil) are used to authenticate the server certificate).
+// TLS (mTLS). The client X509-SVID is obtained via the provided X509-SVID
+// source. The source must remain valid for the lifetime of the connection. The
+// roots (or the system roots if nil) are used to authenticate the server
+// certificate.
 func MTLSWebClientWithConfig(svid x509svid.Source, roots *x509.CertPool) DialMode {
 	panic("not implemented")
 }
@@ -164,7 +165,7 @@ func MTLSServerWithSource(source *workloadapi.X509Source, authorizer tlsconfig.A
 // MTLSServerWithSourceOptions configures the listener for mutually
 // authenticated TLS (mTLS). The listener presents an X509-SVID and
 // authenticates client X509-SVIDs using X.509 bundles, both obtained via a new
-// Workload API X.509 sources created with the provided source options. The
+// Workload API X.509 source created with the provided source options. The
 // authorizer is used to authorize client X509-SVIDs.
 func MTLSServerWithSourceOptions(options []workloadapi.X509SourceOption, authorizer tlsconfig.Authorizer) ListenMode {
 	panic("not implemented")
@@ -172,10 +173,10 @@ func MTLSServerWithSourceOptions(options []workloadapi.X509SourceOption, authori
 
 // MTLSServerWithConfig configures the listener for mutually authenticated TLS
 // (mTLS). The listener presents an X509-SVID and authenticates client
-// X509-SVIDs using X.509 bundles, both obtained via the provided sources. The
-// sources must remain valid for the lifetime of the listener. The authorizer
-// is used to authorize client X509-SVIDs.
-func MTLSServerWithConfig(svid x509svid.Source, bundle, authorizer tlsconfig.Authorizer) ListenMode {
+// X509-SVIDs using X.509 bundles, both obtained via the provided X509-SVID and
+// X.509 bundle sources. The sources must remain valid for the lifetime of the
+// listener. The authorizer is used to authorize client X509-SVIDs.
+func MTLSServerWithConfig(svid x509svid.Source, bundle x509bundle.Source, authorizer tlsconfig.Authorizer) ListenMode {
 	panic("not implemented")
 }
 
@@ -189,9 +190,9 @@ func MTLSWebServer(cert *tls.Certificate, authorizer tlsconfig.Authorizer) Liste
 
 // MTLSWebServerWithSource configures the listener for mutually authenticated
 // TLS (mTLS). The listener presents an X.509 certificate and authenticates
-// client X509-SVIDs using X.509 bundles obtained via the provided sources.
-// The sources must remain valid for the lifetime of the listener. The
-// authorizer is used to authorize client X509-SVIDs.
+// client X509-SVIDs using X.509 bundles obtained via the provided Workload API
+// X.509 source. The source must remain valid for the lifetime of the listener.
+// The authorizer is used to authorize client X509-SVIDs.
 func MTLSWebServerWithSource(cert *tls.Certificate, source *workloadapi.X509Source, authorizer tlsconfig.Authorizer) ListenMode {
 	panic("not implemented")
 }
@@ -199,7 +200,7 @@ func MTLSWebServerWithSource(cert *tls.Certificate, source *workloadapi.X509Sour
 // MTLSWebServerWithSourceOptions configures the listener for mutually
 // authenticated TLS (mTLS). The listener presents an X.509 certificate and
 // authenticates client X509-SVIDs using X.509 bundles, both obtained via a new
-// Workload API X.509 sources created with the provided source options. The
+// Workload API X.509 source created with the provided source options. The
 // authorizer is used to authorize client X509-SVIDs.
 func MTLSWebServerWithSourceOptions(cert *tls.Certificate, options []workloadapi.X509SourceOption, authorizer tlsconfig.Authorizer) ListenMode {
 	panic("not implemented")
@@ -207,9 +208,9 @@ func MTLSWebServerWithSourceOptions(cert *tls.Certificate, options []workloadapi
 
 // MTLSWebServerWithConfig configures the listener for mutually authenticated
 // TLS (mTLS). The listener presents an X.509 certificate and authenticates
-// client X509-SVIDs using X.509 bundles, both obtained via the provided
-// sources. The sources must remain valid for the lifetime of the listener. The
-// authorizer is used to authorize client X509-SVIDs.
+// client X509-SVIDs using X.509 bundles, both obtained via the provided X.509
+// bundle source. The source must remain valid for the lifetime of the
+// listener. The authorizer is used to authorize client X509-SVIDs.
 func MTLSWebServerWithConfig(cert *tls.Certificate, bundle x509bundle.Source, authorizer tlsconfig.Authorizer) ListenMode {
 	panic("not implemented")
 }
