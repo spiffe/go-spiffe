@@ -33,6 +33,7 @@ func TestTLSClientConfig(t *testing.T) {
 	assert.Nil(t, config.GetClientCertificate)
 	assert.True(t, config.InsecureSkipVerify)
 	assert.Nil(t, config.NameToCertificate) //nolint:staticcheck // setting to nil is OK
+	assert.Nil(t, config.RootCAs)
 	assert.NotNil(t, config.VerifyPeerCertificate)
 }
 
@@ -50,6 +51,7 @@ func TestHookTLSClientConfig(t *testing.T) {
 	assert.Nil(t, config.GetClientCertificate)
 	assert.True(t, config.InsecureSkipVerify)
 	assert.Nil(t, config.NameToCertificate) //nolint:staticcheck // setting to nil is OK
+	assert.Nil(t, config.RootCAs)
 	assert.NotNil(t, config.VerifyPeerCertificate)
 	assertUnrelatedFieldsUntouched(t, base, config)
 }
@@ -67,6 +69,7 @@ func TestMTLSClientConfig(t *testing.T) {
 	assert.NotNil(t, config.GetClientCertificate)
 	assert.True(t, config.InsecureSkipVerify)
 	assert.Nil(t, config.NameToCertificate) //nolint:staticcheck // setting to nil is OK
+	assert.Nil(t, config.RootCAs)
 	assert.NotNil(t, config.VerifyPeerCertificate)
 }
 
@@ -85,14 +88,16 @@ func TestHookMTLSClientConfig(t *testing.T) {
 	assert.NotNil(t, config.GetClientCertificate)
 	assert.True(t, config.InsecureSkipVerify)
 	assert.Nil(t, config.NameToCertificate) //nolint:staticcheck // setting to nil is OK
+	assert.Nil(t, config.RootCAs)
 	assert.NotNil(t, config.VerifyPeerCertificate)
 	assertUnrelatedFieldsUntouched(t, base, config)
 }
 
 func TestMTLSWebClientConfig(t *testing.T) {
 	svid := &x509svid.SVID{}
+	roots := x509.NewCertPool()
 
-	config := tlsconfig.MTLSWebClientConfig(svid)
+	config := tlsconfig.MTLSWebClientConfig(svid, roots)
 
 	assert.Nil(t, config.Certificates)
 	assert.Equal(t, tls.NoClientCert, config.ClientAuth)
@@ -100,6 +105,7 @@ func TestMTLSWebClientConfig(t *testing.T) {
 	assert.NotNil(t, config.GetClientCertificate)
 	assert.False(t, config.InsecureSkipVerify)
 	assert.Nil(t, config.NameToCertificate) //nolint:staticcheck // setting to nil is OK
+	assert.Equal(t, roots, config.RootCAs)
 	assert.Nil(t, config.VerifyPeerCertificate)
 }
 
@@ -107,8 +113,9 @@ func TestHookMTLSWebClientConfig(t *testing.T) {
 	svid := &x509svid.SVID{}
 	base := createBaseTLSConfig()
 	config := createTestTLSConfig(base)
+	roots := x509.NewCertPool()
 
-	tlsconfig.HookMTLSWebClientConfig(config, svid)
+	tlsconfig.HookMTLSWebClientConfig(config, svid, roots)
 
 	// Expected AuthFields
 	assert.Nil(t, config.Certificates)
@@ -117,6 +124,7 @@ func TestHookMTLSWebClientConfig(t *testing.T) {
 	assert.NotNil(t, config.GetClientCertificate)
 	assert.False(t, config.InsecureSkipVerify)
 	assert.Nil(t, config.NameToCertificate) //nolint:staticcheck // setting to nil is OK
+	assert.Equal(t, roots, config.RootCAs)
 	assert.Nil(t, config.VerifyPeerCertificate)
 	assertUnrelatedFieldsUntouched(t, base, config)
 }
@@ -132,6 +140,7 @@ func TestTLSServerConfig(t *testing.T) {
 	assert.Nil(t, config.GetClientCertificate)
 	assert.False(t, config.InsecureSkipVerify)
 	assert.Nil(t, config.NameToCertificate) //nolint:staticcheck // setting to nil is OK
+	assert.Nil(t, config.RootCAs)
 	assert.Nil(t, config.VerifyPeerCertificate)
 }
 
@@ -148,6 +157,7 @@ func TestHookTLSServerConfig(t *testing.T) {
 	assert.Nil(t, config.GetClientCertificate)
 	assert.False(t, config.InsecureSkipVerify)
 	assert.Nil(t, config.NameToCertificate) //nolint:staticcheck // setting to nil is OK
+	assert.Nil(t, config.RootCAs)
 	assert.Nil(t, config.VerifyPeerCertificate)
 	assertUnrelatedFieldsUntouched(t, base, config)
 }
@@ -165,6 +175,7 @@ func TestMTLSServerConfig(t *testing.T) {
 	assert.Nil(t, config.GetClientCertificate)
 	assert.False(t, config.InsecureSkipVerify)
 	assert.Nil(t, config.NameToCertificate) //nolint:staticcheck // setting to nil is OK
+	assert.Nil(t, config.RootCAs)
 	assert.NotNil(t, config.VerifyPeerCertificate)
 }
 
@@ -183,6 +194,7 @@ func TestHookMTLSServerConfig(t *testing.T) {
 	assert.Nil(t, config.GetClientCertificate)
 	assert.False(t, config.InsecureSkipVerify)
 	assert.Nil(t, config.NameToCertificate) //nolint:staticcheck // setting to nil is OK
+	assert.Nil(t, config.RootCAs)
 	assert.NotNil(t, config.VerifyPeerCertificate)
 	assertUnrelatedFieldsUntouched(t, base, config)
 }
@@ -200,6 +212,7 @@ func TestMTLSWebServerConfig(t *testing.T) {
 	assert.Nil(t, config.GetClientCertificate)
 	assert.False(t, config.InsecureSkipVerify)
 	assert.Nil(t, config.NameToCertificate) //nolint:staticcheck // setting to nil is OK
+	assert.Nil(t, config.RootCAs)
 	assert.NotNil(t, config.VerifyPeerCertificate)
 }
 
@@ -218,6 +231,7 @@ func TestHookMTLSWebServerConfig(t *testing.T) {
 	assert.Nil(t, config.GetClientCertificate)
 	assert.False(t, config.InsecureSkipVerify)
 	assert.Nil(t, config.NameToCertificate) //nolint:staticcheck // setting to nil is OK
+	assert.Nil(t, config.RootCAs)
 	assert.NotNil(t, config.VerifyPeerCertificate)
 	assertUnrelatedFieldsUntouched(t, base, config)
 }
@@ -593,9 +607,9 @@ func TestMTLSWebHandshake(t *testing.T) {
 	svid1ID := td.NewID("server")
 	svid1Certs, _ := ca1.CreateX509SVID(svid1ID.String())
 
-	poolCert, tlsCert := createWebCredentials(t)
-	poolCert2 := x509.NewCertPool()
-	poolCert2.AddCert(svid1Certs[0])
+	roots, tlsCert := createWebCredentials(t)
+	roots2 := x509.NewCertPool()
+	roots2.AddCert(svid1Certs[0])
 
 	svid2ID := td.NewID("client")
 	svid2Certs, key2 := ca1.CreateX509SVID(svid2ID.String())
@@ -613,37 +627,32 @@ func TestMTLSWebHandshake(t *testing.T) {
 		name         string
 		clientConfig *tls.Config
 		clientErr    string
-		poolCert     *x509.CertPool
 		serverConfig *tls.Config
 		serverErr    string
 	}{
 		{
 			name:         "success",
-			clientConfig: tlsconfig.MTLSWebClientConfig(clientSVID),
-			poolCert:     poolCert,
+			clientConfig: tlsconfig.MTLSWebClientConfig(clientSVID, roots),
 			serverConfig: tlsconfig.MTLSWebServerConfig(tlsCert, bundle1, tlsconfig.AuthorizeAny()),
 		},
 		{
 			name:         "server authentication fails",
-			clientConfig: tlsconfig.MTLSWebClientConfig(clientSVID),
+			clientConfig: tlsconfig.MTLSWebClientConfig(clientSVID, roots),
 			clientErr:    "remote error: tls: bad certificate",
-			poolCert:     poolCert,
 			serverConfig: tlsconfig.MTLSWebServerConfig(tlsCert, bundle1, tlsconfig.AuthorizeMemberOf(td2)),
 			serverErr:    `unexpected trust domain "domain1.test"`,
 		},
 		{
 			name:         "server handshake fails",
-			clientConfig: tlsconfig.MTLSWebClientConfig(clientSVID),
+			clientConfig: tlsconfig.MTLSWebClientConfig(clientSVID, roots),
 			clientErr:    "remote error: tls: bad certificate",
-			poolCert:     poolCert,
 			serverConfig: tlsconfig.MTLSWebServerConfig(tlsCert, bundle2, tlsconfig.AuthorizeMemberOf(td2)),
 			serverErr:    `x509svid: could not get X509 bundle: x509bundle: no X.509 bundle found for trust domain: "domain1.test"`,
 		},
 		{
 			name:         "client no valid certificate",
-			clientConfig: tlsconfig.MTLSWebClientConfig(clientSVID),
+			clientConfig: tlsconfig.MTLSWebClientConfig(clientSVID, roots2),
 			clientErr:    "x509: certificate signed by unknown authority",
-			poolCert:     poolCert2,
 			serverConfig: tlsconfig.MTLSWebServerConfig(tlsCert, bundle1, tlsconfig.AuthorizeAny()),
 			serverErr:    "remote error: tls: bad certificate",
 		},
@@ -652,7 +661,6 @@ func TestMTLSWebHandshake(t *testing.T) {
 	for _, testCase := range testCases {
 		testCase := testCase
 		t.Run(testCase.name, func(t *testing.T) {
-			testCase.clientConfig.RootCAs = testCase.poolCert
 			testConnection(t, testCase.serverConfig, testCase.clientConfig, testCase.serverErr, testCase.clientErr)
 		})
 	}

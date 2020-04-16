@@ -12,7 +12,7 @@ import (
 func ExampleListenMTLS() {
 	td := spiffeid.RequireTrustDomainFromString("example.org")
 
-	listener, err := spiffetls.ListenMTLS(context.TODO(), "tcp", ":8443", tlsconfig.AuthorizeMemberOf(td))
+	listener, err := spiffetls.Listen(context.TODO(), "tcp", ":8443", tlsconfig.AuthorizeMemberOf(td))
 	if err != nil {
 		// TODO: error handling
 	}
@@ -27,7 +27,7 @@ func ExampleListenMTLS_customTLSConfigBase() {
 		// will override certificate and verification related fields.
 	}
 
-	listener, err := spiffetls.ListenMTLS(context.TODO(), "tcp", ":8443", tlsconfig.AuthorizeMemberOf(td), spiffetls.WithTLSConfigBase(baseConfig))
+	listener, err := spiffetls.Listen(context.TODO(), "tcp", ":8443", tlsconfig.AuthorizeMemberOf(td), spiffetls.WithListenTLSConfigBase(baseConfig))
 	if err != nil {
 		// TODO: error handling
 	}

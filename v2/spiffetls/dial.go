@@ -19,23 +19,16 @@ func (c *Conn) Close() error {
 	panic("not implemented")
 }
 
-// DialTLS creates a TLS connection. The server is authenticated using X.509
-// bundles also obtained from the Workload API and authorized using the
-// given authorizer.
-func DialTLS(ctx context.Context, network, addr string, authorizer tlsconfig.Authorizer, options ...DialOption) (*Conn, error) {
-	panic("not implemented")
-}
-
-// DialMTLS creates an mTLS connection using an X509-SVID obtained from the
+// Dial creates an mTLS connection using an X509-SVID obtained from the
 // Workload API. The server is authenticated using X.509 bundles also obtained
 // from the Workload API. The server is authorized using the given authorizer.
-func DialMTLS(ctx context.Context, network, addr string, authorizer tlsconfig.Authorizer, options ...DialOption) (*Conn, error) {
+//
+// This is the same as DialWithMode using the MTLSClient mode.
+func Dial(ctx context.Context, network, addr string, authorizer tlsconfig.Authorizer, options ...DialOption) (*Conn, error) {
 	panic("not implemented")
 }
 
-// DialWebMTLS creates an mTLS connection to a server using an X509-SVID
-// obtained from the Workload API. The server is authenticated using the system
-// roots.
-func DialWebMTLS(ctx context.Context, network, addr string, options ...DialOption) (*Conn, error) {
+// DialWithMode creates a TLS connection using the specified mode.
+func DialWithMode(ctx context.Context, network, addr string, mode DialMode, options ...DialOption) (*Conn, error) {
 	panic("not implemented")
 }
