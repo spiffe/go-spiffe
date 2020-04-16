@@ -18,8 +18,8 @@ var x509bundleErr = errs.Class("x509bundle")
 type Bundle struct {
 	trustDomain spiffeid.TrustDomain
 
-	rootsMtx sync.RWMutex
-	roots    []*x509.Certificate
+	mtx   sync.RWMutex
+	roots []*x509.Certificate
 }
 
 // New creates a new bundle.
@@ -80,16 +80,16 @@ func (b *Bundle) TrustDomain() spiffeid.TrustDomain {
 
 // X509Roots returns the X.509 roots in the bundle.
 func (b *Bundle) X509Roots() []*x509.Certificate {
-	b.rootsMtx.RLock()
-	defer b.rootsMtx.RUnlock()
+	b.mtx.RLock()
+	defer b.mtx.RUnlock()
 	return x509util.CopyX509Roots(b.roots)
 }
 
 // AddX509Root adds an X.509 root to the bundle. If the root already
 // exists in the bundle, the contents of the bundle will remain unchanged.
 func (b *Bundle) AddX509Root(root *x509.Certificate) {
-	b.rootsMtx.Lock()
-	defer b.rootsMtx.Unlock()
+	b.mtx.Lock()
+	defer b.mtx.Unlock()
 
 	for _, r := range b.roots {
 		if r.Equal(root) {
@@ -102,8 +102,8 @@ func (b *Bundle) AddX509Root(root *x509.Certificate) {
 
 // RemoveX509Root removes an X.509 root from the bundle.
 func (b *Bundle) RemoveX509Root(root *x509.Certificate) {
-	b.rootsMtx.Lock()
-	defer b.rootsMtx.Unlock()
+	b.mtx.Lock()
+	defer b.mtx.Unlock()
 
 	for i, r := range b.roots {
 		if r.Equal(root) {
@@ -116,8 +116,8 @@ func (b *Bundle) RemoveX509Root(root *x509.Certificate) {
 
 // HasX509Root checks if the given X.509 root exists in the bundle.
 func (b *Bundle) HasX509Root(root *x509.Certificate) bool {
-	b.rootsMtx.RLock()
-	defer b.rootsMtx.RUnlock()
+	b.mtx.RLock()
+	defer b.mtx.RUnlock()
 
 	for _, r := range b.roots {
 		if r.Equal(root) {
@@ -127,10 +127,26 @@ func (b *Bundle) HasX509Root(root *x509.Certificate) bool {
 	return false
 }
 
+// SetX509Roots sets the X.509 roots in the bundle.
+func (b *Bundle) SetX509Roots(roots []*x509.Certificate) {
+	b.mtx.Lock()
+	defer b.mtx.Unlock()
+
+	b.roots = x509util.CopyX509Roots(roots)
+}
+
+// Empty returns true if the bundle has no X.509 roots.
+func (b *Bundle) Empty() bool {
+	b.mtx.RLock()
+	defer b.mtx.RUnlock()
+
+	return len(b.roots) == 0
+}
+
 // Marshal marshals the X.509 bundle into PEM-encoded certificate blocks.
 func (b *Bundle) Marshal() ([]byte, error) {
-	b.rootsMtx.RLock()
-	defer b.rootsMtx.RUnlock()
+	b.mtx.RLock()
+	defer b.mtx.RUnlock()
 	return pemutil.EncodeCertificates(b.roots), nil
 }
 

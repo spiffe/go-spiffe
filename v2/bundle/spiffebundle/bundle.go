@@ -201,6 +201,14 @@ func (b *Bundle) HasX509Root(root *x509.Certificate) bool {
 	return false
 }
 
+// SetX509Roots sets the X.509 roots in the bundle.
+func (b *Bundle) SetX509Roots(roots []*x509.Certificate) {
+	b.mtx.Lock()
+	defer b.mtx.Unlock()
+
+	b.x509Roots = x509util.CopyX509Roots(roots)
+}
+
 // JWTKeys returns the JWT keys in the bundle, keyed by key ID.
 func (b *Bundle) JWTKeys() map[string]crypto.PublicKey {
 	b.mtx.RLock()
@@ -249,6 +257,22 @@ func (b *Bundle) RemoveJWTKey(keyID string) {
 	defer b.mtx.Unlock()
 
 	delete(b.jwtKeys, keyID)
+}
+
+// SetJWTKeys sets the JWT keys in the bundle.
+func (b *Bundle) SetJWTKeys(jwtKeys map[string]crypto.PublicKey) {
+	b.mtx.Lock()
+	defer b.mtx.Unlock()
+
+	b.jwtKeys = jwtutil.CopyJWTKeys(jwtKeys)
+}
+
+// Empty returns true if the bundle has no X.509 roots and no JWT keys.
+func (b *Bundle) Empty() bool {
+	b.mtx.RLock()
+	defer b.mtx.RUnlock()
+
+	return len(b.x509Roots) == 0 && len(b.jwtKeys) == 0
 }
 
 // RefreshHint returns the refresh hint. If the refresh hint is set in

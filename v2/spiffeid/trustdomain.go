@@ -92,3 +92,10 @@ func (td TrustDomain) NewID(path string) ID {
 func (td TrustDomain) Empty() bool {
 	return td.name == ""
 }
+
+// Compare returns an integer comparing the trust domain to another
+// lexicographically. The result will be 0 if td==other, -1 if td < other, and
+// +1 if td > other.
+func (td TrustDomain) Compare(other TrustDomain) int {
+	return strings.Compare(td.name, other.name)
+}
