@@ -17,29 +17,42 @@ var federationErr = errs.Class("federation")
 
 // FetchOption is an option used when dialing the bundle endpoint.
 type FetchOption interface {
-	apply(*fetchOptions)
+	apply(*fetchOptions) error
 }
 
 type fetchOptions struct {
-	transport *http.Transport
+	transport  *http.Transport
+	authMethod authMethod
 }
 
 // WithSPIFFEAuth authenticates the bundle endpoint with SPIFFE authentication
 // using the provided root store. It validates that the endpoint presents the
-// expected SPIFFE ID.
+// expected SPIFFE ID. This option cannot be used in conjuntion with WithWebPKIRoots
+// option.
 func WithSPIFFEAuth(bundleSource x509bundle.Source, endpointID spiffeid.ID) FetchOption {
-	return fetchOption(func(o *fetchOptions) {
+	return fetchOption(func(o *fetchOptions) error {
+		if o.authMethod != authMethodDefault {
+			return federationErr.New("authentication is already set to %v", o.authMethod)
+		}
 		o.transport.TLSClientConfig = tlsconfig.TLSClientConfig(bundleSource, tlsconfig.AuthorizeID(endpointID))
+		o.authMethod = authMethodSPIFFE
+		return nil
 	})
 }
 
-// WithWebAuth authenticates the bundle endpoint with Web PKI authentication
-// using the provided X.509 root certificates instead of the system ones.
-func WithWebPKIAuth(rootCAs *x509.CertPool) FetchOption {
-	return fetchOption(func(o *fetchOptions) {
+// WithWebPKIRoots authenticates the bundle endpoint using Web PKI authentication
+// using the provided X.509 root certificates instead of the system ones. This option
+// cannot be used in conjuntion with WithSPIFFEAuth option.
+func WithWebPKIRoots(rootCAs *x509.CertPool) FetchOption {
+	return fetchOption(func(o *fetchOptions) error {
+		if o.authMethod != authMethodDefault {
+			return federationErr.New("authentication is already set to %v", o.authMethod)
+		}
 		o.transport.TLSClientConfig = &tls.Config{
 			RootCAs: rootCAs,
 		}
+		o.authMethod = authMethodWebPKI
+		return nil
 	})
 }
 
@@ -49,7 +62,9 @@ func FetchBundle(ctx context.Context, trustDomain spiffeid.TrustDomain, url stri
 		transport: http.DefaultTransport.(*http.Transport).Clone(),
 	}
 	for _, o := range option {
-		o.apply(&opts)
+		if err := o.apply(&opts); err != nil {
+			return nil, err
+		}
 	}
 
 	var client = &http.Client{
@@ -73,8 +88,22 @@ func FetchBundle(ctx context.Context, trustDomain spiffeid.TrustDomain, url stri
 	return bundle, nil
 }
 
-type fetchOption func(*fetchOptions)
+type fetchOption func(*fetchOptions) error
 
-func (fo fetchOption) apply(opts *fetchOptions) {
-	fo(opts)
+func (fo fetchOption) apply(opts *fetchOptions) error {
+	return fo(opts)
+}
+
+type authMethod int
+
+const (
+	authMethodDefault authMethod = iota
+	authMethodSPIFFE
+	authMethodWebPKI
+)
+
+var authMethodName = [3]string{"Default", "SPIFFE", "WebPKI"}
+
+func (a authMethod) String() string {
+	return authMethodName[a]
 }

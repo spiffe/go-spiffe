@@ -14,25 +14,22 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestFetchBundle_WebPKIAuth(t *testing.T) {
-	td := spiffeid.RequireTrustDomainFromString("domain.test")
+var td = spiffeid.RequireTrustDomainFromString("domain.test")
+
+func TestFetchBundle_WebPKIRoots(t *testing.T) {
 	ca := test.NewCA(t)
 	bundle := spiffebundle.FromX509Bundle(ca.Bundle(td))
 
-	be := fake.NewBundleEndpoint(context.Background(), t, 1025,
-		fake.BEOption.WithTestBundle(bundle))
+	be := fake.NewBundleEndpoint(t, fake.BEOption.WithTestBundle(bundle))
 	defer be.Shutdown()
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	fetchedBundle, err := federation.FetchBundle(ctx, td, "https://127.0.0.1:1025/test-bundle",
-		federation.WithWebPKIAuth(be.RootCAs()))
+	fetchedBundle, err := federation.FetchBundle(context.Background(), td, be.FetchBundleURL(),
+		federation.WithWebPKIRoots(be.RootCAs()))
 	assert.NoError(t, err)
 	assert.True(t, bundle.Equal(fetchedBundle))
 }
 
 func TestFetchBundle_SPIFFEAuth(t *testing.T) {
-	td := spiffeid.RequireTrustDomainFromString("domain.test")
 	id := td.NewID("control-plane/test-bundle-endpoint")
 	ipaddresses := []net.IP{net.IPv4(127, 0, 0, 1), net.IPv6loopback}
 	ca := test.NewCA(t, test.WithIPAddresses(ipaddresses))
@@ -40,21 +37,18 @@ func TestFetchBundle_SPIFFEAuth(t *testing.T) {
 	svid := &x509svid.SVID{ID: id, Certificates: cert, PrivateKey: pk}
 	bundle := spiffebundle.FromX509Bundle(ca.Bundle(td))
 
-	be := fake.NewBundleEndpoint(context.Background(), t, 1025,
+	be := fake.NewBundleEndpoint(t,
 		fake.BEOption.WithTestBundle(bundle),
 		fake.BEOption.WithSPIFFEAuth(bundle, svid))
 	defer be.Shutdown()
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	fetchedBundle, err := federation.FetchBundle(ctx, td, "https://localhost:1025/test-bundle",
+	fetchedBundle, err := federation.FetchBundle(context.Background(), td, be.FetchBundleURL(),
 		federation.WithSPIFFEAuth(bundle, id))
 	assert.NoError(t, err)
 	assert.True(t, bundle.Equal(fetchedBundle))
 }
 
 func TestFetchBundle_SPIFFEAuth_UnexpectedID(t *testing.T) {
-	td := spiffeid.RequireTrustDomainFromString("domain.test")
 	id := td.NewID("control-plane/test-bundle-endpoint")
 	ipaddresses := []net.IP{net.IPv4(127, 0, 0, 1), net.IPv6loopback}
 	ca := test.NewCA(t, test.WithIPAddresses(ipaddresses))
@@ -62,51 +56,58 @@ func TestFetchBundle_SPIFFEAuth_UnexpectedID(t *testing.T) {
 	svid := &x509svid.SVID{ID: id, Certificates: cert, PrivateKey: pk}
 	bundle := spiffebundle.FromX509Bundle(ca.Bundle(td))
 
-	be := fake.NewBundleEndpoint(context.Background(), t, 1025,
+	be := fake.NewBundleEndpoint(t,
 		fake.BEOption.WithTestBundle(bundle),
 		fake.BEOption.WithSPIFFEAuth(bundle, svid))
 	defer be.Shutdown()
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	fetchedBundle, err := federation.FetchBundle(ctx, td, "https://localhost:1025/test-bundle",
+	fetchedBundle, err := federation.FetchBundle(context.Background(), td, be.FetchBundleURL(),
 		federation.WithSPIFFEAuth(bundle, td.NewID("other/id")))
-	assert.Regexp(t, `federation: could not GET bundle: Get "?https://localhost:1025/test-bundle"?: unexpected ID "spiffe://domain.test/control-plane/test-bundle-endpoint"`, err.Error())
+	assert.Regexp(t, `federation: could not GET bundle: Get "?`+be.FetchBundleURL()+`"?: unexpected ID "spiffe://domain.test/control-plane/test-bundle-endpoint"`, err.Error())
+	assert.Nil(t, fetchedBundle)
+}
+
+func TestFetchBundle_SPIFFEAuthAndWebPKIRoots(t *testing.T) {
+	fetchedBundle, err := federation.FetchBundle(context.Background(), td, "url not used",
+		federation.WithSPIFFEAuth(nil, spiffeid.ID{}),
+		federation.WithWebPKIRoots(nil))
+	assert.EqualError(t, err, `federation: authentication is already set to SPIFFE`)
+	assert.Nil(t, fetchedBundle)
+}
+
+func TestFetchBundle_WebPKIRootsAndSPIFFEAuth(t *testing.T) {
+	fetchedBundle, err := federation.FetchBundle(context.Background(), td, "url not used",
+		federation.WithWebPKIRoots(nil),
+		federation.WithSPIFFEAuth(nil, spiffeid.ID{}))
+	assert.EqualError(t, err, `federation: authentication is already set to WebPKI`)
 	assert.Nil(t, fetchedBundle)
 }
 
 func TestFetchBundle_ErrorCreatingRequest(t *testing.T) {
-	td := spiffeid.RequireTrustDomainFromString("domain.test")
-	fetchedBundle, err := federation.FetchBundle(nil, td, "https://127.0.0.1:1025/test-bundle") //nolint
+	fetchedBundle, err := federation.FetchBundle(nil, td, "url not used") //nolint
 	assert.EqualError(t, err, `federation: could not create request: net/http: nil Context`)
 	assert.Nil(t, fetchedBundle)
 }
 
 func TestFetchBundle_ErrorGettingBundle(t *testing.T) {
-	td := spiffeid.RequireTrustDomainFromString("domain.test")
-
-	be := fake.NewBundleEndpoint(context.Background(), t, 1025)
+	be := fake.NewBundleEndpoint(t)
 	defer be.Shutdown()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	fetchedBundle, err := federation.FetchBundle(ctx, td, "https://127.0.0.1:1025/test-bundle",
-		federation.WithWebPKIAuth(be.RootCAs()))
-	assert.Regexp(t, `federation: could not GET bundle: Get "?https://127.0.0.1:1025/test-bundle"?: context canceled`, err.Error())
+	fetchedBundle, err := federation.FetchBundle(ctx, td, be.FetchBundleURL(),
+		federation.WithWebPKIRoots(be.RootCAs()))
+	assert.Regexp(t, `federation: could not GET bundle: Get "?`+be.FetchBundleURL()+`"?: context canceled`, err.Error())
 	assert.Nil(t, fetchedBundle)
 }
 
 func TestFetchBundle_ErrorReadingBundleBody(t *testing.T) {
-	td := spiffeid.RequireTrustDomainFromString("domain.test")
-
-	be := fake.NewBundleEndpoint(context.Background(), t, 1025)
+	be := fake.NewBundleEndpoint(t)
 	defer be.Shutdown()
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	fetchedBundle, err := federation.FetchBundle(ctx, td, "https://127.0.0.1:1025/test-bundle",
-		federation.WithWebPKIAuth(be.RootCAs()))
+	fetchedBundle, err := federation.FetchBundle(context.Background(), td, be.FetchBundleURL(),
+		federation.WithWebPKIRoots(be.RootCAs()))
 	assert.EqualError(t, err, `federation: spiffebundle: unable to parse JWKS: unexpected end of JSON input`)
 	assert.Nil(t, fetchedBundle)
 }

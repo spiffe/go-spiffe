@@ -170,7 +170,7 @@ func WithSerial(serial *big.Int) CertificateOption {
 	})
 }
 
-func WithValidityBounds(notBefore, notAfter time.Time) CertificateOption {
+func WithLifetime(notBefore, notAfter time.Time) CertificateOption {
 	return certificateOption(func(c *x509.Certificate) {
 		c.NotBefore = notBefore
 		c.NotAfter = notAfter

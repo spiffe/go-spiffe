@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/spiffe/go-spiffe/v2/bundle/spiffebundle"
 	"github.com/spiffe/go-spiffe/v2/internal/test"
@@ -22,10 +21,8 @@ import (
 type BundleEndpoint struct {
 	tb     testing.TB
 	wg     sync.WaitGroup
-	ctx    context.Context
-	port   int
+	addr   net.Addr
 	server *http.Server
-	sm     *http.ServeMux
 	// Root certificates used by clients to verify server certificates.
 	rootCAs *x509.CertPool
 	// TLS configuration used by the server.
@@ -41,7 +38,7 @@ type BundleEndpointOption interface {
 // BEOption groups the available options for a BundleEndpoint.
 var BEOption = new(bundleEndpointOption)
 
-func NewBundleEndpoint(ctx context.Context, tb testing.TB, port int, option ...BundleEndpointOption) *BundleEndpoint {
+func NewBundleEndpoint(tb testing.TB, option ...BundleEndpointOption) *BundleEndpoint {
 	rootCAs, cert := test.CreateWebCredentials(tb)
 	tlscfg := &tls.Config{
 		Certificates: []tls.Certificate{*cert},
@@ -49,10 +46,6 @@ func NewBundleEndpoint(ctx context.Context, tb testing.TB, port int, option ...B
 
 	be := &BundleEndpoint{
 		tb:      tb,
-		wg:      sync.WaitGroup{},
-		ctx:     ctx,
-		port:    port,
-		sm:      http.NewServeMux(),
 		rootCAs: rootCAs,
 		tlscfg:  tlscfg,
 	}
@@ -61,13 +54,11 @@ func NewBundleEndpoint(ctx context.Context, tb testing.TB, port int, option ...B
 		opt.apply(be)
 	}
 
-	be.sm.HandleFunc("/healthcheck", be.healthcheck)
-	be.sm.HandleFunc("/test-bundle", be.testbundle)
+	sm := http.NewServeMux()
+	sm.HandleFunc("/test-bundle", be.testbundle)
 	be.server = &http.Server{
-		Addr:        fmt.Sprintf("127.0.0.1:%d", port),
-		BaseContext: func(net.Listener) context.Context { return ctx },
-		Handler:     http.HandlerFunc(be.serveHTTP),
-		TLSConfig:   be.tlscfg,
+		Handler:   sm,
+		TLSConfig: be.tlscfg,
 	}
 	err := be.start()
 	if err != nil {
@@ -82,52 +73,34 @@ func (be *BundleEndpoint) Shutdown() {
 	be.wg.Wait()
 }
 
+func (be *BundleEndpoint) Addr() string {
+	return be.addr.String()
+}
+
+func (be *BundleEndpoint) FetchBundleURL() string {
+	return fmt.Sprintf("https://%s/test-bundle", be.Addr())
+}
+
 func (be *BundleEndpoint) RootCAs() *x509.CertPool {
 	return be.rootCAs
 }
 
 func (be *BundleEndpoint) start() error {
+	ln, err := net.Listen("tcp", "127.0.0.1:")
+	if err != nil {
+		return err
+	}
+
+	be.addr = ln.Addr()
+
 	be.wg.Add(1)
 	go func() {
-		err := be.server.ListenAndServeTLS("", "")
+		err := be.server.ServeTLS(ln, "", "")
 		assert.EqualError(be.tb, err, http.ErrServerClosed.Error())
 		be.wg.Done()
+		ln.Close()
 	}()
-	return be.waitHealthcheck()
-}
-
-func (be *BundleEndpoint) waitHealthcheck() error {
-	client := &http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				RootCAs: be.rootCAs,
-			},
-		},
-	}
-	timer := time.NewTimer(150 * time.Millisecond)
-	defer timer.Stop()
-	for {
-		r, err := client.Get(fmt.Sprintf("https://127.0.0.1:%d/healthcheck", be.port))
-		if err == nil {
-			r.Body.Close()
-			return nil
-		}
-
-		select {
-		case <-timer.C:
-			return err
-		default:
-			continue
-		}
-	}
-}
-
-func (be *BundleEndpoint) serveHTTP(w http.ResponseWriter, r *http.Request) {
-	be.sm.ServeHTTP(w, r)
-}
-
-func (be *BundleEndpoint) healthcheck(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
+	return nil
 }
 
 func (be *BundleEndpoint) testbundle(w http.ResponseWriter, r *http.Request) {
