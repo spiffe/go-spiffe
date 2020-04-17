@@ -4,10 +4,7 @@ import (
 	"bytes"
 	"crypto/tls"
 	"crypto/x509"
-	"crypto/x509/pkix"
 	"errors"
-	"fmt"
-	"net"
 	"strings"
 	"testing"
 	"time"
@@ -607,7 +604,7 @@ func TestMTLSWebHandshake(t *testing.T) {
 	svid1ID := td.NewID("server")
 	svid1Certs, _ := ca1.CreateX509SVID(svid1ID.String())
 
-	roots, tlsCert := createWebCredentials(t)
+	roots, tlsCert := test.CreateWebCredentials(t)
 	roots2 := x509.NewCertPool()
 	roots2.AddCert(svid1Certs[0])
 
@@ -664,45 +661,6 @@ func TestMTLSWebHandshake(t *testing.T) {
 			testConnection(t, testCase.serverConfig, testCase.clientConfig, testCase.serverErr, testCase.clientErr)
 		})
 	}
-}
-
-func createWebCredentials(t testing.TB) (*x509.CertPool, *tls.Certificate) {
-	now := time.Now()
-	serial := test.NewSerial(t)
-
-	rootKey := test.NewEC256Key(t)
-	tmpl := &x509.Certificate{
-		SerialNumber: serial,
-		Subject: pkix.Name{
-			CommonName: fmt.Sprintf("CA %x", serial),
-		},
-		IPAddresses:           []net.IP{net.IPv4(127, 0, 0, 1), net.IPv6loopback},
-		BasicConstraintsValid: true,
-		IsCA:                  true,
-		NotBefore:             now,
-		NotAfter:              now.Add(time.Hour),
-	}
-	rootCert := test.CreateCertificate(t, tmpl, tmpl, rootKey.Public(), rootKey)
-	certPool := x509.NewCertPool()
-	certPool.AddCert(rootCert)
-
-	childKey := test.NewEC256Key(t)
-	tmpl = &x509.Certificate{
-		SerialNumber: serial,
-		Subject: pkix.Name{
-			CommonName: fmt.Sprintf("X509-SVID %x", serial),
-		},
-		NotBefore:   now,
-		NotAfter:    now.Add(time.Hour),
-		IPAddresses: []net.IP{net.IPv4(127, 0, 0, 1), net.IPv6loopback},
-	}
-	childCert := test.CreateCertificate(t, tmpl, rootCert, childKey.Public(), rootKey)
-	tlsCert := &tls.Certificate{
-		Certificate: [][]byte{childCert.Raw},
-		PrivateKey:  childKey,
-	}
-
-	return certPool, tlsCert
 }
 
 func testConnection(t testing.TB, serverConfig *tls.Config, clientConfig *tls.Config, serverErr string, clientErr string) {
