@@ -49,7 +49,7 @@ var (
 			filePath: "testdata/spiffebundle_missing_kid.json",
 			err:      "spiffebundle: error adding key 1 of JWKS: keyID cannot be empty",
 		},
-		testCase{
+		{
 			filePath: "testdata/spiffebundle_no_keys.json",
 			err:      "spiffebundle: no keys found",
 		},
