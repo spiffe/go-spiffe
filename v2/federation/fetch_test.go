@@ -8,7 +8,7 @@ import (
 	"github.com/spiffe/go-spiffe/v2/bundle/spiffebundle"
 	"github.com/spiffe/go-spiffe/v2/federation"
 	"github.com/spiffe/go-spiffe/v2/internal/test"
-	"github.com/spiffe/go-spiffe/v2/internal/test/fake"
+	"github.com/spiffe/go-spiffe/v2/internal/test/fakebundleendpoint"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/spiffe/go-spiffe/v2/svid/x509svid"
 	"github.com/stretchr/testify/assert"
@@ -20,7 +20,7 @@ func TestFetchBundle_WebPKIRoots(t *testing.T) {
 	ca := test.NewCA(t)
 	bundle := spiffebundle.FromX509Bundle(ca.Bundle(td))
 
-	be := fake.NewBundleEndpoint(t, fake.BEOption.WithTestBundle(bundle))
+	be := fakebundleendpoint.New(t, fakebundleendpoint.WithTestBundle(bundle))
 	defer be.Shutdown()
 
 	fetchedBundle, err := federation.FetchBundle(context.Background(), td, be.FetchBundleURL(),
@@ -37,9 +37,9 @@ func TestFetchBundle_SPIFFEAuth(t *testing.T) {
 	svid := &x509svid.SVID{ID: id, Certificates: cert, PrivateKey: pk}
 	bundle := spiffebundle.FromX509Bundle(ca.Bundle(td))
 
-	be := fake.NewBundleEndpoint(t,
-		fake.BEOption.WithTestBundle(bundle),
-		fake.BEOption.WithSPIFFEAuth(bundle, svid))
+	be := fakebundleendpoint.New(t,
+		fakebundleendpoint.WithTestBundle(bundle),
+		fakebundleendpoint.WithSPIFFEAuth(bundle, svid))
 	defer be.Shutdown()
 
 	fetchedBundle, err := federation.FetchBundle(context.Background(), td, be.FetchBundleURL(),
@@ -56,9 +56,9 @@ func TestFetchBundle_SPIFFEAuth_UnexpectedID(t *testing.T) {
 	svid := &x509svid.SVID{ID: id, Certificates: cert, PrivateKey: pk}
 	bundle := spiffebundle.FromX509Bundle(ca.Bundle(td))
 
-	be := fake.NewBundleEndpoint(t,
-		fake.BEOption.WithTestBundle(bundle),
-		fake.BEOption.WithSPIFFEAuth(bundle, svid))
+	be := fakebundleendpoint.New(t,
+		fakebundleendpoint.WithTestBundle(bundle),
+		fakebundleendpoint.WithSPIFFEAuth(bundle, svid))
 	defer be.Shutdown()
 
 	fetchedBundle, err := federation.FetchBundle(context.Background(), td, be.FetchBundleURL(),
@@ -71,7 +71,7 @@ func TestFetchBundle_SPIFFEAuthAndWebPKIRoots(t *testing.T) {
 	fetchedBundle, err := federation.FetchBundle(context.Background(), td, "url not used",
 		federation.WithSPIFFEAuth(nil, spiffeid.ID{}),
 		federation.WithWebPKIRoots(nil))
-	assert.EqualError(t, err, `federation: authentication is already set to SPIFFE`)
+	assert.EqualError(t, err, `federation: cannot use both SPIFFE and Web PKI authentication`)
 	assert.Nil(t, fetchedBundle)
 }
 
@@ -79,7 +79,7 @@ func TestFetchBundle_WebPKIRootsAndSPIFFEAuth(t *testing.T) {
 	fetchedBundle, err := federation.FetchBundle(context.Background(), td, "url not used",
 		federation.WithWebPKIRoots(nil),
 		federation.WithSPIFFEAuth(nil, spiffeid.ID{}))
-	assert.EqualError(t, err, `federation: authentication is already set to WebPKI`)
+	assert.EqualError(t, err, `federation: cannot use both SPIFFE and Web PKI authentication`)
 	assert.Nil(t, fetchedBundle)
 }
 
@@ -90,7 +90,7 @@ func TestFetchBundle_ErrorCreatingRequest(t *testing.T) {
 }
 
 func TestFetchBundle_ErrorGettingBundle(t *testing.T) {
-	be := fake.NewBundleEndpoint(t)
+	be := fakebundleendpoint.New(t)
 	defer be.Shutdown()
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -103,7 +103,7 @@ func TestFetchBundle_ErrorGettingBundle(t *testing.T) {
 }
 
 func TestFetchBundle_ErrorReadingBundleBody(t *testing.T) {
-	be := fake.NewBundleEndpoint(t)
+	be := fakebundleendpoint.New(t)
 	defer be.Shutdown()
 
 	fetchedBundle, err := federation.FetchBundle(context.Background(), td, be.FetchBundleURL(),

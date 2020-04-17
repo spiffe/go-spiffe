@@ -32,7 +32,7 @@ type fetchOptions struct {
 func WithSPIFFEAuth(bundleSource x509bundle.Source, endpointID spiffeid.ID) FetchOption {
 	return fetchOption(func(o *fetchOptions) error {
 		if o.authMethod != authMethodDefault {
-			return federationErr.New("authentication is already set to %v", o.authMethod)
+			return federationErr.New("cannot use both SPIFFE and Web PKI authentication")
 		}
 		o.transport.TLSClientConfig = tlsconfig.TLSClientConfig(bundleSource, tlsconfig.AuthorizeID(endpointID))
 		o.authMethod = authMethodSPIFFE
@@ -46,7 +46,7 @@ func WithSPIFFEAuth(bundleSource x509bundle.Source, endpointID spiffeid.ID) Fetc
 func WithWebPKIRoots(rootCAs *x509.CertPool) FetchOption {
 	return fetchOption(func(o *fetchOptions) error {
 		if o.authMethod != authMethodDefault {
-			return federationErr.New("authentication is already set to %v", o.authMethod)
+			return federationErr.New("cannot use both SPIFFE and Web PKI authentication")
 		}
 		o.transport.TLSClientConfig = &tls.Config{
 			RootCAs: rootCAs,
@@ -101,9 +101,3 @@ const (
 	authMethodSPIFFE
 	authMethodWebPKI
 )
-
-var authMethodName = [3]string{"Default", "SPIFFE", "WebPKI"}
-
-func (a authMethod) String() string {
-	return authMethodName[a]
-}
