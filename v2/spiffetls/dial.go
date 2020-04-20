@@ -44,7 +44,7 @@ func Dial(ctx context.Context, network, addr string, authorizer tlsconfig.Author
 func DialWithMode(ctx context.Context, network, addr string, mode DialMode, options ...DialOption) (*Conn, error) {
 	m := mode.get()
 	var err error
-	source := *m.source
+	source := m.source
 	if source == nil {
 		source, err = workloadapi.NewX509Source(ctx, m.options...)
 		// Close source if there is a failiure after this point
