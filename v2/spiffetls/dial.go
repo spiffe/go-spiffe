@@ -3,6 +3,7 @@ package spiffetls
 import (
 	"context"
 	"crypto/tls"
+	"io"
 
 	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
@@ -12,7 +13,7 @@ import (
 // Workload API.
 type Conn struct {
 	*tls.Conn
-	source *workloadapi.X509Source
+	source io.Closer
 }
 
 // Close closes the connection. If the connection has been established using a
@@ -43,11 +44,15 @@ func Dial(ctx context.Context, network, addr string, authorizer tlsconfig.Author
 func DialWithMode(ctx context.Context, network, addr string, mode DialMode, options ...DialOption) (*Conn, error) {
 	m := mode.get()
 	var err error
-	var source *workloadapi.X509Source
-	if m.source != nil {
-		source = m.source
-	} else {
+	source := *m.source
+	if source == nil {
 		source, err = workloadapi.NewX509Source(ctx, m.options...)
+		// Close source if there is a failiure after this point
+		defer func() {
+			if err != nil {
+				source.Close()
+			}
+		}()
 		if err != nil {
 			return nil, spiffetlsErr.New("cannot create X.509 source: %w", err)
 		}
@@ -60,7 +65,7 @@ func DialWithMode(ctx context.Context, network, addr string, mode DialMode, opti
 		m.svid = source
 	}
 
-	opt := &dialOption{}
+	opt := &dialConfig{}
 	for _, option := range options {
 		option.apply(opt)
 	}
@@ -78,7 +83,8 @@ func DialWithMode(ctx context.Context, network, addr string, mode DialMode, opti
 	case typeMTLSWebClient:
 		tlsconfig.HookMTLSWebClientConfig(tlsConfig, m.svid, m.roots)
 	default:
-		return nil, spiffetlsErr.New("unknown TLS hook type: %v", m.tlsType)
+		err = spiffetlsErr.New("unknown TLS hook type: %v", m.tlsType)
+		return nil, err
 	}
 
 	var conn *tls.Conn
@@ -91,8 +97,13 @@ func DialWithMode(ctx context.Context, network, addr string, mode DialMode, opti
 		return nil, spiffetlsErr.New("unable to dial: %w", err)
 	}
 
+	// Do not store source if provided by caller
+	if m.source != nil {
+		source = nil
+	}
+
 	return &Conn{
 		Conn:   conn,
-		source: m.source,
+		source: source,
 	}, nil
 }

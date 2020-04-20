@@ -10,10 +10,10 @@ import (
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
 )
 
-type tlsHookType int
+type authMode int
 
 const (
-	typeTLSClient tlsHookType = iota
+	typeTLSClient authMode = iota
 	typeMTLSClient
 	typeMTLSWebClient
 )
@@ -24,7 +24,7 @@ type DialMode interface {
 }
 
 type dialMode struct {
-	tlsType    tlsHookType
+	tlsType    authMode
 	authorizer tlsconfig.Authorizer
 
 	source  *workloadapi.X509Source
