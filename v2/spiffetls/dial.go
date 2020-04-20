@@ -41,9 +41,8 @@ func Dial(ctx context.Context, network, addr string, authorizer tlsconfig.Author
 }
 
 // DialWithMode creates a TLS connection using the specified mode.
-func DialWithMode(ctx context.Context, network, addr string, mode DialMode, options ...DialOption) (*Conn, error) {
+func DialWithMode(ctx context.Context, network, addr string, mode DialMode, options ...DialOption) (_ *Conn, err error) {
 	m := mode.get()
-	var err error
 	source := m.source
 	if source == nil {
 		source, err = workloadapi.NewX509Source(ctx, m.options...)
@@ -83,8 +82,7 @@ func DialWithMode(ctx context.Context, network, addr string, mode DialMode, opti
 	case typeMTLSWebClient:
 		tlsconfig.HookMTLSWebClientConfig(tlsConfig, m.svid, m.roots)
 	default:
-		err = spiffetlsErr.New("unknown TLS hook type: %v", m.tlsType)
-		return nil, err
+		return nil, spiffetlsErr.New("unknown TLS auth mode: %v", m.tlsType)
 	}
 
 	var conn *tls.Conn
