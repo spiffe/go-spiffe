@@ -20,7 +20,7 @@ func TestFetchBundle_WebPKIRoots(t *testing.T) {
 	ca := test.NewCA(t)
 	bundle := spiffebundle.FromX509Bundle(ca.Bundle(td))
 
-	be := fakebundleendpoint.New(t, fakebundleendpoint.WithTestBundle(bundle))
+	be := fakebundleendpoint.New(t, fakebundleendpoint.WithTestBundles(bundle))
 	defer be.Shutdown()
 
 	fetchedBundle, err := federation.FetchBundle(context.Background(), td, be.FetchBundleURL(),
@@ -38,7 +38,7 @@ func TestFetchBundle_SPIFFEAuth(t *testing.T) {
 	bundle := spiffebundle.FromX509Bundle(ca.Bundle(td))
 
 	be := fakebundleendpoint.New(t,
-		fakebundleendpoint.WithTestBundle(bundle),
+		fakebundleendpoint.WithTestBundles(bundle),
 		fakebundleendpoint.WithSPIFFEAuth(bundle, svid))
 	defer be.Shutdown()
 
@@ -57,7 +57,7 @@ func TestFetchBundle_SPIFFEAuth_UnexpectedID(t *testing.T) {
 	bundle := spiffebundle.FromX509Bundle(ca.Bundle(td))
 
 	be := fakebundleendpoint.New(t,
-		fakebundleendpoint.WithTestBundle(bundle),
+		fakebundleendpoint.WithTestBundles(bundle),
 		fakebundleendpoint.WithSPIFFEAuth(bundle, svid))
 	defer be.Shutdown()
 
