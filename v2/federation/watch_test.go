@@ -1,4 +1,4 @@
-package federation
+package federation_test
 
 import (
 	"context"
@@ -6,33 +6,30 @@ import (
 	"time"
 
 	"github.com/spiffe/go-spiffe/v2/bundle/spiffebundle"
-	"github.com/spiffe/go-spiffe/v2/spiffeid"
+	"github.com/spiffe/go-spiffe/v2/federation"
+	"github.com/spiffe/go-spiffe/v2/internal/test"
+	"github.com/spiffe/go-spiffe/v2/internal/test/fakebundleendpoint"
 	"github.com/stretchr/testify/assert"
-	"github.com/zeebo/errs"
 )
 
 func TestWatchBundle_OnUpate(t *testing.T) {
 	var watcher *fakewatcher
-	td := spiffeid.RequireTrustDomainFromString("domain.test")
-	bundle1 := spiffebundle.New(td)
-	bundle1.SetSequenceNumber(1)
-	bundle1.SetRefreshHint(500 * time.Millisecond)
-	bundle2 := spiffebundle.New(td)
-	bundle2.SetSequenceNumber(2)
-	bundle2.SetRefreshHint(200 * time.Millisecond)
+	ca1 := test.NewCA(t)
+	bundle1 := spiffebundle.FromX509Bundle(ca1.Bundle(td))
+	bundle1.SetRefreshHint(time.Second)
+	ca2 := test.NewCA(t)
+	bundle2 := spiffebundle.FromX509Bundle(ca2.Bundle(td))
+	bundle2.SetRefreshHint(2 * time.Second)
 	bundles := []*spiffebundle.Bundle{bundle1, bundle2}
-	fetchBundleCallback = func(ctx context.Context, trustDomain spiffeid.TrustDomain, url string, option ...FetchOption) (*spiffebundle.Bundle, error) {
-		assert.Greater(t, len(bundles), 0)
-		b := bundles[0]
-		bundles = bundles[1:]
-		return b, nil
-	}
-	ctx, cancel := context.WithCancel(context.Background())
 
+	be := fakebundleendpoint.New(t, fakebundleendpoint.WithTestBundles(bundle1, bundle2))
+	defer be.Shutdown()
+
+	ctx, cancel := context.WithCancel(context.Background())
 	watcher = &fakewatcher{
 		t:               t,
-		nextRefresh:     1 * time.Second,
-		expectedBundles: bundles[0:],
+		nextRefresh:     time.Second,
+		expectedBundles: bundles,
 		cancel: func() {
 			if watcher.onUpdateCalls > 1 {
 				cancel()
@@ -41,54 +38,44 @@ func TestWatchBundle_OnUpate(t *testing.T) {
 		latestBundle: &spiffebundle.Bundle{},
 	}
 
-	err := WatchBundle(ctx, td, "some url", watcher)
+	err := federation.WatchBundle(ctx, td, be.FetchBundleURL(), watcher, federation.WithWebPKIRoots(be.RootCAs()))
 	assert.Equal(t, 2, watcher.onUpdateCalls)
 	assert.Equal(t, 0, watcher.onErrorCalls)
 	assert.Equal(t, context.Canceled, err)
 }
 
 func TestWatchBundle_OnError(t *testing.T) {
-	fetchErr := errs.New("oops...I did it again...")
-	fetchBundleCallback = func(ctx context.Context, trustDomain spiffeid.TrustDomain, url string, option ...FetchOption) (*spiffebundle.Bundle, error) {
-		return nil, fetchErr
-	}
-
-	td := spiffeid.RequireTrustDomainFromString("domain.test")
 	ctx, cancel := context.WithCancel(context.Background())
 	watcher := &fakewatcher{
 		t:            t,
-		nextRefresh:  1 * time.Second,
-		expectedErr:  fetchErr.Error(),
+		nextRefresh:  time.Second,
+		expectedErr:  `federation: could not GET bundle: Get "?wrong%20url"?: unsupported protocol scheme ""`,
 		cancel:       cancel,
 		latestBundle: &spiffebundle.Bundle{},
 	}
 
-	err := WatchBundle(ctx, td, "some url", watcher)
+	err := federation.WatchBundle(ctx, td, "wrong url", watcher)
 	assert.Equal(t, 0, watcher.onUpdateCalls)
 	assert.Equal(t, 1, watcher.onErrorCalls)
 	assert.Equal(t, context.Canceled, err)
 }
 
 func TestWatchBundle_NilWatcher(t *testing.T) {
-	td := spiffeid.RequireTrustDomainFromString("domain.test")
-	err := WatchBundle(context.Background(), td, "some url", nil)
+	err := federation.WatchBundle(context.Background(), td, "some url", nil)
 	assert.EqualError(t, err, "federation: watcher cannot be nil")
 }
 
 func TestWatchBundle_FetchBundleCanceled(t *testing.T) {
+	be := fakebundleendpoint.New(t)
+	defer be.Shutdown()
+
 	ctx, cancel := context.WithCancel(context.Background())
-	fetchBundleCallback = func(ctx context.Context, trustDomain spiffeid.TrustDomain, url string, option ...FetchOption) (*spiffebundle.Bundle, error) {
-		cancel()
-		<-ctx.Done()
-		return nil, ctx.Err()
-	}
-	td := spiffeid.RequireTrustDomainFromString("domain.test")
 	watcher := &fakewatcher{
 		t:           t,
-		nextRefresh: 1 * time.Second,
+		nextRefresh: time.Second,
 	}
-
-	err := WatchBundle(ctx, td, "some url", watcher)
+	cancel()
+	err := federation.WatchBundle(ctx, td, be.FetchBundleURL(), watcher, federation.WithWebPKIRoots(be.RootCAs()))
 	assert.Equal(t, context.Canceled, err)
 }
 
@@ -120,7 +107,7 @@ func (w *fakewatcher) OnUpdate(bundle *spiffebundle.Bundle) {
 }
 
 func (w *fakewatcher) OnError(err error) {
-	assert.EqualError(w.t, err, w.expectedErr)
+	assert.Regexp(w.t, w.expectedErr, err.Error())
 	w.onErrorCalls++
 	w.cancel()
 }

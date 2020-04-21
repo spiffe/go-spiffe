@@ -27,8 +27,8 @@ type Server struct {
 	rootCAs *x509.CertPool
 	// TLS configuration used by the server.
 	tlscfg *tls.Config
-	// SPIFFE bundle returned by this Server.
-	bundle *spiffebundle.Bundle
+	// SPIFFE bundles that can be returned by this Server.
+	bundles []*spiffebundle.Bundle
 }
 
 type ServerOption interface {
@@ -101,13 +101,14 @@ func (s *Server) start() error {
 }
 
 func (s *Server) testbundle(w http.ResponseWriter, r *http.Request) {
-	if s.bundle == nil {
+	if len(s.bundles) == 0 {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 
-	bb, err := s.bundle.Marshal()
+	bb, err := s.bundles[0].Marshal()
 	assert.NoError(s.tb, err)
+	s.bundles = s.bundles[1:]
 	w.Header().Add("Content-Type", "application/json")
 	b, err := w.Write(bb)
 	assert.NoError(s.tb, err)
@@ -116,10 +117,12 @@ func (s *Server) testbundle(w http.ResponseWriter, r *http.Request) {
 
 type serverOption func(*Server)
 
-// WithTestBundle sets the bundle that is returned by the Bundle Endpoint.
-func WithTestBundle(bundle *spiffebundle.Bundle) ServerOption {
+// WithTestBundles sets the bundles that are returned by the Bundle Endpoint. You can
+// specify several bundles, which are going to be returned one at a time each time
+// a bundle is GET by a client.
+func WithTestBundles(bundles ...*spiffebundle.Bundle) ServerOption {
 	return serverOption(func(s *Server) {
-		s.bundle = bundle
+		s.bundles = bundles
 	})
 }
 

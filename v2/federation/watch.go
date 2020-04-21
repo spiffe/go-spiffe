@@ -8,12 +8,6 @@ import (
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 )
 
-// fetchBundleCallback enables us to test this module without having the actual FetchBundle
-// implementation.
-// TODO: Once support for setting up a fake federation server is added, we should get
-// rid of this.
-var fetchBundleCallback = FetchBundle
-
 // BundleWatcher is used by WatchBundle to provide the caller with bundle updates and
 // control the next refresh time.
 type BundleWatcher interface {
@@ -48,7 +42,7 @@ func WatchBundle(ctx context.Context, trustDomain spiffeid.TrustDomain, url stri
 	latestBundle := &spiffebundle.Bundle{}
 	var timer *time.Timer
 	for {
-		bundle, err := fetchBundleCallback(ctx, trustDomain, url, options...)
+		bundle, err := FetchBundle(ctx, trustDomain, url, options...)
 		switch {
 		// Context was canceled when fetching bundle, so to avoid
 		// more calls to FetchBundle (because the timer could be expired at
