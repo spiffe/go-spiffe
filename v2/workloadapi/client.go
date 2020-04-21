@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/x509"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/spiffe/go-spiffe/v2/bundle/jwtbundle"
@@ -73,16 +74,12 @@ func (c *Client) FetchX509SVID(ctx context.Context) (*x509svid.SVID, error) {
 		return nil, err
 	}
 
-	if len(resp.Svids) == 0 {
-		return nil, errors.New("there were no SVIDs in the response")
-	}
-	svid := resp.Svids[0]
-	result, err := x509svid.ParseRaw(svid.X509Svid, svid.X509SvidKey)
+	svids, err := parseX509SVIDs(resp, 1)
 	if err != nil {
 		return nil, err
 	}
 
-	return result, nil
+	return svids[0], nil
 }
 
 // FetchX509SVIDs fetches all X509-SVIDs.
@@ -94,29 +91,20 @@ func (c *Client) FetchX509SVIDs(ctx context.Context) ([]*x509svid.SVID, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	resp, err := stream.Recv()
 	if err != nil {
 		return nil, err
 	}
-	result := []*x509svid.SVID{}
-	for _, svid := range resp.Svids {
-		s, err := x509svid.ParseRaw(svid.X509Svid, svid.X509SvidKey)
-		if err != nil {
-			return nil, err
-		}
-		result = append(result, s)
-	}
-	if len(result) == 0 {
-		return nil, errors.New("there were no SVIDs in the response")
-	}
 
-	return result, nil
+	return parseX509SVIDs(resp, -1)
 }
 
 // FetchX509Bundles fetches the X.509 bundles.
 func (c *Client) FetchX509Bundles(ctx context.Context) (*x509bundle.Set, error) {
 	ctx, cancel := context.WithCancel(withHeader(ctx))
 	defer cancel()
+
 	stream, err := c.wlClient.FetchX509SVID(ctx, &workload.X509SVIDRequest{})
 	if err != nil {
 		return nil, err
@@ -134,16 +122,18 @@ func (c *Client) FetchX509Bundles(ctx context.Context) (*x509bundle.Set, error) 
 func (c *Client) FetchX509Context(ctx context.Context) (*X509Context, error) {
 	ctx, cancel := context.WithCancel(withHeader(ctx))
 	defer cancel()
+
 	stream, err := c.wlClient.FetchX509SVID(ctx, &workload.X509SVIDRequest{})
 	if err != nil {
 		return nil, err
 	}
+
 	resp, err := stream.Recv()
 	if err != nil {
 		return nil, err
 	}
 
-	return parseX509SVIDResponse(resp)
+	return parseX509Context(resp)
 }
 
 // WatchX509Context watches for updates to the X.509 context. The watcher
@@ -184,10 +174,12 @@ func (c *Client) FetchJWTSVID(ctx context.Context, params jwtsvid.Params) (*jwts
 func (c *Client) FetchJWTBundles(ctx context.Context) (*jwtbundle.Set, error) {
 	ctx, cancel := context.WithCancel(withHeader(ctx))
 	defer cancel()
+
 	stream, err := c.wlClient.FetchJWTBundles(ctx, &workload.JWTBundlesRequest{})
 	if err != nil {
 		return nil, err
 	}
+
 	resp, err := stream.Recv()
 	if err != nil {
 		return nil, err
@@ -214,6 +206,7 @@ func (c *Client) WatchJWTBundles(ctx context.Context, watcher JWTBundleWatcher) 
 func (c *Client) ValidateJWTSVID(ctx context.Context, token, audience string) (*jwtsvid.SVID, error) {
 	ctx, cancel := context.WithCancel(withHeader(ctx))
 	defer cancel()
+
 	_, err := c.wlClient.ValidateJWTSVID(ctx, &workload.ValidateJWTSVIDRequest{
 		Svid:     token,
 		Audience: audience,
@@ -221,6 +214,7 @@ func (c *Client) ValidateJWTSVID(ctx context.Context, token, audience string) (*
 	if err != nil {
 		return nil, err
 	}
+
 	return jwtsvid.ParseInsecure(token, []string{audience})
 }
 
@@ -283,7 +277,7 @@ func (c *Client) watchX509Context(ctx context.Context, watcher X509ContextWatche
 		}
 
 		c.backoff.Reset()
-		x509Context, err := parseX509SVIDResponse(resp)
+		x509Context, err := parseX509Context(resp)
 		if err != nil {
 			c.config.log.Errorf("Failed to parse X509-SVID response: %v", err)
 			watcher.OnX509ContextWatchError(err)
@@ -353,6 +347,49 @@ func defaultClientConfig() clientConfig {
 	}
 }
 
+func parseX509Context(resp *workload.X509SVIDResponse) (*X509Context, error) {
+	svids, err := parseX509SVIDs(resp, -1)
+	if err != nil {
+		return nil, err
+	}
+
+	bundles, err := parseX509Bundles(resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return &X509Context{
+		SVIDs:   svids,
+		Bundles: bundles,
+	}, nil
+}
+
+// parseX509SVIDs parses between 1 and n SVIDs from the response. It fails
+// if it cannot parse at least one, since the SVID is required in the response
+// and the spec indicates clients SHOULD reject such messages. If n is less
+// than one, then all SVIDs are returned.
+func parseX509SVIDs(resp *workload.X509SVIDResponse, n int) ([]*x509svid.SVID, error) {
+	switch {
+	case n < 1, n > len(resp.Svids):
+		n = len(resp.Svids)
+	}
+
+	svids := make([]*x509svid.SVID, 0, n)
+	for i := 0; i < n; i++ {
+		svid := resp.Svids[i]
+		s, err := x509svid.ParseRaw(svid.X509Svid, svid.X509SvidKey)
+		if err != nil {
+			return nil, err
+		}
+		svids = append(svids, s)
+	}
+
+	if len(svids) == 0 {
+		return nil, errors.New("no SVIDs in response")
+	}
+	return svids, nil
+}
+
 func parseX509Bundles(resp *workload.X509SVIDResponse) (*x509bundle.Set, error) {
 	bundles := []*x509bundle.Bundle{}
 	for _, svid := range resp.Svids {
@@ -383,44 +420,10 @@ func parseX509Bundle(spiffeID string, bundle []byte) (*x509bundle.Bundle, error)
 	if err != nil {
 		return nil, err
 	}
+	if len(certs) == 0 {
+		return nil, fmt.Errorf("empty X.509 bundle for trust domain %q", td)
+	}
 	return x509bundle.FromX509Authorities(td, certs), nil
-}
-
-func parseX509SVIDResponse(resp *workload.X509SVIDResponse) (*X509Context, error) {
-	svids := []*x509svid.SVID{}
-	bundles := []*x509bundle.Bundle{}
-
-	for _, svid := range resp.Svids {
-		s, err := x509svid.ParseRaw(svid.X509Svid, svid.X509SvidKey)
-		if err != nil {
-			return nil, err
-		}
-		svids = append(svids, s)
-
-		certs, err := x509.ParseCertificates(svid.Bundle)
-		if err != nil {
-			return nil, err
-		}
-		b := x509bundle.FromX509Authorities(s.ID.TrustDomain(), certs)
-		bundles = append(bundles, b)
-	}
-
-	for tdID, bundle := range resp.FederatedBundles {
-		b, err := parseX509Bundle(tdID, bundle)
-		if err != nil {
-			return nil, err
-		}
-		bundles = append(bundles, b)
-	}
-
-	if len(svids) == 0 {
-		return nil, errors.New("there were no SVIDs in the response")
-	}
-
-	return &X509Context{
-		SVIDs:   svids,
-		Bundles: x509bundle.NewSet(bundles...),
-	}, nil
 }
 
 func parseJWTSVIDBundles(resp *workload.JWTBundlesResponse) (*jwtbundle.Set, error) {
