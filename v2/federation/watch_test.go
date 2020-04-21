@@ -16,10 +16,10 @@ func TestWatchBundle_OnUpate(t *testing.T) {
 	var watcher *fakewatcher
 	ca1 := test.NewCA(t)
 	bundle1 := spiffebundle.FromX509Bundle(ca1.Bundle(td))
-	bundle1.SetRefreshHint(1000 * time.Millisecond)
+	bundle1.SetRefreshHint(time.Second)
 	ca2 := test.NewCA(t)
 	bundle2 := spiffebundle.FromX509Bundle(ca2.Bundle(td))
-	bundle2.SetRefreshHint(2000 * time.Millisecond)
+	bundle2.SetRefreshHint(2 * time.Second)
 	bundles := []*spiffebundle.Bundle{bundle1, bundle2}
 
 	be := fakebundleendpoint.New(t, fakebundleendpoint.WithTestBundles(bundle1, bundle2))
@@ -28,7 +28,7 @@ func TestWatchBundle_OnUpate(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	watcher = &fakewatcher{
 		t:               t,
-		nextRefresh:     1 * time.Second,
+		nextRefresh:     time.Second,
 		expectedBundles: bundles,
 		cancel: func() {
 			if watcher.onUpdateCalls > 1 {
@@ -48,8 +48,8 @@ func TestWatchBundle_OnError(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	watcher := &fakewatcher{
 		t:            t,
-		nextRefresh:  1 * time.Second,
-		expectedErr:  `federation: could not GET bundle: Get "wrong%20url": unsupported protocol scheme ""`,
+		nextRefresh:  time.Second,
+		expectedErr:  `federation: could not GET bundle: Get "?wrong%20url"?: unsupported protocol scheme ""`,
 		cancel:       cancel,
 		latestBundle: &spiffebundle.Bundle{},
 	}
@@ -72,7 +72,7 @@ func TestWatchBundle_FetchBundleCanceled(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	watcher := &fakewatcher{
 		t:           t,
-		nextRefresh: 1 * time.Second,
+		nextRefresh: time.Second,
 	}
 	cancel()
 	err := federation.WatchBundle(ctx, td, be.FetchBundleURL(), watcher, federation.WithWebPKIRoots(be.RootCAs()))
@@ -107,7 +107,7 @@ func (w *fakewatcher) OnUpdate(bundle *spiffebundle.Bundle) {
 }
 
 func (w *fakewatcher) OnError(err error) {
-	assert.EqualError(w.t, err, w.expectedErr)
+	assert.Regexp(w.t, w.expectedErr, err.Error())
 	w.onErrorCalls++
 	w.cancel()
 }

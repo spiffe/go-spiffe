@@ -29,8 +29,6 @@ type Server struct {
 	tlscfg *tls.Config
 	// SPIFFE bundles that can be returned by this Server.
 	bundles []*spiffebundle.Bundle
-	// Number of times the bundle was requested.
-	fetchBundleCount int
 }
 
 type ServerOption interface {
@@ -103,18 +101,18 @@ func (s *Server) start() error {
 }
 
 func (s *Server) testbundle(w http.ResponseWriter, r *http.Request) {
-	if len(s.bundles) == 0 || len(s.bundles) == s.fetchBundleCount {
+	if len(s.bundles) == 0 {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 
-	bb, err := s.bundles[s.fetchBundleCount].Marshal()
+	bb, err := s.bundles[0].Marshal()
 	assert.NoError(s.tb, err)
+	s.bundles = s.bundles[1:]
 	w.Header().Add("Content-Type", "application/json")
 	b, err := w.Write(bb)
 	assert.NoError(s.tb, err)
 	assert.Equal(s.tb, len(bb), b)
-	s.fetchBundleCount++
 }
 
 type serverOption func(*Server)
