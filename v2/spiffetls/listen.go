@@ -58,7 +58,7 @@ func NewListenerWithMode(ctx context.Context, inner net.Listener, mode ListenMod
 		source, err = workloadapi.NewX509Source(ctx, m.options...)
 		// Close source if there is a failure after this point
 		defer func() {
-			if err != nil {
+			if err != nil && source != nil {
 				source.Close()
 			}
 		}()
