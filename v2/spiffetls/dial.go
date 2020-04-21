@@ -4,57 +4,41 @@ import (
 	"context"
 	"crypto/tls"
 	"io"
+	"net"
 
+	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
+	"github.com/zeebo/errs"
 )
-
-// Conn is a (m)TLS connection backed using materials obtained from the
-// Workload API.
-type Conn struct {
-	*tls.Conn
-	source io.Closer
-}
-
-// Close closes the connection. If the connection has been established using a
-// new X.509 source (the default behavior), that source will also be closed.
-func (c *Conn) Close() error {
-	if c.source != nil {
-		c.source.Close()
-	}
-	if c.Conn == nil {
-		return nil
-	}
-	if err := c.Conn.Close(); err != nil {
-		return spiffetlsErr.New("unable to close TLS connection: %w", err)
-	}
-	return nil
-}
 
 // Dial creates an mTLS connection using an X509-SVID obtained from the
 // Workload API. The server is authenticated using X.509 bundles also obtained
 // from the Workload API. The server is authorized using the given authorizer.
 //
 // This is the same as DialWithMode using the MTLSClient mode.
-func Dial(ctx context.Context, network, addr string, authorizer tlsconfig.Authorizer, options ...DialOption) (*Conn, error) {
+func Dial(ctx context.Context, network, addr string, authorizer tlsconfig.Authorizer, options ...DialOption) (net.Conn, error) {
 	return DialWithMode(ctx, network, addr, MTLSClient(authorizer), options...)
 }
 
 // DialWithMode creates a TLS connection using the specified mode.
-func DialWithMode(ctx context.Context, network, addr string, mode DialMode, options ...DialOption) (_ *Conn, err error) {
+func DialWithMode(ctx context.Context, network, addr string, mode DialMode, options ...DialOption) (_ net.Conn, err error) {
 	m := mode.get()
+
+	var sourceCloser io.Closer
 	source := m.source
 	if source == nil {
 		source, err = workloadapi.NewX509Source(ctx, m.options...)
+		if err != nil {
+			return nil, spiffetlsErr.New("cannot create X.509 source: %w", err)
+		}
 		// Close source if there is a failure after this point
 		defer func() {
 			if err != nil {
 				source.Close()
 			}
 		}()
-		if err != nil {
-			return nil, spiffetlsErr.New("cannot create X.509 source: %w", err)
-		}
+		sourceCloser = source
 	}
 
 	if m.bundle == nil {
@@ -95,13 +79,31 @@ func DialWithMode(ctx context.Context, network, addr string, mode DialMode, opti
 		return nil, spiffetlsErr.New("unable to dial: %w", err)
 	}
 
-	// Do not store source if provided by caller
-	if m.source != nil {
-		source = nil
-	}
-
-	return &Conn{
-		Conn:   conn,
-		source: source,
+	return &clientConn{
+		Conn:         conn,
+		sourceCloser: sourceCloser,
 	}, nil
+}
+
+type clientConn struct {
+	*tls.Conn
+	sourceCloser io.Closer
+}
+
+func (c *clientConn) Close() error {
+	var group errs.Group
+	if c.sourceCloser != nil {
+		group.Add(c.sourceCloser.Close())
+	}
+	if err := c.Conn.Close(); err != nil {
+		group.Add(spiffetlsErr.New("unable to close TLS connection: %w", err))
+	}
+	return group.Err()
+}
+
+// PeerID returns the peer SPIFFE ID on the connection. The handshake must have
+// been completed. Note that in Go's TLS stack, the TLS 1.3 handshake may not
+// complete until the first read from the connection.
+func (c *clientConn) PeerID() (spiffeid.ID, error) {
+	return peerIDFromConnectionState(c.Conn.ConnectionState())
 }
