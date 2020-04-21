@@ -242,6 +242,15 @@ func TestFromString(t *testing.T) {
 	}
 }
 
+func TestRequireFromString(t *testing.T) {
+	require.NotPanics(t, func() {
+		spiffeid.RequireFromString("spiffe://domain.test")
+	})
+	require.Panics(t, func() {
+		spiffeid.RequireFromString("BAD")
+	})
+}
+
 func TestFromURI(t *testing.T) {
 	tests := []struct {
 		name          string
@@ -339,6 +348,15 @@ func TestFromURI(t *testing.T) {
 			assert.Equal(t, test.expectedID, id)
 		})
 	}
+}
+
+func TestRequireFromURI(t *testing.T) {
+	require.NotPanics(t, func() {
+		spiffeid.RequireFromURI(&url.URL{Scheme: "spiffe", Host: "example.org"})
+	})
+	require.Panics(t, func() {
+		spiffeid.RequireFromURI(&url.URL{Host: "BAD"})
+	})
 }
 
 func TestIDTrustDomain(t *testing.T) {

@@ -106,6 +106,28 @@ func FromURI(uri *url.URL) (ID, error) {
 	}, nil
 }
 
+// RequireFromString is similar to FromString except that instead of returning
+// an error on malformed input, it panics. It should only be used when given
+// string is statically verifiable.
+func RequireFromString(s string) ID {
+	id, err := FromString(s)
+	if err != nil {
+		panic(err)
+	}
+	return id
+}
+
+// RequireFromURI is similar to FromURI except that instead of returning
+// an error on malformed input, it panics. It should only be used when given
+// string is statically verifiable.
+func RequireFromURI(uri *url.URL) ID {
+	id, err := FromURI(uri)
+	if err != nil {
+		panic(err)
+	}
+	return id
+}
+
 // TrustDomain returns the trust domain of the SPIFFE ID.
 func (id ID) TrustDomain() TrustDomain {
 	return id.td
