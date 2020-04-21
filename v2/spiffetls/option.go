@@ -25,6 +25,16 @@ type dialConfig struct {
 	dialer      *net.Dialer
 }
 
+type listenOption func(*listenConfig)
+
+type listenConfig struct {
+	baseTLSConf *tls.Config
+}
+
+func (fn listenOption) apply(c *listenConfig) {
+	fn(c)
+}
+
 // WithDialTLSConfigBase provides a base TLS configuration to use. Fields
 // related to certificates and verification will be overwritten by this package
 // as necessary to facilitate SPIFFE authentication.
@@ -43,11 +53,15 @@ func WithDialer(dialer *net.Dialer) DialOption {
 }
 
 // ListenOption is an option for listening. Option's are also ListenOption's.
-type ListenOption interface{}
+type ListenOption interface {
+	apply(*listenConfig)
+}
 
-// WithDialTLSConfigBase provides a base TLS configuration to use. Fields
+// WithListenTLSConfigBase provides a base TLS configuration to use. Fields
 // related to certificates and verification will be overwritten by this package
 // as necessary to facilitate SPIFFE authentication.
 func WithListenTLSConfigBase(base *tls.Config) ListenOption {
-	panic("not implemented")
+	return listenOption(func(c *listenConfig) {
+		c.baseTLSConf = base
+	})
 }

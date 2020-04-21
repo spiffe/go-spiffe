@@ -123,7 +123,7 @@ func HookMTLSWebServerConfig(config *tls.Config, cert *tls.Certificate, bundle x
 // given X509-SVID getter to obtain a server X509-SVID for the TLS handshake.
 func GetCertificate(svid x509svid.Source) func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
 	return func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
-		return getTLSCertificate(svid)
+		return GetTLSCertificate(svid)
 	}
 }
 
@@ -132,7 +132,7 @@ func GetCertificate(svid x509svid.Source) func(*tls.ClientHelloInfo) (*tls.Certi
 // handshake.
 func GetClientCertificate(svid x509svid.Source) func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
 	return func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
-		return getTLSCertificate(svid)
+		return GetTLSCertificate(svid)
 	}
 }
 
@@ -173,7 +173,8 @@ func WrapVerifyPeerCertificate(wrapped func([][]byte, [][]*x509.Certificate) err
 	}
 }
 
-func getTLSCertificate(svid x509svid.Source) (*tls.Certificate, error) {
+// GetTLSCertificate returns the TLS certificate from the provided X509-SVID source
+func GetTLSCertificate(svid x509svid.Source) (*tls.Certificate, error) {
 	s, err := svid.GetX509SVID()
 	if err != nil {
 		return nil, err
