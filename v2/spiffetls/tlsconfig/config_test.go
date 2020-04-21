@@ -11,6 +11,7 @@ import (
 
 	"github.com/spiffe/go-spiffe/v2/bundle/x509bundle"
 	"github.com/spiffe/go-spiffe/v2/internal/test"
+	"github.com/spiffe/go-spiffe/v2/internal/x509util"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
 	"github.com/spiffe/go-spiffe/v2/svid/x509svid"
@@ -331,19 +332,15 @@ func TestGetClientCertificate(t *testing.T) {
 
 func TestVerifyPeerCertificate(t *testing.T) {
 	td := spiffeid.RequireTrustDomainFromString("domain1.test")
-	ca1 := test.NewCA(t)
-	bundle1 := ca1.Bundle(td)
+	ca1 := test.NewCA(t, td)
+	bundle1 := ca1.X509Bundle()
 
-	svid1, _ := ca1.CreateX509SVID(td.NewID("host").String())
-
-	var svid1Raw [][]byte
-	for _, cert := range svid1 {
-		svid1Raw = append(svid1Raw, cert.Raw)
-	}
+	svid1 := ca1.CreateX509SVID(td.NewID("host"))
+	svid1Raw := x509util.RawCertsFromCerts(svid1.Certificates)
 
 	td2 := spiffeid.RequireTrustDomainFromString("domain2.test")
-	ca2 := test.NewCA(t)
-	bundle2 := ca2.Bundle(td2)
+	ca2 := test.NewCA(t, td2)
+	bundle2 := ca2.X509Bundle()
 
 	testCases := []struct {
 		name       string
@@ -393,19 +390,15 @@ func TestVerifyPeerCertificate(t *testing.T) {
 
 func TestWrapVerifyPeerCertificate(t *testing.T) {
 	td := spiffeid.RequireTrustDomainFromString("domain1.test")
-	ca1 := test.NewCA(t)
-	bundle1 := ca1.Bundle(td)
+	ca1 := test.NewCA(t, td)
+	bundle1 := ca1.X509Bundle()
 
-	svid1, _ := ca1.CreateX509SVID(td.NewID("host").String())
-
-	var svid1Raw [][]byte
-	for _, cert := range svid1 {
-		svid1Raw = append(svid1Raw, cert.Raw)
-	}
+	svid1 := ca1.CreateX509SVID(td.NewID("host"))
+	svid1Raw := x509util.RawCertsFromCerts(svid1.Certificates)
 
 	td2 := spiffeid.RequireTrustDomainFromString("domain2.test")
-	ca2 := test.NewCA(t)
-	bundle2 := ca2.Bundle(td2)
+	ca2 := test.NewCA(t, td2)
+	bundle2 := ca2.X509Bundle()
 
 	wrapped := func([][]byte, [][]*x509.Certificate) error {
 		return errors.New("wrapped called")
@@ -470,23 +463,18 @@ func TestWrapVerifyPeerCertificate(t *testing.T) {
 
 func TestTLSHandshake(t *testing.T) {
 	td := spiffeid.RequireTrustDomainFromString("domain1.test")
-	ca1 := test.NewCA(t)
-	bundle1 := ca1.Bundle(td)
+	ca1 := test.NewCA(t, td)
+	bundle1 := ca1.X509Bundle()
 
 	svid1ID := td.NewID("server")
-	svid1Certs, key1 := ca1.CreateX509SVID(svid1ID.String())
-	serverSVID := &x509svid.SVID{
-		ID:           svid1ID,
-		Certificates: svid1Certs,
-		PrivateKey:   key1,
-	}
+	serverSVID := ca1.CreateX509SVID(svid1ID)
 
 	td2 := spiffeid.RequireTrustDomainFromString("domain2.test")
-	ca2 := test.NewCA(t)
-	bundle2 := ca2.Bundle(td2)
+	ca2 := test.NewCA(t, td2)
+	bundle2 := ca2.X509Bundle()
 
-	ca3 := test.NewCA(t)
-	bundle3 := ca3.Bundle(td)
+	ca3 := test.NewCA(t, td)
+	bundle3 := ca3.Bundle()
 
 	testCases := []struct {
 		name         string
@@ -533,41 +521,26 @@ func TestTLSHandshake(t *testing.T) {
 
 func TestMTLSHandshake(t *testing.T) {
 	td := spiffeid.RequireTrustDomainFromString("domain1.test")
-	ca1 := test.NewCA(t)
-	bundle1 := ca1.Bundle(td)
+	ca1 := test.NewCA(t, td)
+	bundle1 := ca1.X509Bundle()
 
 	svid1ID := td.NewID("server")
-	svid1Certs, key1 := ca1.CreateX509SVID(svid1ID.String())
-	serverSVID := &x509svid.SVID{
-		ID:           svid1ID,
-		Certificates: svid1Certs,
-		PrivateKey:   key1,
-	}
+	serverSVID := ca1.CreateX509SVID(svid1ID)
 
 	svid2ID := td.NewID("client")
-	svid2Certs, key2 := ca1.CreateX509SVID(svid2ID.String())
-	clientSVID := &x509svid.SVID{
-		ID:           svid2ID,
-		Certificates: svid2Certs,
-		PrivateKey:   key2,
-	}
+	clientSVID := ca1.CreateX509SVID(svid2ID)
 
 	td2 := spiffeid.RequireTrustDomainFromString("domain2.test")
-	ca2 := test.NewCA(t)
-	bundle2 := ca2.Bundle(td2)
+	ca2 := test.NewCA(t, td2)
+	bundle2 := ca2.X509Bundle()
 
 	// Create a new bundle with same TD and SVID in order to verify that
 	// presented certificates fails on handshake.
-	ca3 := test.NewCA(t)
-	bundle3 := ca3.Bundle(td)
+	ca3 := test.NewCA(t, td)
+	bundle3 := ca3.Bundle()
 
 	svid3ID := td.NewID("client")
-	svid3Certs, key3 := ca3.CreateX509SVID(svid3ID.String())
-	client3SVID := &x509svid.SVID{
-		ID:           svid3ID,
-		Certificates: svid3Certs,
-		PrivateKey:   key3,
-	}
+	client3SVID := ca3.CreateX509SVID(svid3ID)
 
 	testCases := []struct {
 		name         string
@@ -628,38 +601,28 @@ func TestMTLSHandshake(t *testing.T) {
 
 func TestMTLSWebHandshake(t *testing.T) {
 	td := spiffeid.RequireTrustDomainFromString("domain1.test")
-	ca1 := test.NewCA(t)
-	bundle1 := ca1.Bundle(td)
+	ca1 := test.NewCA(t, td)
+	bundle1 := ca1.X509Bundle()
 
-	svid1ID := td.NewID("server")
-	svid1Certs, _ := ca1.CreateX509SVID(svid1ID.String())
+	serverID := td.NewID("server")
+	serverSVID := ca1.CreateX509SVID(serverID)
 
 	roots, tlsCert := test.CreateWebCredentials(t)
 	roots2 := x509.NewCertPool()
-	roots2.AddCert(svid1Certs[0])
+	roots2.AddCert(serverSVID.Certificates[0])
 
-	svid2ID := td.NewID("client")
-	svid2Certs, key2 := ca1.CreateX509SVID(svid2ID.String())
-	clientSVID := &x509svid.SVID{
-		ID:           svid2ID,
-		Certificates: svid2Certs,
-		PrivateKey:   key2,
-	}
+	clientID := td.NewID("client")
+	clientSVID := ca1.CreateX509SVID(clientID)
 
 	td2 := spiffeid.RequireTrustDomainFromString("domain2.test")
-	ca2 := test.NewCA(t)
-	bundle2 := ca2.Bundle(td2)
+	ca2 := test.NewCA(t, td2)
+	bundle2 := ca2.X509Bundle()
 
 	// Create a new bundle with same TD and SVID in order to verify that
 	// presented certificates fails on handshake.
-	ca3 := test.NewCA(t)
+	ca3 := test.NewCA(t, td)
 	svid3ID := td.NewID("client")
-	svid3Certs, key3 := ca3.CreateX509SVID(svid3ID.String())
-	client3SVID := &x509svid.SVID{
-		ID:           svid3ID,
-		Certificates: svid3Certs,
-		PrivateKey:   key3,
-	}
+	client3SVID := ca3.CreateX509SVID(svid3ID)
 
 	testCases := []struct {
 		name         string

@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 
 	"github.com/spiffe/go-spiffe/v2/internal/pemutil"
+	"github.com/spiffe/go-spiffe/v2/internal/x509util"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/zeebo/errs"
 )
@@ -105,12 +106,9 @@ func (s *SVID) MarshalRaw() ([]byte, []byte, error) {
 	if len(s.Certificates) == 0 {
 		return nil, nil, x509svidErr.New("no certificates to marshal")
 	}
-	certBytes := []byte{}
-	for _, cert := range s.Certificates {
-		certBytes = append(certBytes, cert.Raw...)
-	}
 
-	return certBytes, key, nil
+	certs := x509util.ConcatRawCertsFromCerts(s.Certificates)
+	return certs, key, nil
 }
 
 // GetX509SVID returns the X509-SVID. It implements the Source interface.

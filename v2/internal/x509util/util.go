@@ -35,3 +35,19 @@ func CertsEqual(a, b []*x509.Certificate) bool {
 
 	return true
 }
+
+func RawCertsFromCerts(certs []*x509.Certificate) [][]byte {
+	rawCerts := make([][]byte, 0, len(certs))
+	for _, cert := range certs {
+		rawCerts = append(rawCerts, cert.Raw)
+	}
+	return rawCerts
+}
+
+func ConcatRawCertsFromCerts(certs []*x509.Certificate) []byte {
+	var rawCerts []byte
+	for _, cert := range certs {
+		rawCerts = append(rawCerts, cert.Raw...)
+	}
+	return rawCerts
+}

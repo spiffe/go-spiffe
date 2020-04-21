@@ -285,6 +285,7 @@ func (c *Client) watchX509Context(ctx context.Context, watcher X509ContextWatche
 		c.backoff.Reset()
 		x509Context, err := parseX509SVIDResponse(resp)
 		if err != nil {
+			c.config.log.Errorf("Failed to parse X509-SVID response: %v", err)
 			watcher.OnX509ContextWatchError(err)
 			continue
 		}
@@ -311,6 +312,7 @@ func (c *Client) watchJWTBundles(ctx context.Context, watcher JWTBundleWatcher) 
 		c.backoff.Reset()
 		jwtbundleSet, err := parseJWTSVIDBundles(resp)
 		if err != nil {
+			c.config.log.Errorf("Failed to parse JWT bundle response: %v", err)
 			watcher.OnJWTBundlesWatchError(err)
 			continue
 		}

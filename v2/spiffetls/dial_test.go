@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
-	"crypto/x509"
 	"fmt"
 	"net"
 	"os"
@@ -14,7 +13,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/spiffe/go-spiffe/v2/bundle/x509bundle"
 	"github.com/spiffe/go-spiffe/v2/internal/test"
 	"github.com/spiffe/go-spiffe/v2/internal/test/fakeworkloadapi"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
@@ -26,6 +24,7 @@ import (
 )
 
 var (
+	td       = spiffeid.RequireTrustDomainFromString("example.org")
 	clientID = spiffeid.RequireFromString("spiffe://example.org/client-workload")
 	serverID = spiffeid.RequireFromString("spiffe://example.org/server-workload")
 	testMsg  = "Hello!\n"
@@ -33,16 +32,16 @@ var (
 
 func TestDialWithMode(t *testing.T) {
 	// Common CA for client and server SVIDs
-	ca := test.NewCA(t)
+	ca := test.NewCA(t, td)
 
 	// Start two fake workload API servers called "A" and "B"
 	// Workload API Server A provides identities to the server workload
-	wlAPIServerA := fakeworkloadapi.NewWorkloadAPI(t)
+	wlAPIServerA := fakeworkloadapi.New(t)
 	defer wlAPIServerA.Stop()
 	setWorkloadAPIResponse(ca, wlAPIServerA, serverID)
 
 	// Workload API Server B provides identities to the client workload
-	wlAPIServerB := fakeworkloadapi.NewWorkloadAPI(t)
+	wlAPIServerB := fakeworkloadapi.New(t)
 	defer wlAPIServerB.Stop()
 	setWorkloadAPIResponse(ca, wlAPIServerB, clientID)
 
@@ -61,12 +60,8 @@ func TestDialWithMode(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create custom SVID and bundle source (not backed by workload API)
-	bundleSource := x509bundle.FromX509Authorities(clientID.TrustDomain(), ca.Roots())
-	clientSVID, clientSigner := ca.CreateX509SVID(clientID.String())
-	clientKey, err := x509.MarshalPKCS8PrivateKey(clientSigner)
-	require.NoError(t, err)
-	svidSource, err := x509svid.ParseRaw(clientSVID[0].Raw, clientKey)
-	require.NoError(t, err)
+	bundleSource := ca.X509Bundle()
+	svidSource := ca.CreateX509SVID(clientID)
 
 	// Create web credentials
 	webCertPool, webCert := test.CreateWebCredentials(t)
@@ -314,14 +309,8 @@ func TestDialWithMode(t *testing.T) {
 }
 
 func setWorkloadAPIResponse(ca *test.CA, s *fakeworkloadapi.WorkloadAPI, spiffeID spiffeid.ID) {
-	svid, key := ca.CreateX509SVID(spiffeID.String())
 	s.SetX509SVIDResponse(&fakeworkloadapi.X509SVIDResponse{
-		Bundle: ca.Roots(),
-		SVIDs: []fakeworkloadapi.X509SVID{
-			{
-				CertChain: svid,
-				Key:       key,
-			},
-		},
+		Bundle: ca.X509Bundle(),
+		SVIDs:  []*x509svid.SVID{ca.CreateX509SVID(spiffeID)},
 	})
 }

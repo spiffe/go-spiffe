@@ -3,7 +3,6 @@ package fakeworkloadapi
 import (
 	"bytes"
 	"context"
-	"crypto"
 	"crypto/x509"
 	"encoding/json"
 	"errors"
@@ -15,9 +14,12 @@ import (
 	"github.com/golang/protobuf/jsonpb"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/spiffe/go-spiffe/v2/bundle/jwtbundle"
+	"github.com/spiffe/go-spiffe/v2/bundle/x509bundle"
+	"github.com/spiffe/go-spiffe/v2/internal/x509util"
 	"github.com/spiffe/go-spiffe/v2/proto/spiffe/workload"
-	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/spiffe/go-spiffe/v2/svid/jwtsvid"
+	"github.com/spiffe/go-spiffe/v2/svid/x509svid"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -40,7 +42,7 @@ type WorkloadAPI struct {
 	jwtBundlesChans map[chan *workload.JWTBundlesResponse]struct{}
 }
 
-func NewWorkloadAPI(tb testing.TB) *WorkloadAPI {
+func New(tb testing.TB) *WorkloadAPI {
 	w := &WorkloadAPI{
 		x509Chans:       make(map[chan *workload.X509SVIDResponse]struct{}),
 		jwtBundlesChans: make(map[chan *workload.JWTBundlesResponse]struct{}),
@@ -101,22 +103,14 @@ func (w *WorkloadAPI) SetJWTSVIDResponse(r *workload.JWTSVIDResponse) {
 	}
 }
 
-func (w *WorkloadAPI) SetJWTBundle(trustDomain string, jwtAuthorities map[string]crypto.PublicKey) {
-	td, err := spiffeid.TrustDomainFromString(trustDomain)
-	if err != nil {
-		w.tb.Error(err)
-		return
-	}
-
-	jwtBundle := jwtbundle.FromJWTAuthorities(td, jwtAuthorities)
-	b, err := jwtBundle.Marshal()
-	if err != nil {
-		w.tb.Error(err)
-		return
-	}
-
+func (w *WorkloadAPI) SetJWTBundles(jwtBundles ...*jwtbundle.Bundle) {
 	resp := &workload.JWTBundlesResponse{
-		Bundles: map[string][]byte{jwtBundle.TrustDomain().String(): b},
+		Bundles: make(map[string][]byte),
+	}
+	for _, bundle := range jwtBundles {
+		bundleBytes, err := bundle.Marshal()
+		assert.NoError(w.tb, err)
+		resp.Bundles[bundle.TrustDomain().String()] = bundleBytes
 	}
 
 	w.mu.Lock()
@@ -153,46 +147,37 @@ func (w *workloadAPIWrapper) ValidateJWTSVID(ctx context.Context, req *workload.
 	return w.w.validateJWTSVID(ctx, req)
 }
 
-type X509SVID struct {
-	CertChain []*x509.Certificate
-	Key       crypto.Signer
-}
-
 type X509SVIDResponse struct {
-	SVIDs            []X509SVID
-	Bundle           []*x509.Certificate
-	FederatedBundles map[string][]*x509.Certificate
+	SVIDs            []*x509svid.SVID
+	Bundle           *x509bundle.Bundle
+	FederatedBundles []*x509bundle.Bundle
 }
 
 func (r *X509SVIDResponse) ToProto(tb testing.TB) *workload.X509SVIDResponse {
-	bundle := derBlobFromCerts(r.Bundle)
+	var bundle []byte
+	if r.Bundle != nil {
+		bundle = x509util.ConcatRawCertsFromCerts(r.Bundle.X509Authorities())
+	}
 
 	pb := &workload.X509SVIDResponse{
 		FederatedBundles: make(map[string][]byte),
 	}
 	for _, svid := range r.SVIDs {
-		// The workload API should always respond with at one certificate and a
-		// private key but making this optional here is needed for some test
-		// flexibility.
-		var spiffeID string
-		if len(svid.CertChain) > 0 && len(svid.CertChain[0].URIs) > 0 {
-			spiffeID = svid.CertChain[0].URIs[0].String()
-		}
 		var keyDER []byte
-		if svid.Key != nil {
+		if svid.PrivateKey != nil {
 			var err error
-			keyDER, err = x509.MarshalPKCS8PrivateKey(svid.Key)
+			keyDER, err = x509.MarshalPKCS8PrivateKey(svid.PrivateKey)
 			require.NoError(tb, err)
 		}
 		pb.Svids = append(pb.Svids, &workload.X509SVID{
-			SpiffeId:    spiffeID,
-			X509Svid:    derBlobFromCerts(svid.CertChain),
+			SpiffeId:    svid.ID.String(),
+			X509Svid:    x509util.ConcatRawCertsFromCerts(svid.Certificates),
 			X509SvidKey: keyDER,
 			Bundle:      bundle,
 		})
 	}
-	for k, v := range r.FederatedBundles {
-		pb.FederatedBundles[k] = derBlobFromCerts(v)
+	for _, v := range r.FederatedBundles {
+		pb.FederatedBundles[v.TrustDomain().IDString()] = x509util.ConcatRawCertsFromCerts(v.X509Authorities())
 	}
 
 	return pb
@@ -297,6 +282,7 @@ func (w *WorkloadAPI) validateJWTSVID(_ context.Context, req *workload.ValidateJ
 		return nil, status.Error(codes.InvalidArgument, "svid must be specified")
 	}
 
+	// TODO: validate
 	jwtSvid, err := jwtsvid.ParseInsecure(req.Svid, []string{req.Audience})
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
@@ -308,14 +294,6 @@ func (w *WorkloadAPI) validateJWTSVID(_ context.Context, req *workload.ValidateJ
 		SpiffeId: jwtSvid.ID.String(),
 		Claims:   claims,
 	}, nil
-}
-
-func derBlobFromCerts(certs []*x509.Certificate) []byte {
-	var der []byte
-	for _, cert := range certs {
-		der = append(der, cert.Raw...)
-	}
-	return der
 }
 
 func checkHeader(ctx context.Context) error {

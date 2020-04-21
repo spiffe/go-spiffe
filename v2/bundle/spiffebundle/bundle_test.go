@@ -152,18 +152,18 @@ func TestTrustDomain(t *testing.T) {
 func TestJWTAuthoritiesCRUD(t *testing.T) {
 	// Test AddJWTAuthority (missing authority)
 	b := spiffebundle.New(td)
-	err := b.AddJWTAuthorities("", "test-1")
+	err := b.AddJWTAuthority("", "test-1")
 	require.EqualError(t, err, "spiffebundle: keyID cannot be empty")
 
 	// Test AddJWTAuthority (new authority)
-	err = b.AddJWTAuthorities("key-1", "test-1")
+	err = b.AddJWTAuthority("key-1", "test-1")
 	require.NoError(t, err)
 
 	// Test JWTAuthorities
 	jwtAuthorities := b.JWTAuthorities()
 	require.Equal(t, map[string]crypto.PublicKey{"key-1": "test-1"}, jwtAuthorities)
 
-	err = b.AddJWTAuthorities("key-2", "test-2")
+	err = b.AddJWTAuthority("key-2", "test-2")
 	require.NoError(t, err)
 
 	jwtAuthorities = b.JWTAuthorities()
@@ -194,7 +194,7 @@ func TestJWTAuthoritiesCRUD(t *testing.T) {
 	require.Equal(t, true, b.HasJWTAuthority("key-1"))
 
 	// Test AddJWTAuthority (update authority)
-	err = b.AddJWTAuthorities("key-1", "test-1-updated")
+	err = b.AddJWTAuthority("key-1", "test-1-updated")
 	require.NoError(t, err)
 	jwtAuthorities = b.JWTAuthorities()
 	require.Equal(t, map[string]crypto.PublicKey{
@@ -290,7 +290,7 @@ func TestX509Bundle(t *testing.T) {
 
 func TestJWTBundle(t *testing.T) {
 	sb := spiffebundle.New(td)
-	err := sb.AddJWTAuthorities("key-1", "test-1")
+	err := sb.AddJWTAuthority("key-1", "test-1")
 	require.NoError(t, err)
 	jb := sb.JWTBundle()
 	require.Equal(t, true, jb.HasJWTAuthority("key-1"))
@@ -318,7 +318,7 @@ func TestGetX509BundleForTrustDomain(t *testing.T) {
 	td2 := spiffeid.RequireTrustDomainFromString("example-2.org")
 	xb2, err = sb.GetX509BundleForTrustDomain(td2)
 	require.Nil(t, xb2)
-	require.EqualError(t, err, `spiffebundle: no SPIFFE bundle for trust domain "example-2.org"`)
+	require.EqualError(t, err, `spiffebundle: no X.509 bundle for trust domain "example-2.org"`)
 }
 
 func TestGetJWTBundleForTrustDomain(t *testing.T) {
@@ -331,7 +331,7 @@ func TestGetJWTBundleForTrustDomain(t *testing.T) {
 	td2 := spiffeid.RequireTrustDomainFromString("example-2.org")
 	jb2, err = sb.GetJWTBundleForTrustDomain(td2)
 	require.Nil(t, jb2)
-	require.EqualError(t, err, `spiffebundle: no SPIFFE bundle for trust domain "example-2.org"`)
+	require.EqualError(t, err, `spiffebundle: no JWT bundle for trust domain "example-2.org"`)
 }
 
 func checkBundleProperties(t *testing.T, err error, tc testCase, b *spiffebundle.Bundle) {
