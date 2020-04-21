@@ -72,6 +72,17 @@ func (s *JWTSource) GetJWTBundleForTrustDomain(trustDomain spiffeid.TrustDomain)
 	return s.bundles.GetJWTBundleForTrustDomain(trustDomain)
 }
 
+// WaitUntilUpdated waits until the source is updated or the context is done,
+// in which case ctx.Err() is returned.
+func (s *JWTSource) WaitUntilUpdated(ctx context.Context) error {
+	return s.watcher.WaitUntilUpdated(ctx)
+}
+
+// Updated returns a channel that is sent on whenever the source is updated.
+func (s *JWTSource) Updated() <-chan struct{} {
+	return s.watcher.Updated()
+}
+
 func (s *JWTSource) setJWTBundles(bundles *jwtbundle.Set) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()

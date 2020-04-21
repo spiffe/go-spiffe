@@ -2,6 +2,8 @@ package workloadapi
 
 import (
 	"context"
+	"crypto"
+	"crypto/x509"
 	"sync"
 
 	"github.com/spiffe/go-spiffe/v2/bundle/jwtbundle"
@@ -17,8 +19,9 @@ var bundlesourceErr = errs.Class("bundlesource")
 type BundleSource struct {
 	watcher *watcher
 
-	mtx     sync.RWMutex
-	bundles *spiffebundle.Set
+	mtx             sync.RWMutex
+	x509Authorities map[spiffeid.TrustDomain][]*x509.Certificate
+	jwtAuthorities  map[spiffeid.TrustDomain]map[string]crypto.PublicKey
 
 	closeMtx sync.RWMutex
 	closed   bool
@@ -33,9 +36,8 @@ func NewBundleSource(ctx context.Context, options ...BundleSourceOption) (_ *Bun
 	}
 
 	s := &BundleSource{
-		// Initialize the bundle set so that the merge code below has something
-		// valid to merge into.
-		bundles: spiffebundle.NewSet(),
+		x509Authorities: make(map[spiffeid.TrustDomain][]*x509.Certificate),
+		jwtAuthorities:  make(map[spiffeid.TrustDomain]map[string]crypto.PublicKey),
 	}
 
 	s.watcher, err = newWatcher(ctx, config.watcher, s.setX509Context, s.setJWTBundles)
@@ -64,7 +66,22 @@ func (s *BundleSource) GetBundleForTrustDomain(trustDomain spiffeid.TrustDomain)
 	if err := s.checkClosed(); err != nil {
 		return nil, err
 	}
-	return s.getBundles().GetBundleForTrustDomain(trustDomain)
+	s.mtx.RLock()
+	defer s.mtx.RUnlock()
+
+	x509Authorities, hasX509Authorities := s.x509Authorities[trustDomain]
+	jwtAuthorities, hasJWTAuthorities := s.jwtAuthorities[trustDomain]
+	if !hasX509Authorities && !hasJWTAuthorities {
+		return nil, bundlesourceErr.New("no SPIFFE bundle for trust domain %q", trustDomain)
+	}
+	bundle := spiffebundle.New(trustDomain)
+	if hasX509Authorities {
+		bundle.SetX509Authorities(x509Authorities)
+	}
+	if hasJWTAuthorities {
+		bundle.SetJWTAuthorities(jwtAuthorities)
+	}
+	return bundle, nil
 }
 
 // GetX509BundleForTrustDomain returns the X.509 bundle for the given trust
@@ -73,7 +90,14 @@ func (s *BundleSource) GetX509BundleForTrustDomain(trustDomain spiffeid.TrustDom
 	if err := s.checkClosed(); err != nil {
 		return nil, err
 	}
-	return s.getBundles().GetX509BundleForTrustDomain(trustDomain)
+	s.mtx.RLock()
+	defer s.mtx.RUnlock()
+
+	x509Authorities, hasX509Authorities := s.x509Authorities[trustDomain]
+	if !hasX509Authorities {
+		return nil, bundlesourceErr.New("no X.509 bundle for trust domain %q", trustDomain)
+	}
+	return x509bundle.FromX509Authorities(trustDomain, x509Authorities), nil
 }
 
 // GetJWTBundleForTrustDomain returns the JWT bundle for the given trust
@@ -82,14 +106,25 @@ func (s *BundleSource) GetJWTBundleForTrustDomain(trustDomain spiffeid.TrustDoma
 	if err := s.checkClosed(); err != nil {
 		return nil, err
 	}
-	return s.getBundles().GetJWTBundleForTrustDomain(trustDomain)
+	s.mtx.RLock()
+	defer s.mtx.RUnlock()
+
+	jwtAuthorities, hasJWTAuthorities := s.jwtAuthorities[trustDomain]
+	if !hasJWTAuthorities {
+		return nil, bundlesourceErr.New("no JWT bundle for trust domain %q", trustDomain)
+	}
+	return jwtbundle.FromJWTAuthorities(trustDomain, jwtAuthorities), nil
 }
 
-func (s *BundleSource) getBundles() *spiffebundle.Set {
-	s.mtx.RLock()
-	bundles := s.bundles
-	s.mtx.RUnlock()
-	return bundles
+// WaitUntilUpdated waits until the source is updated or the context is done,
+// in which case ctx.Err() is returned.
+func (s *BundleSource) WaitUntilUpdated(ctx context.Context) error {
+	return s.watcher.WaitUntilUpdated(ctx)
+}
+
+// Updated returns a channel that is sent on whenever the source is updated.
+func (s *BundleSource) Updated() <-chan struct{} {
+	return s.watcher.Updated()
 }
 
 func (s *BundleSource) setX509Context(x509Context *X509Context) {
@@ -98,31 +133,22 @@ func (s *BundleSource) setX509Context(x509Context *X509Context) {
 
 	newBundles := x509Context.Bundles.Bundles()
 
-	// Add/replace the X.509 content in the SPIFFE bundles. Track the trust
-	// domains represented in the new X.509 context so we can determine if
-	// which existing bundles need their X.509 content removed.
+	// Add/replace the X.509 authorities from the X.509 context. Track the trust
+	// domains represented in the new X.509 context so we can determine which
+	// existing trust domains are no longer represented.
 	trustDomains := make(map[spiffeid.TrustDomain]struct{}, len(newBundles))
 	for _, newBundle := range newBundles {
 		trustDomains[newBundle.TrustDomain()] = struct{}{}
-		existingBundle, ok := s.bundles.Get(newBundle.TrustDomain())
-		if !ok {
-			s.bundles.Add(spiffebundle.FromX509Bundle(newBundle))
-			continue
-		}
-		existingBundle.SetX509Authorities(newBundle.X509Authorities())
+		s.x509Authorities[newBundle.TrustDomain()] = newBundle.X509Authorities()
 	}
 
-	// Remove the X.509 content from bundles that are no longer returned
-	// with the X.509 context. If the bundle is then empty, remove the bundle
-	// from the set.
-	for _, existingBundle := range s.bundles.Bundles() {
-		if _, ok := trustDomains[existingBundle.TrustDomain()]; ok {
+	// Remove the X.509 authority entries for trust domains no longer
+	// represented in the X.509 context.
+	for existingTD := range s.x509Authorities {
+		if _, ok := trustDomains[existingTD]; ok {
 			continue
 		}
-		existingBundle.SetX509Authorities(nil)
-		if existingBundle.Empty() {
-			s.bundles.Remove(existingBundle.TrustDomain())
-		}
+		delete(s.x509Authorities, existingTD)
 	}
 }
 
@@ -132,31 +158,22 @@ func (s *BundleSource) setJWTBundles(bundles *jwtbundle.Set) {
 
 	newBundles := bundles.Bundles()
 
-	// Add/replace the X.509 content in the SPIFFE bundles. Track the trust
-	// domains represented in the new X.509 context so we can determine if
-	// which existing bundles need their X.509 content removed.
+	// Add/replace the JWT authorities from the JWT bundles. Track the trust
+	// domains represented in the new JWT bundles so we can determine which
+	// existing trust domains are no longer represented.
 	trustDomains := make(map[spiffeid.TrustDomain]struct{}, len(newBundles))
 	for _, newBundle := range newBundles {
 		trustDomains[newBundle.TrustDomain()] = struct{}{}
-		existingBundle, ok := s.bundles.Get(newBundle.TrustDomain())
-		if !ok {
-			s.bundles.Add(spiffebundle.FromJWTBundle(newBundle))
-			continue
-		}
-		existingBundle.SetJWTAuthorities(newBundle.JWTAuthorities())
+		s.jwtAuthorities[newBundle.TrustDomain()] = newBundle.JWTAuthorities()
 	}
 
-	// Remove the X.509 content from bundles that are no longer returned
-	// with the X.509 context. If the bundle is then empty, remove the bundle
-	// from the set.
-	for _, existingBundle := range s.bundles.Bundles() {
-		if _, ok := trustDomains[existingBundle.TrustDomain()]; ok {
+	// Remove the JWT authority entries for trust domains no longer represented
+	// in the JWT bundles.
+	for existingTD := range s.jwtAuthorities {
+		if _, ok := trustDomains[existingTD]; ok {
 			continue
 		}
-		existingBundle.SetJWTAuthorities(nil)
-		if existingBundle.Empty() {
-			s.bundles.Remove(existingBundle.TrustDomain())
-		}
+		delete(s.jwtAuthorities, existingTD)
 	}
 }
 

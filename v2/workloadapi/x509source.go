@@ -88,6 +88,17 @@ func (s *X509Source) GetX509BundleForTrustDomain(trustDomain spiffeid.TrustDomai
 	return s.bundles.GetX509BundleForTrustDomain(trustDomain)
 }
 
+// WaitUntilUpdated waits until the source is updated or the context is done,
+// in which case ctx.Err() is returned.
+func (s *X509Source) WaitUntilUpdated(ctx context.Context) error {
+	return s.watcher.WaitUntilUpdated(ctx)
+}
+
+// Updated returns a channel that is sent on whenever the source is updated.
+func (s *X509Source) Updated() <-chan struct{} {
+	return s.watcher.Updated()
+}
+
 func (s *X509Source) setX509Context(x509Context *X509Context) {
 	var svid *x509svid.SVID
 	if s.picker == nil {

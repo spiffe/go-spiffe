@@ -22,6 +22,8 @@ type watcherConfig struct {
 }
 
 type watcher struct {
+	updatedCh chan struct{}
+
 	client     sourceClient
 	ownsClient bool
 
@@ -43,6 +45,7 @@ type watcher struct {
 
 func newWatcher(ctx context.Context, config watcherConfig, x509ContextFn func(*X509Context), jwtBundlesFn func(*jwtbundle.Set)) (_ *watcher, err error) {
 	w := &watcher{
+		updatedCh:      make(chan struct{}, 1),
 		client:         config.client,
 		cancel:         func() {},
 		x509ContextFn:  x509ContextFn,
@@ -76,7 +79,7 @@ func newWatcher(ctx context.Context, config watcherConfig, x509ContextFn func(*X
 		case err := <-errCh:
 			return err
 		case <-ctx.Done():
-			return err
+			return ctx.Err()
 		}
 	}
 
@@ -107,6 +110,12 @@ func newWatcher(ctx context.Context, config watcherConfig, x509ContextFn func(*X
 		}
 	}
 
+	// Drain the update channel since this function blocks until an update and
+	// don't want callers to think there was an update on the source right
+	// after it was initialized. If we ever allow the watcher to be initialzed
+	// without waiting, this reset should be removed.
+	w.drainUpdated()
+
 	return w, nil
 }
 
@@ -134,6 +143,7 @@ func (w *watcher) OnX509ContextUpdate(x509Context *X509Context) {
 	w.x509ContextSetOnce.Do(func() {
 		close(w.x509ContextSet)
 	})
+	w.triggerUpdated()
 }
 
 func (w *watcher) OnX509ContextWatchError(err error) {
@@ -146,9 +156,35 @@ func (w *watcher) OnJWTBundlesUpdate(jwtBundles *jwtbundle.Set) {
 	w.jwtBundlesSetOnce.Do(func() {
 		close(w.jwtBundlesSet)
 	})
+	w.triggerUpdated()
 }
 
 func (w *watcher) OnJWTBundlesWatchError(error) {
 	// The watcher doesn't do anything special with the error. If logging is
 	// desired, it should be provided to the Workload API client.
+}
+
+func (w *watcher) WaitUntilUpdated(ctx context.Context) error {
+	select {
+	case <-w.updatedCh:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+func (w *watcher) Updated() <-chan struct{} {
+	return w.updatedCh
+}
+
+func (w *watcher) drainUpdated() {
+	select {
+	case <-w.updatedCh:
+	default:
+	}
+}
+
+func (w *watcher) triggerUpdated() {
+	w.drainUpdated()
+	w.updatedCh <- struct{}{}
 }
