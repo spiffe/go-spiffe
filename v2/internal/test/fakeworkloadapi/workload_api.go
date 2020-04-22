@@ -1,18 +1,23 @@
 package fakeworkloadapi
 
 import (
+	"bytes"
 	"context"
 	"crypto"
 	"crypto/x509"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
 	"sync"
 	"testing"
 
+	"github.com/golang/protobuf/jsonpb"
+	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/spiffe/go-spiffe/v2/bundle/jwtbundle"
 	"github.com/spiffe/go-spiffe/v2/proto/spiffe/workload"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
+	"github.com/spiffe/go-spiffe/v2/svid/jwtsvid"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -20,7 +25,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-var noSvidError = status.Error(codes.PermissionDenied, "no SVID available")
+var noIdentityError = status.Error(codes.PermissionDenied, "no identity issued")
 
 type WorkloadAPI struct {
 	tb              testing.TB
@@ -213,7 +218,7 @@ func (w *WorkloadAPI) fetchX509SVID(_ *workload.X509SVIDRequest, stream workload
 
 	sendResp := func(resp *workload.X509SVIDResponse) error {
 		if resp == nil {
-			return noSvidError
+			return noIdentityError
 		}
 		return stream.Send(resp)
 	}
@@ -240,9 +245,8 @@ func (w *WorkloadAPI) fetchJWTSVID(ctx context.Context, req *workload.JWTSVIDReq
 	if len(req.Audience) == 0 {
 		return nil, errors.New("no audience")
 	}
-	//TODO: review if this is the actual error in the implementation
 	if w.jwtResp == nil {
-		return nil, noSvidError
+		return nil, noIdentityError
 	}
 
 	return w.jwtResp, nil
@@ -265,9 +269,8 @@ func (w *WorkloadAPI) fetchJWTBundles(_ *workload.JWTBundlesRequest, stream work
 	}()
 
 	sendResp := func(resp *workload.JWTBundlesResponse) error {
-		if resp.Bundles == nil {
-			//TODO: review error
-			return noSvidError
+		if resp == nil {
+			return noIdentityError
 		}
 		return stream.Send(resp)
 	}
@@ -287,8 +290,26 @@ func (w *WorkloadAPI) fetchJWTBundles(_ *workload.JWTBundlesRequest, stream work
 	}
 }
 
-func (w *WorkloadAPI) validateJWTSVID(ctx context.Context, req *workload.ValidateJWTSVIDRequest) (*workload.ValidateJWTSVIDResponse, error) {
-	return nil, errors.New("unimplemented")
+func (w *WorkloadAPI) validateJWTSVID(_ context.Context, req *workload.ValidateJWTSVIDRequest) (*workload.ValidateJWTSVIDResponse, error) {
+	if req.Audience == "" {
+		return nil, status.Error(codes.InvalidArgument, "audience must be specified")
+	}
+
+	if req.Svid == "" {
+		return nil, status.Error(codes.InvalidArgument, "svid must be specified")
+	}
+
+	jwtSvid, err := jwtsvid.ParseInsecure(req.Svid, []string{req.Audience})
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	claims, err := structFromValues(jwtSvid.Claims)
+	require.NoError(w.tb, err)
+
+	return &workload.ValidateJWTSVIDResponse{
+		SpiffeId: jwtSvid.ID.String(),
+		Claims:   claims,
+	}, nil
 }
 
 func derBlobFromCerts(certs []*x509.Certificate) []byte {
@@ -316,4 +337,18 @@ func checkMetadata(ctx context.Context, key, value string) error {
 		return fmt.Errorf("request metadata %q value is %q; expected %q", key, values[0], value)
 	}
 	return nil
+}
+
+func structFromValues(values map[string]interface{}) (*structpb.Struct, error) {
+	valuesJSON, err := json.Marshal(values)
+	if err != nil {
+		return nil, err
+	}
+
+	s := new(structpb.Struct)
+	if err := jsonpb.Unmarshal(bytes.NewReader(valuesJSON), s); err != nil {
+		return nil, err
+	}
+
+	return s, nil
 }

@@ -1,6 +1,7 @@
 package test
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -17,4 +18,21 @@ func NewEC256Key(tb testing.TB) *ecdsa.PrivateKey {
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	require.NoError(tb, err)
 	return key
+}
+
+// NewKeyID returns a random id useful for identifying keys
+func NewKeyID(tb testing.TB) string {
+	choices := make([]byte, 32)
+	_, err := rand.Read(choices)
+	require.NoError(tb, err)
+	return keyIDFromBytes(choices)
+}
+
+func keyIDFromBytes(choices []byte) string {
+	const alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	buf := new(bytes.Buffer)
+	for _, choice := range choices {
+		buf.WriteByte(alphabet[int(choice)%len(alphabet)])
+	}
+	return buf.String()
 }
