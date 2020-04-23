@@ -17,27 +17,27 @@ var (
 	jwtbundleErr = errs.Class("jwtbundle")
 )
 
-// Bundle is a collection of trusted JWT public keys for a trust domain.
+// Bundle is a collection of trusted JWT authorities for a trust domain.
 type Bundle struct {
 	trustDomain spiffeid.TrustDomain
 
-	mtx     sync.RWMutex
-	jwtKeys map[string]crypto.PublicKey
+	mtx            sync.RWMutex
+	jwtAuthorities map[string]crypto.PublicKey
 }
 
 // New creates a new bundle.
 func New(trustDomain spiffeid.TrustDomain) *Bundle {
 	return &Bundle{
-		trustDomain: trustDomain,
-		jwtKeys:     make(map[string]crypto.PublicKey),
+		trustDomain:    trustDomain,
+		jwtAuthorities: make(map[string]crypto.PublicKey),
 	}
 }
 
-// FromJWTKeys creates a new bundle from JWT public keys.
-func FromJWTKeys(trustDomain spiffeid.TrustDomain, jwtKeys map[string]crypto.PublicKey) *Bundle {
+// FromJWTAuthorities creates a new bundle from JWT authorities
+func FromJWTAuthorities(trustDomain spiffeid.TrustDomain, jwtAuthorities map[string]crypto.PublicKey) *Bundle {
 	return &Bundle{
-		trustDomain: trustDomain,
-		jwtKeys:     jwtutil.CopyJWTKeys(jwtKeys),
+		trustDomain:    trustDomain,
+		jwtAuthorities: jwtutil.CopyJWTAuthorities(jwtAuthorities),
 	}
 }
 
@@ -70,8 +70,8 @@ func Parse(trustDomain spiffeid.TrustDomain, bundleBytes []byte) (*Bundle, error
 
 	bundle := New(trustDomain)
 	for i, key := range jwks.Keys {
-		if err := bundle.AddJWTKey(key.KeyID, key.Key); err != nil {
-			return nil, jwtbundleErr.New("error adding key %d of JWKS: %v", i, errs.Unwrap(err))
+		if err := bundle.AddJWTAuthority(key.KeyID, key.Key); err != nil {
+			return nil, jwtbundleErr.New("error adding authority %d of JWKS: %v", i, errs.Unwrap(err))
 		}
 	}
 
@@ -83,72 +83,72 @@ func (b *Bundle) TrustDomain() spiffeid.TrustDomain {
 	return b.trustDomain
 }
 
-// JWTKeys returns the JWT keys in the bundle, keyed by key ID.
-func (b *Bundle) JWTKeys() map[string]crypto.PublicKey {
+// JWTAuthorities returns the JWT authorities in the bundle, keyed by authority ID.
+func (b *Bundle) JWTAuthorities() map[string]crypto.PublicKey {
 	b.mtx.RLock()
 	defer b.mtx.RUnlock()
 
-	return jwtutil.CopyJWTKeys(b.jwtKeys)
+	return jwtutil.CopyJWTAuthorities(b.jwtAuthorities)
 }
 
-// FindJWTKey finds the JWT key with the given key id from the bundle. If the key
+// FindJWTAuthorities finds the JWT authority with the given authority id from the bundle. If the authority
 // is found, it is returned and the boolean is true. Otherwise, the returned
 // value is nil and the boolean is false.
-func (b *Bundle) FindJWTKey(keyID string) (crypto.PublicKey, bool) {
+func (b *Bundle) FindJWTAuthorities(authorityID string) (crypto.PublicKey, bool) {
 	b.mtx.RLock()
 	defer b.mtx.RUnlock()
 
-	if jwtKey, ok := b.jwtKeys[keyID]; ok {
-		return jwtKey, true
+	if jwtAuthority, ok := b.jwtAuthorities[authorityID]; ok {
+		return jwtAuthority, true
 	}
 	return nil, false
 }
 
-// HasJWTKey returns true if the bundle has a JWT key with the given key id.
-func (b *Bundle) HasJWTKey(keyID string) bool {
+// HasJWTAuthority returns true if the bundle has a JWT authority with the given key id.
+func (b *Bundle) HasJWTAuthority(authorityID string) bool {
 	b.mtx.RLock()
 	defer b.mtx.RUnlock()
 
-	_, ok := b.jwtKeys[keyID]
+	_, ok := b.jwtAuthorities[authorityID]
 	return ok
 }
 
-// AddJWTKey adds a JWT key to the bundle. If a JWT key already exists
-// under the given key ID, it is replaced. A key ID must be specified.
-func (b *Bundle) AddJWTKey(keyID string, key crypto.PublicKey) error {
-	if keyID == "" {
-		return jwtbundleErr.New("keyID cannot be empty")
+// AddJWTAuthority adds a JWT authority to the bundle. If a JWT authority already exists
+// under the given authority ID, it is replaced. A authority ID must be specified.
+func (b *Bundle) AddJWTAuthority(authorityID string, jwtAuthority crypto.PublicKey) error {
+	if authorityID == "" {
+		return jwtbundleErr.New("authorityID cannot be empty")
 	}
 
 	b.mtx.Lock()
 	defer b.mtx.Unlock()
 
-	b.jwtKeys[keyID] = key
+	b.jwtAuthorities[authorityID] = jwtAuthority
 	return nil
 }
 
-// RemoveJWTKey removes the JWT key identified by the key ID from the bundle.
-func (b *Bundle) RemoveJWTKey(keyID string) {
+// RemoveJWTAuthority removes the JWT authority identified by the authority ID from the bundle.
+func (b *Bundle) RemoveJWTAuthority(authorityID string) {
 	b.mtx.Lock()
 	defer b.mtx.Unlock()
 
-	delete(b.jwtKeys, keyID)
+	delete(b.jwtAuthorities, authorityID)
 }
 
-// SetJWTKeys sets the JWT keys in the bundle.
-func (b *Bundle) SetJWTKeys(jwtKeys map[string]crypto.PublicKey) {
+// SetJWTAuthorities sets the JWT authorities in the bundle.
+func (b *Bundle) SetJWTAuthorities(jwtAuthorities map[string]crypto.PublicKey) {
 	b.mtx.Lock()
 	defer b.mtx.Unlock()
 
-	b.jwtKeys = jwtutil.CopyJWTKeys(jwtKeys)
+	b.jwtAuthorities = jwtutil.CopyJWTAuthorities(jwtAuthorities)
 }
 
-// Empty returns true if the bundle has no JWT keys.
+// Empty returns true if the bundle has no JWT authorities.
 func (b *Bundle) Empty() bool {
 	b.mtx.RLock()
 	defer b.mtx.RUnlock()
 
-	return len(b.jwtKeys) == 0
+	return len(b.jwtAuthorities) == 0
 }
 
 // Marshal marshals the JWT bundle into a standard RFC 7517 JWKS document. The
@@ -158,10 +158,10 @@ func (b *Bundle) Marshal() ([]byte, error) {
 	defer b.mtx.RUnlock()
 
 	jwks := jose.JSONWebKeySet{}
-	for keyID, jwtKey := range b.jwtKeys {
+	for authorityID, jwtAuthority := range b.jwtAuthorities {
 		jwks.Keys = append(jwks.Keys, jose.JSONWebKey{
-			Key:   jwtKey,
-			KeyID: keyID,
+			Key:   jwtAuthority,
+			KeyID: authorityID,
 		})
 	}
 

@@ -40,18 +40,18 @@ var (
 func TestNew(t *testing.T) {
 	b := jwtbundle.New(td)
 	require.NotNil(t, b)
-	require.Len(t, b.JWTKeys(), 0)
+	require.Len(t, b.JWTAuthorities(), 0)
 	require.Equal(t, td, b.TrustDomain())
 }
 
-func TestFromJWTKeys(t *testing.T) {
-	jwtKeys := map[string]crypto.PublicKey{
-		"key-1": "test-1",
-		"key-2": "test-2",
+func TestFromJWTAuthorities(t *testing.T) {
+	jwtAuthorities := map[string]crypto.PublicKey{
+		"authority-1": "test-1",
+		"authority-2": "test-2",
 	}
-	b := jwtbundle.FromJWTKeys(td, jwtKeys)
+	b := jwtbundle.FromJWTAuthorities(td, jwtAuthorities)
 	require.NotNil(t, b)
-	assert.Equal(t, b.JWTKeys(), jwtKeys)
+	assert.Equal(t, b.JWTAuthorities(), jwtAuthorities)
 }
 
 func TestLoad(t *testing.T) {
@@ -71,7 +71,7 @@ func TestLoad(t *testing.T) {
 		},
 		{
 			tf:  testFiles["missing kid"],
-			err: "jwtbundle: error adding key 1 of JWKS: keyID cannot be empty",
+			err: "jwtbundle: error adding authority 1 of JWKS: authorityID cannot be empty",
 		},
 	}
 
@@ -85,7 +85,7 @@ func TestLoad(t *testing.T) {
 			}
 			require.NoError(t, err)
 			require.NotNil(t, bundle)
-			assert.Len(t, bundle.JWTKeys(), testCase.tf.keysCount)
+			assert.Len(t, bundle.JWTAuthorities(), testCase.tf.keysCount)
 		})
 	}
 }
@@ -107,7 +107,7 @@ func TestRead(t *testing.T) {
 		},
 		{
 			tf:  testFiles["missing kid"],
-			err: "jwtbundle: error adding key 1 of JWKS: keyID cannot be empty",
+			err: "jwtbundle: error adding authority 1 of JWKS: authorityID cannot be empty",
 		},
 	}
 
@@ -125,7 +125,7 @@ func TestRead(t *testing.T) {
 			}
 			require.NoError(t, err)
 			require.NotNil(t, bundle)
-			assert.Len(t, bundle.JWTKeys(), testCase.tf.keysCount)
+			assert.Len(t, bundle.JWTAuthorities(), testCase.tf.keysCount)
 		})
 	}
 }
@@ -147,7 +147,7 @@ func TestParse(t *testing.T) {
 		},
 		{
 			tf:  testFiles["missing kid"],
-			err: "jwtbundle: error adding key 1 of JWKS: keyID cannot be empty",
+			err: "jwtbundle: error adding authority 1 of JWKS: authorityID cannot be empty",
 		},
 	}
 
@@ -164,7 +164,7 @@ func TestParse(t *testing.T) {
 			}
 			require.NoError(t, err)
 			require.NotNil(t, bundle)
-			assert.Len(t, bundle.JWTKeys(), testCase.tf.keysCount)
+			assert.Len(t, bundle.JWTAuthorities(), testCase.tf.keysCount)
 		})
 	}
 }
@@ -175,56 +175,56 @@ func TestTrustDomain(t *testing.T) {
 	require.Equal(t, td, btd)
 }
 
-func TestJWTKeysCRUD(t *testing.T) {
-	// Test AddJWTKey (missing key)
+func TestJWTAuthoritiesCRUD(t *testing.T) {
+	// Test AddJWTAuthority (missing authority)
 	b := jwtbundle.New(td)
-	err := b.AddJWTKey("", "test-1")
-	require.EqualError(t, err, "jwtbundle: keyID cannot be empty")
+	err := b.AddJWTAuthority("", "test-1")
+	require.EqualError(t, err, "jwtbundle: authorityID cannot be empty")
 
-	// Test AddJWTKey (new key)
-	err = b.AddJWTKey("key-1", "test-1")
+	// Test AddJWTAuthority (new authority)
+	err = b.AddJWTAuthority("authority-1", "test-1")
 	require.NoError(t, err)
 
-	// Test JWTKeys
-	keys := b.JWTKeys()
-	require.Equal(t, map[string]crypto.PublicKey{"key-1": "test-1"}, keys)
+	// Test JWTAuthorities
+	keys := b.JWTAuthorities()
+	require.Equal(t, map[string]crypto.PublicKey{"authority-1": "test-1"}, keys)
 
-	err = b.AddJWTKey("key-2", "test-2")
+	err = b.AddJWTAuthority("authority-2", "test-2")
 	require.NoError(t, err)
 
-	keys = b.JWTKeys()
+	keys = b.JWTAuthorities()
 	require.Equal(t, map[string]crypto.PublicKey{
-		"key-1": "test-1",
-		"key-2": "test-2",
+		"authority-1": "test-1",
+		"authority-2": "test-2",
 	}, keys)
 
-	// Test FindJWTKey
-	key, ok := b.FindJWTKey("key-1")
+	// Test FindJWTAuthorities
+	authority, ok := b.FindJWTAuthorities("authority-1")
 	require.True(t, ok)
-	require.Equal(t, "test-1", key)
+	require.Equal(t, "test-1", authority)
 
-	key, ok = b.FindJWTKey("key-3")
+	authority, ok = b.FindJWTAuthorities("authority-3")
 	require.False(t, ok)
-	require.Nil(t, key)
+	require.Nil(t, authority)
 
-	require.Equal(t, true, b.HasJWTKey("key-1"))
-	b.RemoveJWTKey("key-3")
+	require.Equal(t, true, b.HasJWTAuthority("authority-1"))
+	b.RemoveJWTAuthority("authority-3")
 
-	require.Equal(t, 2, len(b.JWTKeys()))
-	require.Equal(t, true, b.HasJWTKey("key-1"))
-	require.Equal(t, true, b.HasJWTKey("key-2"))
+	require.Equal(t, 2, len(b.JWTAuthorities()))
+	require.Equal(t, true, b.HasJWTAuthority("authority-1"))
+	require.Equal(t, true, b.HasJWTAuthority("authority-2"))
 
-	// Test RemoveJWTKey
-	b.RemoveJWTKey("key-2")
-	require.Equal(t, 1, len(b.JWTKeys()))
-	require.Equal(t, true, b.HasJWTKey("key-1"))
+	// Test RemoveJWTAuthority
+	b.RemoveJWTAuthority("authority-2")
+	require.Equal(t, 1, len(b.JWTAuthorities()))
+	require.Equal(t, true, b.HasJWTAuthority("authority-1"))
 
-	// Test AddJWTKey (update key)
-	err = b.AddJWTKey("key-1", "test-1-updated")
+	// Test AddJWTAuthority (update authority)
+	err = b.AddJWTAuthority("authority-1", "test-1-updated")
 	require.NoError(t, err)
-	keys = b.JWTKeys()
+	keys = b.JWTAuthorities()
 	require.Equal(t, map[string]crypto.PublicKey{
-		"key-1": "test-1-updated",
+		"authority-1": "test-1-updated",
 	}, keys)
 }
 
