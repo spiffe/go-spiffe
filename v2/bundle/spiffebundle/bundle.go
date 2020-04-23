@@ -209,7 +209,7 @@ func (b *Bundle) SetX509Authorities(authorities []*x509.Certificate) {
 	b.x509Authorities = x509util.CopyX509Authorities(authorities)
 }
 
-// JWTAuthorities returns the JWT authorities in the bundle, keyed by authority ID.
+// JWTAuthorities returns the JWT authorities in the bundle, keyed by key ID.
 func (b *Bundle) JWTAuthorities() map[string]crypto.PublicKey {
 	b.mtx.RLock()
 	defer b.mtx.RUnlock()
@@ -217,46 +217,46 @@ func (b *Bundle) JWTAuthorities() map[string]crypto.PublicKey {
 	return jwtutil.CopyJWTAuthorities(b.jwtAuthorities)
 }
 
-// FindJWTAuthorities finds the JWT authority with the given authority id from the bundle. If the authority
+// FindJWTAuthority finds the JWT authority with the given key ID from the bundle. If the authority
 // is found, it is returned and the boolean is true. Otherwise, the returned
 // value is nil and the boolean is false.
-func (b *Bundle) FindJWTAuthorities(authorityID string) (crypto.PublicKey, bool) {
+func (b *Bundle) FindJWTAuthority(keyID string) (crypto.PublicKey, bool) {
 	b.mtx.RLock()
 	defer b.mtx.RUnlock()
 
-	jwtAuthority, ok := b.jwtAuthorities[authorityID]
+	jwtAuthority, ok := b.jwtAuthorities[keyID]
 	return jwtAuthority, ok
 }
 
-// HasJWTAuthority returns true if the bundle has a JWT authority with the given authority id.
-func (b *Bundle) HasJWTAuthority(authorityID string) bool {
+// HasJWTAuthority returns true if the bundle has a JWT authority with the given key ID.
+func (b *Bundle) HasJWTAuthority(keyID string) bool {
 	b.mtx.RLock()
 	defer b.mtx.RUnlock()
 
-	_, ok := b.jwtAuthorities[authorityID]
+	_, ok := b.jwtAuthorities[keyID]
 	return ok
 }
 
 // AddJWTAuthority adds a JWT authority to the bundle. If a JWT authority already exists
-// under the given authority ID, it is replaced. A authority ID must be specified.
-func (b *Bundle) AddJWTAuthorities(authorityID string, jwtAuthority crypto.PublicKey) error {
-	if authorityID == "" {
-		return spiffebundleErr.New("authorityID cannot be empty")
+// under the given key ID, it is replaced. A key ID must be specified.
+func (b *Bundle) AddJWTAuthorities(keyID string, jwtAuthority crypto.PublicKey) error {
+	if keyID == "" {
+		return spiffebundleErr.New("keyID cannot be empty")
 	}
 
 	b.mtx.Lock()
 	defer b.mtx.Unlock()
 
-	b.jwtAuthorities[authorityID] = jwtAuthority
+	b.jwtAuthorities[keyID] = jwtAuthority
 	return nil
 }
 
-// RemoveJWTAuthority removes the JWT authority identified by the authority ID from the bundle.
-func (b *Bundle) RemoveJWTAuthority(authorityID string) {
+// RemoveJWTAuthority removes the JWT authority identified by the key ID from the bundle.
+func (b *Bundle) RemoveJWTAuthority(keyID string) {
 	b.mtx.Lock()
 	defer b.mtx.Unlock()
 
-	delete(b.jwtAuthorities, authorityID)
+	delete(b.jwtAuthorities, keyID)
 }
 
 // SetJWTAuthorities sets the JWT authorities in the bundle.
@@ -355,10 +355,10 @@ func (b *Bundle) Marshal() ([]byte, error) {
 		})
 	}
 
-	for authorityID, jwtAuthority := range b.jwtAuthorities {
+	for keyID, jwtAuthority := range b.jwtAuthorities {
 		jwks.Keys = append(jwks.Keys, jose.JSONWebKey{
 			Key:   jwtAuthority,
-			KeyID: authorityID,
+			KeyID: keyID,
 			Use:   jwtSVIDUse,
 		})
 	}

@@ -46,8 +46,8 @@ func TestNew(t *testing.T) {
 
 func TestFromJWTAuthorities(t *testing.T) {
 	jwtAuthorities := map[string]crypto.PublicKey{
-		"authority-1": "test-1",
-		"authority-2": "test-2",
+		"key-1": "test-1",
+		"key-2": "test-2",
 	}
 	b := jwtbundle.FromJWTAuthorities(td, jwtAuthorities)
 	require.NotNil(t, b)
@@ -71,7 +71,7 @@ func TestLoad(t *testing.T) {
 		},
 		{
 			tf:  testFiles["missing kid"],
-			err: "jwtbundle: error adding authority 1 of JWKS: authorityID cannot be empty",
+			err: "jwtbundle: error adding authority 1 of JWKS: keyID cannot be empty",
 		},
 	}
 
@@ -107,7 +107,7 @@ func TestRead(t *testing.T) {
 		},
 		{
 			tf:  testFiles["missing kid"],
-			err: "jwtbundle: error adding authority 1 of JWKS: authorityID cannot be empty",
+			err: "jwtbundle: error adding authority 1 of JWKS: keyID cannot be empty",
 		},
 	}
 
@@ -147,7 +147,7 @@ func TestParse(t *testing.T) {
 		},
 		{
 			tf:  testFiles["missing kid"],
-			err: "jwtbundle: error adding authority 1 of JWKS: authorityID cannot be empty",
+			err: "jwtbundle: error adding authority 1 of JWKS: keyID cannot be empty",
 		},
 	}
 
@@ -179,52 +179,52 @@ func TestJWTAuthoritiesCRUD(t *testing.T) {
 	// Test AddJWTAuthority (missing authority)
 	b := jwtbundle.New(td)
 	err := b.AddJWTAuthority("", "test-1")
-	require.EqualError(t, err, "jwtbundle: authorityID cannot be empty")
+	require.EqualError(t, err, "jwtbundle: keyID cannot be empty")
 
 	// Test AddJWTAuthority (new authority)
-	err = b.AddJWTAuthority("authority-1", "test-1")
+	err = b.AddJWTAuthority("key-1", "test-1")
 	require.NoError(t, err)
 
 	// Test JWTAuthorities
 	jwtAuthorities := b.JWTAuthorities()
-	require.Equal(t, map[string]crypto.PublicKey{"authority-1": "test-1"}, jwtAuthorities)
+	require.Equal(t, map[string]crypto.PublicKey{"key-1": "test-1"}, jwtAuthorities)
 
-	err = b.AddJWTAuthority("authority-2", "test-2")
+	err = b.AddJWTAuthority("key-2", "test-2")
 	require.NoError(t, err)
 
 	jwtAuthorities = b.JWTAuthorities()
 	require.Equal(t, map[string]crypto.PublicKey{
-		"authority-1": "test-1",
-		"authority-2": "test-2",
+		"key-1": "test-1",
+		"key-2": "test-2",
 	}, jwtAuthorities)
 
-	// Test FindJWTAuthorities
-	authority, ok := b.FindJWTAuthorities("authority-1")
+	// Test FindJWTAuthority
+	authority, ok := b.FindJWTAuthority("key-1")
 	require.True(t, ok)
 	require.Equal(t, "test-1", authority)
 
-	authority, ok = b.FindJWTAuthorities("authority-3")
+	authority, ok = b.FindJWTAuthority("key-3")
 	require.False(t, ok)
 	require.Nil(t, authority)
 
-	require.Equal(t, true, b.HasJWTAuthority("authority-1"))
-	b.RemoveJWTAuthority("authority-3")
+	require.Equal(t, true, b.HasJWTAuthority("key-1"))
+	b.RemoveJWTAuthority("key-3")
 
 	require.Equal(t, 2, len(b.JWTAuthorities()))
-	require.Equal(t, true, b.HasJWTAuthority("authority-1"))
-	require.Equal(t, true, b.HasJWTAuthority("authority-2"))
+	require.Equal(t, true, b.HasJWTAuthority("key-1"))
+	require.Equal(t, true, b.HasJWTAuthority("key-2"))
 
 	// Test RemoveJWTAuthority
-	b.RemoveJWTAuthority("authority-2")
+	b.RemoveJWTAuthority("key-2")
 	require.Equal(t, 1, len(b.JWTAuthorities()))
-	require.Equal(t, true, b.HasJWTAuthority("authority-1"))
+	require.Equal(t, true, b.HasJWTAuthority("key-1"))
 
 	// Test AddJWTAuthority (update authority)
-	err = b.AddJWTAuthority("authority-1", "test-1-updated")
+	err = b.AddJWTAuthority("key-1", "test-1-updated")
 	require.NoError(t, err)
 	jwtAuthorities = b.JWTAuthorities()
 	require.Equal(t, map[string]crypto.PublicKey{
-		"authority-1": "test-1-updated",
+		"key-1": "test-1-updated",
 	}, jwtAuthorities)
 }
 

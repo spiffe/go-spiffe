@@ -72,8 +72,8 @@ func TestSetGetX509BundleForTrustDomain(t *testing.T) {
 
 func TestSetGetJWTBundleForTrustDomain(t *testing.T) {
 	jwtAuthorities := map[string]crypto.PublicKey{
-		"authority-1": "test-1",
-		"authority-2": "test-2",
+		"key-1": "test-1",
+		"key-2": "test-2",
 	}
 	jb1 := jwtbundle.FromJWTAuthorities(td, jwtAuthorities)
 	b := spiffebundle.FromJWTBundle(jb1)

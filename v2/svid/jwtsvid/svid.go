@@ -50,7 +50,7 @@ func ParseAndValidate(token string, bundles jwtbundle.Source, audience []string)
 		}
 
 		// Find JWT authority using the key ID from the token header
-		authority, ok := bundle.FindJWTAuthorities(keyID)
+		authority, ok := bundle.FindJWTAuthority(keyID)
 		if !ok {
 			return nil, jwtsvidErr.New("no JWT authority %q found for trust domain %q", keyID, trustDomain)
 		}
