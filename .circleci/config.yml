@@ -2,11 +2,8 @@ version: 2
 
 jobs:
   build:
-    machine: true
-    working_directory: ~
+    docker:
+      - image: circleci/golang:1.13
     steps:
       - checkout
-      - run: make test
-
-
-
+      - run: make lint test

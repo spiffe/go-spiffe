@@ -48,8 +48,12 @@ func ValidateURI(id *url.URL, mode ValidationMode) error {
 		case workloadId:
 			kind = "workload "
 		}
+		var idStr string
+		if id != nil {
+			idStr = id.String()
+		}
 		return fmt.Errorf("invalid %sSPIFFE ID %q: "+format,
-			append([]interface{}{kind, id.String()}, args...)...)
+			append([]interface{}{kind, idStr}, args...)...)
 	}
 
 	if id == nil || *id == (url.URL{}) {

@@ -1,6 +1,8 @@
 package spiffe
 
 import (
+	"crypto/x509"
+	"net/url"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -160,19 +162,99 @@ func TestValidateID(t *testing.T) {
 
 func TestNormalizeID(t *testing.T) {
 	tests := []struct {
-		name string
-		in   string
-		out  string
+		name          string
+		in            string
+		out           string
+		expectedError string
 	}{
 		{name: "scheme and host are lowercased", in: "SpIfFe://HoSt", out: "spiffe://host"},
 		{name: "path casing is preserved", in: "SpIfFe://HoSt/PaTh", out: "spiffe://host/PaTh"},
+		// url.Parse calls ToLower on scheme
+		{name: "invalid id returns error", in: "spOOfy://HoSt/PaTh", expectedError: `invalid SPIFFE ID "spoofy://HoSt/PaTh": invalid scheme`},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			out, err := NormalizeID(test.in, AllowAny())
+			if test.expectedError != "" {
+				assert.EqualError(t, err, test.expectedError)
+				assert.Empty(t, out)
+				return
+			}
 			assert.NoError(t, err)
+
 			assert.Equal(t, test.out, out)
+		})
+	}
+}
+
+func TestNormalizeURI(t *testing.T) {
+	t.Run("nil", func(t *testing.T) {
+		assert.NotPanics(t, func() {
+			out, err := NormalizeURI(nil, AllowAny())
+			assert.Nil(t, out)
+			assert.EqualError(t, err, `invalid SPIFFE ID "": SPIFFE ID is empty`)
+		})
+	})
+
+	t.Run("invalid", func(t *testing.T) {
+		in := &url.URL{
+			Scheme: "spOOfy",
+			Host:   "HoSt",
+			Path:   "PaTh",
+		}
+		out, err := NormalizeURI(in, AllowAny())
+		assert.Nil(t, out)
+		assert.EqualError(t, err, `invalid SPIFFE ID "spOOfy://HoSt/PaTh": invalid scheme`)
+	})
+
+	t.Run("valid", func(t *testing.T) {
+		in := &url.URL{
+			Scheme: "SpIfFe",
+			Host:   "HoSt",
+			Path:   "PaTh",
+		}
+		want := &url.URL{
+			Scheme: "spiffe",
+			Host:   "host",
+			Path:   "PaTh",
+		}
+
+		out, err := NormalizeURI(in, AllowAny())
+		assert.NoError(t, err)
+		assert.Equal(t, want, out)
+	})
+}
+
+// TestGetIDsFromCertificate covers invalid URI count.
+// Other conditions are already covered by other tests in the package.
+func TestGetIDsFromCertificate(t *testing.T) {
+	tests := []struct {
+		expectedError string
+		giveURIs      []*url.URL
+	}{
+		{
+			expectedError: "peer certificate contains no URI SAN",
+		},
+		{
+			expectedError: "peer certificate contains more than one URI SAN",
+			giveURIs: []*url.URL{
+				&url.URL{Scheme: "https", Host: "example.com"},
+				&url.URL{Scheme: "spiffe", Host: "example.net"},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.expectedError, func(t *testing.T) {
+			giveCert := &x509.Certificate{
+				URIs: test.giveURIs,
+			}
+
+			id, domain, err := getIDsFromCertificate(giveCert)
+			assert.Empty(t, id)
+			assert.Empty(t, domain)
+			assert.EqualError(t, err, test.expectedError)
 		})
 	}
 }
