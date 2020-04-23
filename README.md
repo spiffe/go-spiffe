@@ -1,4 +1,15 @@
-# go-spiffe library [![GoDoc](https://godoc.org/github.com/spiffe/go-spiffe?status.svg)](https://godoc.org/github.com/spiffe/go-spiffe)
+# go-spiffe (v1) library [![GoDoc](https://godoc.org/github.com/spiffe/go-spiffe?status.svg)](https://godoc.org/github.com/spiffe/go-spiffe)
+
+# Deprecation Warning
+
+__NOTE:__ This version of the library will be deprecated soon.
+
+The new [v2](./v2) module is currently in alpha release and published under
+`github.com/spiffe/go-spiffe/v2`, following go module guidelines.
+
+New code should consider using the `v2` module.
+
+See the [v2 README](./v2) for more details.
 
 ## Overview
 
@@ -15,8 +26,7 @@ go get -u -v github.com/spiffe/go-spiffe
 
 ## Importing it in your Go code
 
-See examples in [the tests](./spiffetest), [the examples section](./examples)
-or visit the [GoDoc](https://godoc.org/github.com/spiffe/go-spiffe) for more information
+See the [examples](./examples) or visit the [documentation](https://pkg.go.dev/github.com/spiffe/go-spiffe) for more information.
 
 ## Installing the command line interface
 The command line interface can be used to retrieve and view URIs stored
