@@ -128,7 +128,7 @@ func WithTestBundles(bundles ...*spiffebundle.Bundle) ServerOption {
 
 func WithSPIFFEAuth(bundle *spiffebundle.Bundle, svid *x509svid.SVID) ServerOption {
 	return serverOption(func(s *Server) {
-		s.rootCAs = x509util.NewCertPool(bundle.X509Roots())
+		s.rootCAs = x509util.NewCertPool(bundle.X509Authorities())
 		s.tlscfg = tlsconfig.TLSServerConfig(svid)
 	})
 }

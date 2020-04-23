@@ -59,7 +59,7 @@ func TestSetGetBundleForTrustDomain(t *testing.T) {
 }
 
 func TestSetGetX509BundleForTrustDomain(t *testing.T) {
-	xb1 := x509bundle.FromX509Roots(td, []*x509.Certificate{x509Cert1})
+	xb1 := x509bundle.FromX509Authorities(td, []*x509.Certificate{x509Cert1})
 	b := spiffebundle.FromX509Bundle(xb1)
 	s := spiffebundle.NewSet(b)
 	_, err := s.GetX509BundleForTrustDomain(td2)

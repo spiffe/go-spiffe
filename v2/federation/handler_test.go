@@ -101,7 +101,7 @@ func TestHandler(t *testing.T) {
 			call: func(server *httptest.Server) (response *http.Response, err error) {
 				source.bundles = map[spiffeid.TrustDomain]*spiffebundle.Bundle{
 					// Create an invalid bundle
-					trustDomain: spiffebundle.FromX509Roots(trustDomain, []*x509.Certificate{
+					trustDomain: spiffebundle.FromX509Authorities(trustDomain, []*x509.Certificate{
 						{
 							Raw: []byte("invalid raw"),
 						},

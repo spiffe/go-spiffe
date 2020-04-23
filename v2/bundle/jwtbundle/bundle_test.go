@@ -186,17 +186,17 @@ func TestJWTAuthoritiesCRUD(t *testing.T) {
 	require.NoError(t, err)
 
 	// Test JWTAuthorities
-	keys := b.JWTAuthorities()
-	require.Equal(t, map[string]crypto.PublicKey{"authority-1": "test-1"}, keys)
+	jwtAuthorities := b.JWTAuthorities()
+	require.Equal(t, map[string]crypto.PublicKey{"authority-1": "test-1"}, jwtAuthorities)
 
 	err = b.AddJWTAuthority("authority-2", "test-2")
 	require.NoError(t, err)
 
-	keys = b.JWTAuthorities()
+	jwtAuthorities = b.JWTAuthorities()
 	require.Equal(t, map[string]crypto.PublicKey{
 		"authority-1": "test-1",
 		"authority-2": "test-2",
-	}, keys)
+	}, jwtAuthorities)
 
 	// Test FindJWTAuthorities
 	authority, ok := b.FindJWTAuthorities("authority-1")
@@ -222,10 +222,10 @@ func TestJWTAuthoritiesCRUD(t *testing.T) {
 	// Test AddJWTAuthority (update authority)
 	err = b.AddJWTAuthority("authority-1", "test-1-updated")
 	require.NoError(t, err)
-	keys = b.JWTAuthorities()
+	jwtAuthorities = b.JWTAuthorities()
 	require.Equal(t, map[string]crypto.PublicKey{
 		"authority-1": "test-1-updated",
-	}, keys)
+	}, jwtAuthorities)
 }
 
 func TestMarshal(t *testing.T) {

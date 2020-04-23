@@ -104,7 +104,7 @@ func (b *Bundle) FindJWTAuthorities(authorityID string) (crypto.PublicKey, bool)
 	return nil, false
 }
 
-// HasJWTAuthority returns true if the bundle has a JWT authority with the given key id.
+// HasJWTAuthority returns true if the bundle has a JWT authority with the given authority id.
 func (b *Bundle) HasJWTAuthority(authorityID string) bool {
 	b.mtx.RLock()
 	defer b.mtx.RUnlock()

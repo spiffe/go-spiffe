@@ -111,10 +111,10 @@ func TestParse(t *testing.T) {
 }
 
 func TestFromX509Bundle(t *testing.T) {
-	xb := x509bundle.FromX509Roots(td, []*x509.Certificate{x509Cert1})
+	xb := x509bundle.FromX509Authorities(td, []*x509.Certificate{x509Cert1})
 	sb := spiffebundle.FromX509Bundle(xb)
 	require.NotNil(t, sb)
-	assert.Equal(t, xb.X509Roots(), sb.X509Roots())
+	assert.Equal(t, xb.X509Authorities(), sb.X509Authorities())
 }
 
 func TestFromJWTBundle(t *testing.T) {
@@ -126,11 +126,11 @@ func TestFromJWTBundle(t *testing.T) {
 	assert.Equal(t, jb.JWTAuthorities(), sb.JWTAuthorities())
 }
 
-func TestFromX509Roots(t *testing.T) {
-	x509roots := []*x509.Certificate{x509Cert1, x509Cert2}
-	b := spiffebundle.FromX509Roots(td, x509roots)
+func TestFromX509Authorities(t *testing.T) {
+	x509Authorities := []*x509.Certificate{x509Cert1, x509Cert2}
+	b := spiffebundle.FromX509Authorities(td, x509Authorities)
 	require.NotNil(t, b)
-	assert.Equal(t, b.X509Roots(), x509roots)
+	assert.Equal(t, b.X509Authorities(), x509Authorities)
 }
 
 func TestFromJWTAuthorities(t *testing.T) {
@@ -160,25 +160,25 @@ func TestJWTAuthoritiesCRUD(t *testing.T) {
 	require.NoError(t, err)
 
 	// Test JWTAuthorities
-	keys := b.JWTAuthorities()
-	require.Equal(t, map[string]crypto.PublicKey{"authority-1": "test-1"}, keys)
+	jwtAuthorities := b.JWTAuthorities()
+	require.Equal(t, map[string]crypto.PublicKey{"authority-1": "test-1"}, jwtAuthorities)
 
 	err = b.AddJWTAuthorities("authority-2", "test-2")
 	require.NoError(t, err)
 
-	keys = b.JWTAuthorities()
+	jwtAuthorities = b.JWTAuthorities()
 	require.Equal(t, map[string]crypto.PublicKey{
 		"authority-1": "test-1",
 		"authority-2": "test-2",
-	}, keys)
+	}, jwtAuthorities)
 
 	// Test FindJWTAuthorities
-	key, ok := b.FindJWTAuthorities("authority-1")
+	jwtAuthority, ok := b.FindJWTAuthorities("authority-1")
 	require.True(t, ok)
-	require.Equal(t, "test-1", key)
+	require.Equal(t, "test-1", jwtAuthority)
 
-	key, ok = b.FindJWTAuthorities("authority-3")
-	require.Nil(t, key)
+	jwtAuthority, ok = b.FindJWTAuthorities("authority-3")
+	require.Nil(t, jwtAuthority)
 	require.False(t, ok)
 
 	require.Equal(t, true, b.HasJWTAuthority("authority-1"))
@@ -196,38 +196,38 @@ func TestJWTAuthoritiesCRUD(t *testing.T) {
 	// Test AddJWTAuthority (update authority)
 	err = b.AddJWTAuthorities("authority-1", "test-1-updated")
 	require.NoError(t, err)
-	keys = b.JWTAuthorities()
+	jwtAuthorities = b.JWTAuthorities()
 	require.Equal(t, map[string]crypto.PublicKey{
 		"authority-1": "test-1-updated",
-	}, keys)
+	}, jwtAuthorities)
 }
 
-func TestX509RootsCRUD(t *testing.T) {
-	// Test X509Roots and HasX509Root
+func TestX509AuthoritiesCRUD(t *testing.T) {
+	// Test X509Authorities and HasX509Authority
 	b := spiffebundle.New(td)
-	require.Len(t, b.X509Roots(), 0)
-	require.Equal(t, false, b.HasX509Root(x509Cert1))
+	require.Len(t, b.X509Authorities(), 0)
+	require.Equal(t, false, b.HasX509Authority(x509Cert1))
 
-	// Test AddX509Root
-	b.AddX509Root(x509Cert1)
-	require.Len(t, b.X509Roots(), 1)
-	require.Equal(t, true, b.HasX509Root(x509Cert1))
+	// Test AddX509Authority
+	b.AddX509Authority(x509Cert1)
+	require.Len(t, b.X509Authorities(), 1)
+	require.Equal(t, true, b.HasX509Authority(x509Cert1))
 
-	b.AddX509Root(x509Cert1)
-	require.Len(t, b.X509Roots(), 1)
-	require.Equal(t, true, b.HasX509Root(x509Cert1))
+	b.AddX509Authority(x509Cert1)
+	require.Len(t, b.X509Authorities(), 1)
+	require.Equal(t, true, b.HasX509Authority(x509Cert1))
 
-	b.AddX509Root(x509Cert2)
-	require.Len(t, b.X509Roots(), 2)
-	require.Equal(t, true, b.HasX509Root(x509Cert2))
+	b.AddX509Authority(x509Cert2)
+	require.Len(t, b.X509Authorities(), 2)
+	require.Equal(t, true, b.HasX509Authority(x509Cert2))
 
-	// Test RemoveX509Root
-	b.RemoveX509Root(x509Cert1)
-	require.Len(t, b.X509Roots(), 1)
-	require.Equal(t, true, b.HasX509Root(x509Cert2))
+	// Test RemoveX509Authority
+	b.RemoveX509Authority(x509Cert1)
+	require.Len(t, b.X509Authorities(), 1)
+	require.Equal(t, true, b.HasX509Authority(x509Cert2))
 
-	b.RemoveX509Root(x509Cert2)
-	require.Len(t, b.X509Roots(), 0)
+	b.RemoveX509Authority(x509Cert2)
+	require.Len(t, b.X509Authorities(), 0)
 }
 
 func TestRefreshHint(t *testing.T) {
@@ -283,9 +283,9 @@ func TestMarshal(t *testing.T) {
 
 func TestX509Bundle(t *testing.T) {
 	sb := spiffebundle.New(td)
-	sb.AddX509Root(x509Cert1)
+	sb.AddX509Authority(x509Cert1)
 	xb := sb.X509Bundle()
-	require.Equal(t, true, xb.HasX509Root(x509Cert1))
+	require.Equal(t, true, xb.HasX509Authority(x509Cert1))
 }
 
 func TestJWTBundle(t *testing.T) {
@@ -309,7 +309,7 @@ func TestGetBundleForTrustDomain(t *testing.T) {
 }
 
 func TestGetX509BundleForTrustDomain(t *testing.T) {
-	xb1 := x509bundle.FromX509Roots(td, []*x509.Certificate{x509Cert1, x509Cert2})
+	xb1 := x509bundle.FromX509Authorities(td, []*x509.Certificate{x509Cert1, x509Cert2})
 	sb := spiffebundle.FromX509Bundle(xb1)
 	xb2, err := sb.GetX509BundleForTrustDomain(td)
 	require.NoError(t, err)
