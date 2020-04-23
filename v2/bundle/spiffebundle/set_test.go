@@ -59,7 +59,7 @@ func TestSetGetBundleForTrustDomain(t *testing.T) {
 }
 
 func TestSetGetX509BundleForTrustDomain(t *testing.T) {
-	xb1 := x509bundle.FromX509Roots(td, []*x509.Certificate{x509Cert1})
+	xb1 := x509bundle.FromX509Authorities(td, []*x509.Certificate{x509Cert1})
 	b := spiffebundle.FromX509Bundle(xb1)
 	s := spiffebundle.NewSet(b)
 	_, err := s.GetX509BundleForTrustDomain(td2)
@@ -71,11 +71,11 @@ func TestSetGetX509BundleForTrustDomain(t *testing.T) {
 }
 
 func TestSetGetJWTBundleForTrustDomain(t *testing.T) {
-	jwtKeys := map[string]crypto.PublicKey{
+	jwtAuthorities := map[string]crypto.PublicKey{
 		"key-1": "test-1",
 		"key-2": "test-2",
 	}
-	jb1 := jwtbundle.FromJWTKeys(td, jwtKeys)
+	jb1 := jwtbundle.FromJWTAuthorities(td, jwtAuthorities)
 	b := spiffebundle.FromJWTBundle(jb1)
 	s := spiffebundle.NewSet(b)
 	_, err := s.GetJWTBundleForTrustDomain(td2)

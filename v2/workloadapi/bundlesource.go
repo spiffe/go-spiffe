@@ -109,7 +109,7 @@ func (s *BundleSource) setX509Context(x509Context *X509Context) {
 			s.bundles.Add(spiffebundle.FromX509Bundle(newBundle))
 			continue
 		}
-		existingBundle.SetX509Roots(newBundle.X509Roots())
+		existingBundle.SetX509Authorities(newBundle.X509Authorities())
 	}
 
 	// Remove the X.509 content from bundles that are no longer returned
@@ -119,7 +119,7 @@ func (s *BundleSource) setX509Context(x509Context *X509Context) {
 		if _, ok := trustDomains[existingBundle.TrustDomain()]; ok {
 			continue
 		}
-		existingBundle.SetX509Roots(nil)
+		existingBundle.SetX509Authorities(nil)
 		if existingBundle.Empty() {
 			s.bundles.Remove(existingBundle.TrustDomain())
 		}
@@ -143,7 +143,7 @@ func (s *BundleSource) setJWTBundles(bundles *jwtbundle.Set) {
 			s.bundles.Add(spiffebundle.FromJWTBundle(newBundle))
 			continue
 		}
-		existingBundle.SetJWTKeys(newBundle.JWTKeys())
+		existingBundle.SetJWTAuthorities(newBundle.JWTAuthorities())
 	}
 
 	// Remove the X.509 content from bundles that are no longer returned
@@ -153,7 +153,7 @@ func (s *BundleSource) setJWTBundles(bundles *jwtbundle.Set) {
 		if _, ok := trustDomains[existingBundle.TrustDomain()]; ok {
 			continue
 		}
-		existingBundle.SetJWTKeys(nil)
+		existingBundle.SetJWTAuthorities(nil)
 		if existingBundle.Empty() {
 			s.bundles.Remove(existingBundle.TrustDomain())
 		}

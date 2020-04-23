@@ -47,11 +47,11 @@ var (
 		},
 		{
 			filePath: "testdata/spiffebundle_missing_kid.json",
-			err:      "spiffebundle: error adding key 1 of JWKS: keyID cannot be empty",
+			err:      "spiffebundle: error adding authority 1 of JWKS: keyID cannot be empty",
 		},
 		{
 			filePath: "testdata/spiffebundle_no_keys.json",
-			err:      "spiffebundle: no keys found",
+			err:      "spiffebundle: no authorities found",
 		},
 		{
 			filePath: "testdata/spiffebundle_multiple_x509.json",
@@ -63,7 +63,7 @@ var (
 func TestNew(t *testing.T) {
 	b := spiffebundle.New(td)
 	require.NotNil(t, b)
-	require.Len(t, b.JWTKeys(), 0)
+	require.Len(t, b.JWTAuthorities(), 0)
 	require.Equal(t, td, b.TrustDomain())
 }
 
@@ -111,36 +111,36 @@ func TestParse(t *testing.T) {
 }
 
 func TestFromX509Bundle(t *testing.T) {
-	xb := x509bundle.FromX509Roots(td, []*x509.Certificate{x509Cert1})
+	xb := x509bundle.FromX509Authorities(td, []*x509.Certificate{x509Cert1})
 	sb := spiffebundle.FromX509Bundle(xb)
 	require.NotNil(t, sb)
-	assert.Equal(t, xb.X509Roots(), sb.X509Roots())
+	assert.Equal(t, xb.X509Authorities(), sb.X509Authorities())
 }
 
 func TestFromJWTBundle(t *testing.T) {
 	jb := jwtbundle.New(td)
-	err := jb.AddJWTKey("key-1", "test-1")
+	err := jb.AddJWTAuthority("key-1", "test-1")
 	require.NoError(t, err)
 	sb := spiffebundle.FromJWTBundle(jb)
 	require.NotNil(t, sb)
-	assert.Equal(t, jb.JWTKeys(), sb.JWTKeys())
+	assert.Equal(t, jb.JWTAuthorities(), sb.JWTAuthorities())
 }
 
-func TestFromX509Roots(t *testing.T) {
-	x509roots := []*x509.Certificate{x509Cert1, x509Cert2}
-	b := spiffebundle.FromX509Roots(td, x509roots)
+func TestFromX509Authorities(t *testing.T) {
+	x509Authorities := []*x509.Certificate{x509Cert1, x509Cert2}
+	b := spiffebundle.FromX509Authorities(td, x509Authorities)
 	require.NotNil(t, b)
-	assert.Equal(t, b.X509Roots(), x509roots)
+	assert.Equal(t, b.X509Authorities(), x509Authorities)
 }
 
-func TestFromJWTKeys(t *testing.T) {
-	jwtKeys := map[string]crypto.PublicKey{
+func TestFromJWTAuthorities(t *testing.T) {
+	jwtAuthorities := map[string]crypto.PublicKey{
 		"key-1": "test-1",
 		"key-2": "test-2",
 	}
-	b := spiffebundle.FromJWTKeys(td, jwtKeys)
+	b := spiffebundle.FromJWTAuthorities(td, jwtAuthorities)
 	require.NotNil(t, b)
-	assert.Equal(t, b.JWTKeys(), jwtKeys)
+	assert.Equal(t, b.JWTAuthorities(), jwtAuthorities)
 }
 
 func TestTrustDomain(t *testing.T) {
@@ -149,85 +149,85 @@ func TestTrustDomain(t *testing.T) {
 	require.Equal(t, td, btd)
 }
 
-func TestJWTKeysCRUD(t *testing.T) {
-	// Test AddJWTKey (missing key)
+func TestJWTAuthoritiesCRUD(t *testing.T) {
+	// Test AddJWTAuthority (missing authority)
 	b := spiffebundle.New(td)
-	err := b.AddJWTKey("", "test-1")
+	err := b.AddJWTAuthorities("", "test-1")
 	require.EqualError(t, err, "spiffebundle: keyID cannot be empty")
 
-	// Test AddJWTKey (new key)
-	err = b.AddJWTKey("key-1", "test-1")
+	// Test AddJWTAuthority (new authority)
+	err = b.AddJWTAuthorities("key-1", "test-1")
 	require.NoError(t, err)
 
-	// Test JWTKeys
-	keys := b.JWTKeys()
-	require.Equal(t, map[string]crypto.PublicKey{"key-1": "test-1"}, keys)
+	// Test JWTAuthorities
+	jwtAuthorities := b.JWTAuthorities()
+	require.Equal(t, map[string]crypto.PublicKey{"key-1": "test-1"}, jwtAuthorities)
 
-	err = b.AddJWTKey("key-2", "test-2")
+	err = b.AddJWTAuthorities("key-2", "test-2")
 	require.NoError(t, err)
 
-	keys = b.JWTKeys()
+	jwtAuthorities = b.JWTAuthorities()
 	require.Equal(t, map[string]crypto.PublicKey{
 		"key-1": "test-1",
 		"key-2": "test-2",
-	}, keys)
+	}, jwtAuthorities)
 
-	// Test FindJWTKey
-	key, ok := b.FindJWTKey("key-1")
+	// Test FindJWTAuthority
+	jwtAuthority, ok := b.FindJWTAuthority("key-1")
 	require.True(t, ok)
-	require.Equal(t, "test-1", key)
+	require.Equal(t, "test-1", jwtAuthority)
 
-	key, ok = b.FindJWTKey("key-3")
-	require.Nil(t, key)
+	jwtAuthority, ok = b.FindJWTAuthority("key-3")
+	require.Nil(t, jwtAuthority)
 	require.False(t, ok)
 
-	require.Equal(t, true, b.HasJWTKey("key-1"))
-	b.RemoveJWTKey("key-3")
+	require.Equal(t, true, b.HasJWTAuthority("key-1"))
+	b.RemoveJWTAuthority("key-3")
 
-	require.Equal(t, 2, len(b.JWTKeys()))
-	require.Equal(t, true, b.HasJWTKey("key-1"))
-	require.Equal(t, true, b.HasJWTKey("key-2"))
+	require.Equal(t, 2, len(b.JWTAuthorities()))
+	require.Equal(t, true, b.HasJWTAuthority("key-1"))
+	require.Equal(t, true, b.HasJWTAuthority("key-2"))
 
-	// Test RemoveJWTKey
-	b.RemoveJWTKey("key-2")
-	require.Equal(t, 1, len(b.JWTKeys()))
-	require.Equal(t, true, b.HasJWTKey("key-1"))
+	// Test RemoveJWTAuthority
+	b.RemoveJWTAuthority("key-2")
+	require.Equal(t, 1, len(b.JWTAuthorities()))
+	require.Equal(t, true, b.HasJWTAuthority("key-1"))
 
-	// Test AddJWTKey (update key)
-	err = b.AddJWTKey("key-1", "test-1-updated")
+	// Test AddJWTAuthority (update authority)
+	err = b.AddJWTAuthorities("key-1", "test-1-updated")
 	require.NoError(t, err)
-	keys = b.JWTKeys()
+	jwtAuthorities = b.JWTAuthorities()
 	require.Equal(t, map[string]crypto.PublicKey{
 		"key-1": "test-1-updated",
-	}, keys)
+	}, jwtAuthorities)
 }
 
-func TestX509RootsCRUD(t *testing.T) {
-	// Test X509Roots and HasX509Root
+func TestX509AuthoritiesCRUD(t *testing.T) {
+	// Test X509Authorities and HasX509Authority
 	b := spiffebundle.New(td)
-	require.Len(t, b.X509Roots(), 0)
-	require.Equal(t, false, b.HasX509Root(x509Cert1))
+	require.Len(t, b.X509Authorities(), 0)
+	require.Equal(t, false, b.HasX509Authority(x509Cert1))
 
-	// Test AddX509Root
-	b.AddX509Root(x509Cert1)
-	require.Len(t, b.X509Roots(), 1)
-	require.Equal(t, true, b.HasX509Root(x509Cert1))
+	// Test AddX509Authority
+	b.AddX509Authority(x509Cert1)
+	require.Len(t, b.X509Authorities(), 1)
+	require.Equal(t, true, b.HasX509Authority(x509Cert1))
 
-	b.AddX509Root(x509Cert1)
-	require.Len(t, b.X509Roots(), 1)
-	require.Equal(t, true, b.HasX509Root(x509Cert1))
+	b.AddX509Authority(x509Cert1)
+	require.Len(t, b.X509Authorities(), 1)
+	require.Equal(t, true, b.HasX509Authority(x509Cert1))
 
-	b.AddX509Root(x509Cert2)
-	require.Len(t, b.X509Roots(), 2)
-	require.Equal(t, true, b.HasX509Root(x509Cert2))
+	b.AddX509Authority(x509Cert2)
+	require.Len(t, b.X509Authorities(), 2)
+	require.Equal(t, true, b.HasX509Authority(x509Cert2))
 
-	// Test RemoveX509Root
-	b.RemoveX509Root(x509Cert1)
-	require.Len(t, b.X509Roots(), 1)
-	require.Equal(t, true, b.HasX509Root(x509Cert2))
+	// Test RemoveX509Authority
+	b.RemoveX509Authority(x509Cert1)
+	require.Len(t, b.X509Authorities(), 1)
+	require.Equal(t, true, b.HasX509Authority(x509Cert2))
 
-	b.RemoveX509Root(x509Cert2)
-	require.Len(t, b.X509Roots(), 0)
+	b.RemoveX509Authority(x509Cert2)
+	require.Len(t, b.X509Authorities(), 0)
 }
 
 func TestRefreshHint(t *testing.T) {
@@ -283,17 +283,17 @@ func TestMarshal(t *testing.T) {
 
 func TestX509Bundle(t *testing.T) {
 	sb := spiffebundle.New(td)
-	sb.AddX509Root(x509Cert1)
+	sb.AddX509Authority(x509Cert1)
 	xb := sb.X509Bundle()
-	require.Equal(t, true, xb.HasX509Root(x509Cert1))
+	require.Equal(t, true, xb.HasX509Authority(x509Cert1))
 }
 
 func TestJWTBundle(t *testing.T) {
 	sb := spiffebundle.New(td)
-	err := sb.AddJWTKey("key-1", "test-1")
+	err := sb.AddJWTAuthorities("key-1", "test-1")
 	require.NoError(t, err)
 	jb := sb.JWTBundle()
-	require.Equal(t, true, jb.HasJWTKey("key-1"))
+	require.Equal(t, true, jb.HasJWTAuthority("key-1"))
 }
 
 func TestGetBundleForTrustDomain(t *testing.T) {
@@ -309,7 +309,7 @@ func TestGetBundleForTrustDomain(t *testing.T) {
 }
 
 func TestGetX509BundleForTrustDomain(t *testing.T) {
-	xb1 := x509bundle.FromX509Roots(td, []*x509.Certificate{x509Cert1, x509Cert2})
+	xb1 := x509bundle.FromX509Authorities(td, []*x509.Certificate{x509Cert1, x509Cert2})
 	sb := spiffebundle.FromX509Bundle(xb1)
 	xb2, err := sb.GetX509BundleForTrustDomain(td)
 	require.NoError(t, err)
@@ -322,7 +322,7 @@ func TestGetX509BundleForTrustDomain(t *testing.T) {
 }
 
 func TestGetJWTBundleForTrustDomain(t *testing.T) {
-	jb1 := jwtbundle.FromJWTKeys(td, map[string]crypto.PublicKey{"key-1": "test-1"})
+	jb1 := jwtbundle.FromJWTAuthorities(td, map[string]crypto.PublicKey{"key-1": "test-1"})
 	sb := spiffebundle.FromJWTBundle(jb1)
 	jb2, err := sb.GetJWTBundleForTrustDomain(td)
 	require.NoError(t, err)
@@ -341,7 +341,7 @@ func checkBundleProperties(t *testing.T, err error, tc testCase, b *spiffebundle
 	}
 	require.NoError(t, err)
 	require.NotNil(t, b)
-	assert.Len(t, b.JWTKeys(), tc.keysCount)
+	assert.Len(t, b.JWTAuthorities(), tc.keysCount)
 	rh, ok := b.RefreshHint()
 	if tc.refreshHint > 0 {
 		assert.Equal(t, true, ok)

@@ -1,11 +1,13 @@
+// Package uri implement functions to get and marshal URI names from X.509
+// certificates.
 package uri
 
 import (
-	"encoding/asn1"
-	"errors"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/asn1"
 	"encoding/pem"
+	"errors"
 	"io"
 	"io/ioutil"
 )

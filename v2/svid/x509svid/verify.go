@@ -43,7 +43,7 @@ func Verify(certs []*x509.Certificate, bundleSource x509bundle.Source) (spiffeid
 	}
 
 	verifiedChains, err := leaf.Verify(x509.VerifyOptions{
-		Roots:         x509util.NewCertPool(bundle.X509Roots()),
+		Roots:         x509util.NewCertPool(bundle.X509Authorities()),
 		Intermediates: x509util.NewCertPool(certs[1:]),
 		KeyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
 	})

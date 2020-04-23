@@ -14,12 +14,12 @@ import (
 
 var x509bundleErr = errs.Class("x509bundle")
 
-// Bundle is a collection of trusted X.509 roots for a trust domain.
+// Bundle is a collection of trusted X.509 authorities for a trust domain.
 type Bundle struct {
 	trustDomain spiffeid.TrustDomain
 
-	mtx   sync.RWMutex
-	roots []*x509.Certificate
+	mtx             sync.RWMutex
+	x509Authorities []*x509.Certificate
 }
 
 // New creates a new bundle.
@@ -29,11 +29,11 @@ func New(trustDomain spiffeid.TrustDomain) *Bundle {
 	}
 }
 
-// FromX509Roots creates a bundle from X.509 certificates.
-func FromX509Roots(trustDomain spiffeid.TrustDomain, roots []*x509.Certificate) *Bundle {
+// FromX509Authorities creates a bundle from X.509 certificates.
+func FromX509Authorities(trustDomain spiffeid.TrustDomain, authorities []*x509.Certificate) *Bundle {
 	return &Bundle{
-		trustDomain: trustDomain,
-		roots:       x509util.CopyX509Roots(roots),
+		trustDomain:     trustDomain,
+		x509Authorities: x509util.CopyX509Authorities(authorities),
 	}
 }
 
@@ -68,7 +68,7 @@ func Parse(trustDomain spiffeid.TrustDomain, b []byte) (*Bundle, error) {
 		return nil, x509bundleErr.New("no certificates found")
 	}
 	for _, cert := range certs {
-		bundle.AddX509Root(cert)
+		bundle.AddX509Authority(cert)
 	}
 	return bundle, nil
 }
@@ -78,76 +78,76 @@ func (b *Bundle) TrustDomain() spiffeid.TrustDomain {
 	return b.trustDomain
 }
 
-// X509Roots returns the X.509 roots in the bundle.
-func (b *Bundle) X509Roots() []*x509.Certificate {
+// X509Authorities returns the X.509 x509Authorities in the bundle.
+func (b *Bundle) X509Authorities() []*x509.Certificate {
 	b.mtx.RLock()
 	defer b.mtx.RUnlock()
-	return x509util.CopyX509Roots(b.roots)
+	return x509util.CopyX509Authorities(b.x509Authorities)
 }
 
-// AddX509Root adds an X.509 root to the bundle. If the root already
+// AddX509Authority adds an X.509 authority to the bundle. If the authority already
 // exists in the bundle, the contents of the bundle will remain unchanged.
-func (b *Bundle) AddX509Root(root *x509.Certificate) {
+func (b *Bundle) AddX509Authority(x509Authority *x509.Certificate) {
 	b.mtx.Lock()
 	defer b.mtx.Unlock()
 
-	for _, r := range b.roots {
-		if r.Equal(root) {
+	for _, r := range b.x509Authorities {
+		if r.Equal(x509Authority) {
 			return
 		}
 	}
 
-	b.roots = append(b.roots, root)
+	b.x509Authorities = append(b.x509Authorities, x509Authority)
 }
 
-// RemoveX509Root removes an X.509 root from the bundle.
-func (b *Bundle) RemoveX509Root(root *x509.Certificate) {
+// RemoveX509Authority removes an X.509 authority from the bundle.
+func (b *Bundle) RemoveX509Authority(x509Authority *x509.Certificate) {
 	b.mtx.Lock()
 	defer b.mtx.Unlock()
 
-	for i, r := range b.roots {
-		if r.Equal(root) {
+	for i, r := range b.x509Authorities {
+		if r.Equal(x509Authority) {
 			//remove element from slice
-			b.roots = append(b.roots[:i], b.roots[i+1:]...)
+			b.x509Authorities = append(b.x509Authorities[:i], b.x509Authorities[i+1:]...)
 			return
 		}
 	}
 }
 
-// HasX509Root checks if the given X.509 root exists in the bundle.
-func (b *Bundle) HasX509Root(root *x509.Certificate) bool {
+// HasX509Authority checks if the given X.509 authority exists in the bundle.
+func (b *Bundle) HasX509Authority(x509Authority *x509.Certificate) bool {
 	b.mtx.RLock()
 	defer b.mtx.RUnlock()
 
-	for _, r := range b.roots {
-		if r.Equal(root) {
+	for _, r := range b.x509Authorities {
+		if r.Equal(x509Authority) {
 			return true
 		}
 	}
 	return false
 }
 
-// SetX509Roots sets the X.509 roots in the bundle.
-func (b *Bundle) SetX509Roots(roots []*x509.Certificate) {
+// SetX509Authorities sets the X.509 authorities in the bundle.
+func (b *Bundle) SetX509Authorities(x509Authorities []*x509.Certificate) {
 	b.mtx.Lock()
 	defer b.mtx.Unlock()
 
-	b.roots = x509util.CopyX509Roots(roots)
+	b.x509Authorities = x509util.CopyX509Authorities(x509Authorities)
 }
 
-// Empty returns true if the bundle has no X.509 roots.
+// Empty returns true if the bundle has no X.509 x509Authorities.
 func (b *Bundle) Empty() bool {
 	b.mtx.RLock()
 	defer b.mtx.RUnlock()
 
-	return len(b.roots) == 0
+	return len(b.x509Authorities) == 0
 }
 
 // Marshal marshals the X.509 bundle into PEM-encoded certificate blocks.
 func (b *Bundle) Marshal() ([]byte, error) {
 	b.mtx.RLock()
 	defer b.mtx.RUnlock()
-	return pemutil.EncodeCertificates(b.roots), nil
+	return pemutil.EncodeCertificates(b.x509Authorities), nil
 }
 
 // GetX509BundleForTrustDomain returns the X.509 bundle for the given trust

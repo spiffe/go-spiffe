@@ -40,18 +40,18 @@ type bundleDoc struct {
 type Bundle struct {
 	trustDomain spiffeid.TrustDomain
 
-	mtx            sync.RWMutex
-	refreshHint    *time.Duration
-	sequenceNumber *uint64
-	jwtKeys        map[string]crypto.PublicKey
-	x509Roots      []*x509.Certificate
+	mtx             sync.RWMutex
+	refreshHint     *time.Duration
+	sequenceNumber  *uint64
+	jwtAuthorities  map[string]crypto.PublicKey
+	x509Authorities []*x509.Certificate
 }
 
 // New creates a new bundle.
 func New(trustDomain spiffeid.TrustDomain) *Bundle {
 	return &Bundle{
-		trustDomain: trustDomain,
-		jwtKeys:     make(map[string]crypto.PublicKey),
+		trustDomain:    trustDomain,
+		jwtAuthorities: make(map[string]crypto.PublicKey),
 	}
 }
 
@@ -93,7 +93,7 @@ func Parse(trustDomain spiffeid.TrustDomain, bundleBytes []byte) (*Bundle, error
 	if jwks.Keys == nil {
 		// The parameter keys MUST be present.
 		// https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE_Trust_Domain_and_Bundle.md#413-keys
-		return nil, spiffebundleErr.New("no keys found")
+		return nil, spiffebundleErr.New("no authorities found")
 	}
 	for i, key := range jwks.Keys {
 		switch key.Use {
@@ -102,10 +102,10 @@ func Parse(trustDomain spiffeid.TrustDomain, bundleBytes []byte) (*Bundle, error
 			if len(key.Certificates) != 1 {
 				return nil, spiffebundleErr.New("expected a single certificate in %s entry %d; got %d", x509SVIDUse, i, len(key.Certificates))
 			}
-			bundle.AddX509Root(key.Certificates[0])
+			bundle.AddX509Authority(key.Certificates[0])
 		case jwtSVIDUse:
-			if err := bundle.AddJWTKey(key.KeyID, key.Key); err != nil {
-				return nil, spiffebundleErr.New("error adding key %d of JWKS: %v", i, errs.Unwrap(err))
+			if err := bundle.AddJWTAuthorities(key.KeyID, key.Key); err != nil {
+				return nil, spiffebundleErr.New("error adding authority %d of JWKS: %v", i, errs.Unwrap(err))
 			}
 		}
 	}
@@ -117,8 +117,8 @@ func Parse(trustDomain spiffeid.TrustDomain, bundleBytes []byte) (*Bundle, error
 // The function panics in case of a nil X.509 bundle.
 func FromX509Bundle(x509Bundle *x509bundle.Bundle) *Bundle {
 	return &Bundle{
-		trustDomain: x509Bundle.TrustDomain(),
-		x509Roots:   x509Bundle.X509Roots(),
+		trustDomain:     x509Bundle.TrustDomain(),
+		x509Authorities: x509Bundle.X509Authorities(),
 	}
 }
 
@@ -126,24 +126,24 @@ func FromX509Bundle(x509Bundle *x509bundle.Bundle) *Bundle {
 // The function panics in case of a nil JWT bundle.
 func FromJWTBundle(jwtBundle *jwtbundle.Bundle) *Bundle {
 	return &Bundle{
-		trustDomain: jwtBundle.TrustDomain(),
-		jwtKeys:     jwtBundle.JWTKeys(),
+		trustDomain:    jwtBundle.TrustDomain(),
+		jwtAuthorities: jwtBundle.JWTAuthorities(),
 	}
 }
 
-// FromX509Roots creates a bundle from X.509 certificates.
-func FromX509Roots(trustDomain spiffeid.TrustDomain, x509Roots []*x509.Certificate) *Bundle {
+// FromX509Authorities creates a bundle from X.509 certificates.
+func FromX509Authorities(trustDomain spiffeid.TrustDomain, x509Authorities []*x509.Certificate) *Bundle {
 	return &Bundle{
-		trustDomain: trustDomain,
-		x509Roots:   x509util.CopyX509Roots(x509Roots),
+		trustDomain:     trustDomain,
+		x509Authorities: x509util.CopyX509Authorities(x509Authorities),
 	}
 }
 
-// FromJWTKeys creates a new bundle from JWT public keys.
-func FromJWTKeys(trustDomain spiffeid.TrustDomain, jwtKeys map[string]crypto.PublicKey) *Bundle {
+// FromJWTAuthorities creates a new bundle from JWT authorities.
+func FromJWTAuthorities(trustDomain spiffeid.TrustDomain, jwtAuthorities map[string]crypto.PublicKey) *Bundle {
 	return &Bundle{
-		trustDomain: trustDomain,
-		jwtKeys:     jwtutil.CopyJWTKeys(jwtKeys),
+		trustDomain:    trustDomain,
+		jwtAuthorities: jwtutil.CopyJWTAuthorities(jwtAuthorities),
 	}
 }
 
@@ -152,94 +152,94 @@ func (b *Bundle) TrustDomain() spiffeid.TrustDomain {
 	return b.trustDomain
 }
 
-// X509Roots returns the X.509 roots in the bundle.
-func (b *Bundle) X509Roots() []*x509.Certificate {
+// X509Authorities returns the X.509 authorities in the bundle.
+func (b *Bundle) X509Authorities() []*x509.Certificate {
 	b.mtx.RLock()
 	defer b.mtx.RUnlock()
 
-	return x509util.CopyX509Roots(b.x509Roots)
+	return x509util.CopyX509Authorities(b.x509Authorities)
 }
 
-// AddX509Root adds an X.509 root to the bundle. If the root already
+// AddX509Authority adds an X.509 authority to the bundle. If the authority already
 // exists in the bundle, the contents of the bundle will remain unchanged.
-func (b *Bundle) AddX509Root(x509Root *x509.Certificate) {
+func (b *Bundle) AddX509Authority(x509Authority *x509.Certificate) {
 	b.mtx.Lock()
 	defer b.mtx.Unlock()
 
-	for _, r := range b.x509Roots {
-		if r.Equal(x509Root) {
+	for _, r := range b.x509Authorities {
+		if r.Equal(x509Authority) {
 			return
 		}
 	}
 
-	b.x509Roots = append(b.x509Roots, x509Root)
+	b.x509Authorities = append(b.x509Authorities, x509Authority)
 }
 
-// RemoveX509Root removes an X.509 root from the bundle.
-func (b *Bundle) RemoveX509Root(x509Root *x509.Certificate) {
+// RemoveX509Authority removes an X.509 authority from the bundle.
+func (b *Bundle) RemoveX509Authority(x509Authority *x509.Certificate) {
 	b.mtx.Lock()
 	defer b.mtx.Unlock()
 
-	for i, r := range b.x509Roots {
-		if r.Equal(x509Root) {
-			b.x509Roots = append(b.x509Roots[:i], b.x509Roots[i+1:]...)
+	for i, r := range b.x509Authorities {
+		if r.Equal(x509Authority) {
+			b.x509Authorities = append(b.x509Authorities[:i], b.x509Authorities[i+1:]...)
 			return
 		}
 	}
 }
 
-// HasX509Root checks if the given X.509 root exists in the bundle.
-func (b *Bundle) HasX509Root(root *x509.Certificate) bool {
+// HasX509Authority checks if the given X.509 authority exists in the bundle.
+func (b *Bundle) HasX509Authority(x509Authority *x509.Certificate) bool {
 	b.mtx.RLock()
 	defer b.mtx.RUnlock()
 
-	for _, r := range b.x509Roots {
-		if r.Equal(root) {
+	for _, r := range b.x509Authorities {
+		if r.Equal(x509Authority) {
 			return true
 		}
 	}
 	return false
 }
 
-// SetX509Roots sets the X.509 roots in the bundle.
-func (b *Bundle) SetX509Roots(roots []*x509.Certificate) {
+// SetX509Authorities sets the X.509 authorities in the bundle.
+func (b *Bundle) SetX509Authorities(authorities []*x509.Certificate) {
 	b.mtx.Lock()
 	defer b.mtx.Unlock()
 
-	b.x509Roots = x509util.CopyX509Roots(roots)
+	b.x509Authorities = x509util.CopyX509Authorities(authorities)
 }
 
-// JWTKeys returns the JWT keys in the bundle, keyed by key ID.
-func (b *Bundle) JWTKeys() map[string]crypto.PublicKey {
+// JWTAuthorities returns the JWT authorities in the bundle, keyed by key ID.
+func (b *Bundle) JWTAuthorities() map[string]crypto.PublicKey {
 	b.mtx.RLock()
 	defer b.mtx.RUnlock()
 
-	return jwtutil.CopyJWTKeys(b.jwtKeys)
+	return jwtutil.CopyJWTAuthorities(b.jwtAuthorities)
 }
 
-// FindJWTKey finds the JWT key with the given key id from the bundle. If the key
+// FindJWTAuthority finds the JWT authority with the given key ID from the bundle. If the authority
 // is found, it is returned and the boolean is true. Otherwise, the returned
 // value is nil and the boolean is false.
-func (b *Bundle) FindJWTKey(keyID string) (crypto.PublicKey, bool) {
+func (b *Bundle) FindJWTAuthority(keyID string) (crypto.PublicKey, bool) {
 	b.mtx.RLock()
 	defer b.mtx.RUnlock()
 
-	jwtKey, ok := b.jwtKeys[keyID]
-	return jwtKey, ok
+	jwtAuthority, ok := b.jwtAuthorities[keyID]
+	return jwtAuthority, ok
 }
 
-// HasJWTKey returns true if the bundle has a JWT key with the given key id.
-func (b *Bundle) HasJWTKey(keyID string) bool {
+// HasJWTAuthority returns true if the bundle has a JWT authority with the given key ID.
+func (b *Bundle) HasJWTAuthority(keyID string) bool {
 	b.mtx.RLock()
 	defer b.mtx.RUnlock()
 
-	_, ok := b.jwtKeys[keyID]
+	_, ok := b.jwtAuthorities[keyID]
 	return ok
 }
 
-// AddJWTKey adds a JWT key to the bundle. If a JWT key already exists
+// AddJWTAuthority adds a JWT authority to the bundle. If a JWT authority already exists
 // under the given key ID, it is replaced. A key ID must be specified.
-func (b *Bundle) AddJWTKey(keyID string, key crypto.PublicKey) error {
+func (b *Bundle) AddJWTAuthorities(keyID string, jwtAuthority crypto.PublicKey) error {
 	if keyID == "" {
 		return spiffebundleErr.New("keyID cannot be empty")
 	}
@@ -247,32 +247,32 @@ func (b *Bundle) AddJWTKey(keyID string, key crypto.PublicKey) error {
 	b.mtx.Lock()
 	defer b.mtx.Unlock()
 
-	b.jwtKeys[keyID] = key
+	b.jwtAuthorities[keyID] = jwtAuthority
 	return nil
 }
 
-// RemoveJWTKey removes the JWT key identified by the key ID from the bundle.
-func (b *Bundle) RemoveJWTKey(keyID string) {
+// RemoveJWTAuthority removes the JWT authority identified by the key ID from the bundle.
+func (b *Bundle) RemoveJWTAuthority(keyID string) {
 	b.mtx.Lock()
 	defer b.mtx.Unlock()
 
-	delete(b.jwtKeys, keyID)
+	delete(b.jwtAuthorities, keyID)
 }
 
-// SetJWTKeys sets the JWT keys in the bundle.
-func (b *Bundle) SetJWTKeys(jwtKeys map[string]crypto.PublicKey) {
+// SetJWTAuthorities sets the JWT authorities in the bundle.
+func (b *Bundle) SetJWTAuthorities(jwtAuthorities map[string]crypto.PublicKey) {
 	b.mtx.Lock()
 	defer b.mtx.Unlock()
 
-	b.jwtKeys = jwtutil.CopyJWTKeys(jwtKeys)
+	b.jwtAuthorities = jwtutil.CopyJWTAuthorities(jwtAuthorities)
 }
 
-// Empty returns true if the bundle has no X.509 roots and no JWT keys.
+// Empty returns true if the bundle has no X.509 and JWT authorities.
 func (b *Bundle) Empty() bool {
 	b.mtx.RLock()
 	defer b.mtx.RUnlock()
 
-	return len(b.x509Roots) == 0 && len(b.jwtKeys) == 0
+	return len(b.x509Authorities) == 0 && len(b.jwtAuthorities) == 0
 }
 
 // RefreshHint returns the refresh hint. If the refresh hint is set in
@@ -347,17 +347,17 @@ func (b *Bundle) Marshal() ([]byte, error) {
 		jwks.RefreshHint = &tr
 	}
 	jwks.SequenceNumber = b.sequenceNumber
-	for _, rootCA := range b.x509Roots {
+	for _, x509Authority := range b.x509Authorities {
 		jwks.Keys = append(jwks.Keys, jose.JSONWebKey{
-			Key:          rootCA.PublicKey,
-			Certificates: []*x509.Certificate{rootCA},
+			Key:          x509Authority.PublicKey,
+			Certificates: []*x509.Certificate{x509Authority},
 			Use:          x509SVIDUse,
 		})
 	}
 
-	for keyID, jwtKey := range b.jwtKeys {
+	for keyID, jwtAuthority := range b.jwtAuthorities {
 		jwks.Keys = append(jwks.Keys, jose.JSONWebKey{
-			Key:   jwtKey,
+			Key:   jwtAuthority,
 			KeyID: keyID,
 			Use:   jwtSVIDUse,
 		})
@@ -366,23 +366,23 @@ func (b *Bundle) Marshal() ([]byte, error) {
 	return json.Marshal(jwks)
 }
 
-// X509Bundle returns an X.509 bundle containing the X.509 roots in the SPIFFE
+// X509Bundle returns an X.509 bundle containing the X.509 authorities in the SPIFFE
 // bundle.
 func (b *Bundle) X509Bundle() *x509bundle.Bundle {
 	b.mtx.RLock()
 	defer b.mtx.RUnlock()
 
-	// FromX509Roots makes a copy, so we can pass our internal slice directly.
-	return x509bundle.FromX509Roots(b.trustDomain, b.x509Roots)
+	// FromX509Authorities makes a copy, so we can pass our internal slice directly.
+	return x509bundle.FromX509Authorities(b.trustDomain, b.x509Authorities)
 }
 
-// JWTBundle returns a JWT bundle containing the JWT keys in the SPIFFE bundle.
+// JWTBundle returns a JWT bundle containing the JWT authorities in the SPIFFE bundle.
 func (b *Bundle) JWTBundle() *jwtbundle.Bundle {
 	b.mtx.RLock()
 	defer b.mtx.RUnlock()
 
 	// FromJWTBundle makes a copy, so we can pass our internal slice directly.
-	return jwtbundle.FromJWTKeys(b.trustDomain, b.jwtKeys)
+	return jwtbundle.FromJWTAuthorities(b.trustDomain, b.jwtAuthorities)
 }
 
 // GetBundleForTrustDomain returns the SPIFFE bundle for the given trust
@@ -435,8 +435,8 @@ func (b *Bundle) Equal(other *Bundle) bool {
 	return b.trustDomain == other.trustDomain &&
 		refreshHintEqual(b.refreshHint, other.refreshHint) &&
 		sequenceNumberEqual(b.sequenceNumber, other.sequenceNumber) &&
-		jwtutil.JWTKeysEqual(b.jwtKeys, other.jwtKeys) &&
-		x509util.CertsEqual(b.x509Roots, other.x509Roots)
+		jwtutil.JWTAuthoritiesEqual(b.jwtAuthorities, other.jwtAuthorities) &&
+		x509util.CertsEqual(b.x509Authorities, other.x509Authorities)
 }
 
 func refreshHintEqual(a, b *time.Duration) bool {
