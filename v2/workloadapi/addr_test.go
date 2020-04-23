@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGetDefaultAddress(t *testing.T) {
@@ -32,7 +33,7 @@ func TestValidateAddress(t *testing.T) {
 	}{
 		{
 			addr: "\t",
-			err:  "workload endpoint socket is not a valid URI: parse \t: net/url: invalid control character in URL",
+			err:  "net/url: invalid control character in URL",
 		},
 		{
 			addr: "blah",
@@ -103,7 +104,8 @@ func TestValidateAddress(t *testing.T) {
 	for _, testCase := range testCases {
 		err := ValidateAddress(testCase.addr)
 		if testCase.err != "" {
-			assert.EqualError(t, err, testCase.err)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), testCase.err)
 			continue
 		}
 		assert.NoError(t, err)
