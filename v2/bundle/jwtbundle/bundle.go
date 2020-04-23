@@ -41,7 +41,7 @@ func FromJWTAuthorities(trustDomain spiffeid.TrustDomain, jwtAuthorities map[str
 	}
 }
 
-// Load loads a bundle from a file on disk.
+// Load loads a bundle from a file on disk. The file must contain a standard RFC 7517 JWKS document.
 func Load(trustDomain spiffeid.TrustDomain, path string) (*Bundle, error) {
 	bundleBytes, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -51,7 +51,7 @@ func Load(trustDomain spiffeid.TrustDomain, path string) (*Bundle, error) {
 	return Parse(trustDomain, bundleBytes)
 }
 
-// Read decodes a bundle from a reader.
+// Read decodes a bundle from a reader. The contents must contain a standard RFC 7517 JWKS document.
 func Read(trustDomain spiffeid.TrustDomain, r io.Reader) (*Bundle, error) {
 	b, err := ioutil.ReadAll(r)
 	if err != nil {
@@ -61,7 +61,7 @@ func Read(trustDomain spiffeid.TrustDomain, r io.Reader) (*Bundle, error) {
 	return Parse(trustDomain, b)
 }
 
-// Parse parses a bundle from bytes.
+// Parse parses a bundle from bytes. The data must be a standard RFC 7517 JWKS document.
 func Parse(trustDomain spiffeid.TrustDomain, bundleBytes []byte) (*Bundle, error) {
 	jwks := new(jose.JSONWebKeySet)
 	if err := json.Unmarshal(bundleBytes, jwks); err != nil {
