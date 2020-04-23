@@ -156,7 +156,7 @@ func TestX509AuthorityCRUD(t *testing.T) {
 	assert.True(t, bundle1.HasX509Authority(bundle2.X509Authorities()[0]))
 	assert.True(t, bundle1.HasX509Authority(bundle2.X509Authorities()[1]))
 
-	// Removing a authority, decreases the authority slice length
+	// Removing an authority, decreases the authority slice length
 	cert := bundle1.X509Authorities()[0]
 	bundle1.RemoveX509Authority(cert)
 	assert.Len(t, bundle1.X509Authorities(), 1)
