@@ -381,7 +381,7 @@ func parseX509Bundle(spiffeID string, bundle []byte) (*x509bundle.Bundle, error)
 	if err != nil {
 		return nil, err
 	}
-	return x509bundle.FromX509Roots(td, certs), nil
+	return x509bundle.FromX509Authorities(td, certs), nil
 }
 
 func parseX509SVIDResponse(resp *workload.X509SVIDResponse) (*X509Context, error) {
@@ -399,7 +399,7 @@ func parseX509SVIDResponse(resp *workload.X509SVIDResponse) (*X509Context, error
 		if err != nil {
 			return nil, err
 		}
-		b := x509bundle.FromX509Roots(s.ID.TrustDomain(), certs)
+		b := x509bundle.FromX509Authorities(s.ID.TrustDomain(), certs)
 		bundles = append(bundles, b)
 	}
 
