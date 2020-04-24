@@ -37,7 +37,8 @@ func FromX509Authorities(trustDomain spiffeid.TrustDomain, authorities []*x509.C
 	}
 }
 
-// Load loads a bundle from a file on disk.
+// Load loads a bundle from a file on disk. The file must contain PEM-encoded
+// certificate blocks.
 func Load(trustDomain spiffeid.TrustDomain, path string) (*Bundle, error) {
 	fileBytes, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -47,7 +48,8 @@ func Load(trustDomain spiffeid.TrustDomain, path string) (*Bundle, error) {
 	return Parse(trustDomain, fileBytes)
 }
 
-// Read decodes a bundle from a reader.
+// Read decodes a bundle from a reader. The contents must be PEM-encoded
+// certificate blocks.
 func Read(trustDomain spiffeid.TrustDomain, r io.Reader) (*Bundle, error) {
 	b, err := ioutil.ReadAll(r)
 	if err != nil {
@@ -57,7 +59,8 @@ func Read(trustDomain spiffeid.TrustDomain, r io.Reader) (*Bundle, error) {
 	return Parse(trustDomain, b)
 }
 
-// Parse parses a bundle from bytes.
+// Parse parses a bundle from bytes. The data must be PEM-encoded certificate
+// blocks.
 func Parse(trustDomain spiffeid.TrustDomain, b []byte) (*Bundle, error) {
 	bundle := New(trustDomain)
 	certs, err := pemutil.ParseCertificates(b)
