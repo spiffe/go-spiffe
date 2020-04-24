@@ -13,12 +13,12 @@ func NewCertPool(certs []*x509.Certificate) *x509.CertPool {
 	return pool
 }
 
-// CopyX509Roots copies a slice of X.509 certificates to a new slice.
-func CopyX509Roots(x509Roots []*x509.Certificate) []*x509.Certificate {
-	copiedX509Roots := make([]*x509.Certificate, len(x509Roots))
-	copy(copiedX509Roots, x509Roots)
+// CopyX509Authorities copies a slice of X.509 certificates to a new slice.
+func CopyX509Authorities(x509Authorities []*x509.Certificate) []*x509.Certificate {
+	copiedX509Authorities := make([]*x509.Certificate, len(x509Authorities))
+	copy(copiedX509Authorities, x509Authorities)
 
-	return copiedX509Roots
+	return copiedX509Authorities
 }
 
 // CertsEqual returns true if the slices of X.509 certificates are equal.

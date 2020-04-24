@@ -332,10 +332,12 @@ type tlsPeerWatcher struct {
 	p *TLSPeer
 }
 
+// UpdateX509SVIDs updates the TLSPeer using the default SVID in svids.
 func (w *tlsPeerWatcher) UpdateX509SVIDs(svids *workload.X509SVIDs) {
 	w.p.updateX509SVIDs(svids)
 }
 
+// OnError logs the given error at error level.
 func (w *tlsPeerWatcher) OnError(err error) {
 	w.p.onError(err)
 }
@@ -345,6 +347,7 @@ type tlsListener struct {
 	tlsPeer *TLSPeer
 }
 
+// Close closes the tlsPeer and listener.
 func (l *tlsListener) Close() error {
 	err1 := l.tlsPeer.Close()
 	err2 := l.Listener.Close()

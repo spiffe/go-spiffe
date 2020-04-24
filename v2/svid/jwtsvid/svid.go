@@ -49,15 +49,15 @@ func ParseAndValidate(token string, bundles jwtbundle.Source, audience []string)
 			return nil, jwtsvidErr.New("no bundle found for trust domain %q", trustDomain)
 		}
 
-		// Find JWT key using the key ID from the token header
-		key, ok := bundle.FindJWTKey(keyID)
+		// Find JWT authority using the key ID from the token header
+		authority, ok := bundle.FindJWTAuthority(keyID)
 		if !ok {
-			return nil, jwtsvidErr.New("no key %q found for trust domain %q", keyID, trustDomain)
+			return nil, jwtsvidErr.New("no JWT authority %q found for trust domain %q", keyID, trustDomain)
 		}
 
-		// Obtain and verify the token claims using the obtained key
+		// Obtain and verify the token claims using the obtained JWT authority
 		claimsMap := make(map[string]interface{})
-		if err := tok.Claims(key, &claimsMap); err != nil {
+		if err := tok.Claims(authority, &claimsMap); err != nil {
 			return nil, jwtsvidErr.New("unable to get claims from token: %v", err)
 		}
 

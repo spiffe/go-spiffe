@@ -96,14 +96,14 @@ func (w *WorkloadAPI) SetJWTSVIDResponse(r *workload.JWTSVIDResponse) {
 	}
 }
 
-func (w *WorkloadAPI) SetJWTBundle(trustDomain string, keys map[string]crypto.PublicKey) {
+func (w *WorkloadAPI) SetJWTBundle(trustDomain string, jwtAuthorities map[string]crypto.PublicKey) {
 	td, err := spiffeid.TrustDomainFromString(trustDomain)
 	if err != nil {
 		w.tb.Error(err)
 		return
 	}
 
-	jwtBundle := jwtbundle.FromJWTKeys(td, keys)
+	jwtBundle := jwtbundle.FromJWTAuthorities(td, jwtAuthorities)
 	b, err := jwtBundle.Marshal()
 	if err != nil {
 		w.tb.Error(err)

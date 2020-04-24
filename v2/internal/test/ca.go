@@ -74,7 +74,7 @@ func (ca *CA) Roots() []*x509.Certificate {
 func (ca *CA) Bundle(td spiffeid.TrustDomain) *x509bundle.Bundle {
 	bundle := x509bundle.New(td)
 	for _, root := range ca.Roots() {
-		bundle.AddX509Root(root)
+		bundle.AddX509Authority(root)
 	}
 	return bundle
 }
