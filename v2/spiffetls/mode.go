@@ -306,7 +306,7 @@ func MTLSServerWithConfig(svid x509svid.Source, bundle x509bundle.Source, author
 // is used to authorize client X509-SVIDs.
 func MTLSWebServer(cert *tls.Certificate, authorizer tlsconfig.Authorizer) ListenMode {
 	return &listenMode{
-		tlsType:    typeMTLSServer,
+		tlsType:    typeMTLSWebServer,
 		cert:       cert,
 		authorizer: authorizer,
 	}
