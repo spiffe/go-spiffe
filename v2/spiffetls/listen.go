@@ -58,7 +58,7 @@ func NewListenerWithMode(ctx context.Context, inner net.Listener, mode ListenMod
 	m := mode.get()
 
 	var sourceCloser io.Closer
-	if !m.raw {
+	if !m.sourceUnneeded {
 		source := m.source
 		if source == nil {
 			source, err = workloadapi.NewX509Source(ctx, m.options...)

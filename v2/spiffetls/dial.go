@@ -26,7 +26,7 @@ func DialWithMode(ctx context.Context, network, addr string, mode DialMode, opti
 	m := mode.get()
 
 	var sourceCloser io.Closer
-	if !m.raw {
+	if !m.sourceUnneeded {
 		source := m.source
 		if source == nil {
 			source, err = workloadapi.NewX509Source(ctx, m.options...)

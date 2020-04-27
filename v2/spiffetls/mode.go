@@ -32,8 +32,13 @@ type DialMode interface {
 }
 
 type dialMode struct {
-	mode       clientMode
-	raw        bool
+	mode clientMode
+
+	// sourceUnneeded is true when a X509Source is not required since
+	// raw sources have already been provided, i.e. when the mode comes from
+	// a *WithRawConfig method.
+	sourceUnneeded bool
+
 	authorizer tlsconfig.Authorizer
 
 	source  *workloadapi.X509Source
@@ -46,8 +51,13 @@ type dialMode struct {
 }
 
 type listenMode struct {
-	mode       serverMode
-	raw        bool
+	mode serverMode
+
+	// sourceUnneeded is true when a X509Source is not required since
+	// raw sources have already been provided, i.e. when the mode comes from
+	// a *WithRawConfig method.
+	sourceUnneeded bool
+
 	authorizer tlsconfig.Authorizer
 
 	source  *workloadapi.X509Source
@@ -101,16 +111,16 @@ func TLSClientWithSourceOptions(authorizer tlsconfig.Authorizer, options ...work
 	}
 }
 
-// TLSClientWithRawConfig configures the dialing for TLS. The server X508-SVID is
+// TLSClientWithRawConfig configures the dialing for TLS. The server X509-SVID is
 // authenticated using X.509 bundles obtained via the provided X.509 bundle
 // source. The source must remain valid for the lifetime of the connection. The
 // authorizer is used to authorize the server X509-SVID.
 func TLSClientWithRawConfig(authorizer tlsconfig.Authorizer, bundle x509bundle.Source) DialMode {
 	return &dialMode{
-		mode:       tlsClientMode,
-		raw:        true,
-		authorizer: authorizer,
-		bundle:     bundle,
+		mode:           tlsClientMode,
+		sourceUnneeded: true,
+		authorizer:     authorizer,
+		bundle:         bundle,
 	}
 }
 
@@ -158,11 +168,11 @@ func MTLSClientWithSourceOptions(authorizer tlsconfig.Authorizer, options ...wor
 // The authorizer is used to authorize the server X509-SVID.
 func MTLSClientWithRawConfig(authorizer tlsconfig.Authorizer, svid x509svid.Source, bundle x509bundle.Source) DialMode {
 	return &dialMode{
-		mode:       mtlsClientMode,
-		raw:        true,
-		authorizer: authorizer,
-		svid:       svid,
-		bundle:     bundle,
+		mode:           mtlsClientMode,
+		sourceUnneeded: true,
+		authorizer:     authorizer,
+		svid:           svid,
+		bundle:         bundle,
 	}
 }
 
@@ -209,10 +219,10 @@ func MTLSWebClientWithSourceOptions(roots *x509.CertPool, options ...workloadapi
 // certificate.
 func MTLSWebClientWithRawConfig(roots *x509.CertPool, svid x509svid.Source) DialMode {
 	return &dialMode{
-		mode:  mtlsWebClientMode,
-		raw:   true,
-		svid:  svid,
-		roots: roots,
+		mode:           mtlsWebClientMode,
+		sourceUnneeded: true,
+		svid:           svid,
+		roots:          roots,
 	}
 }
 
@@ -254,9 +264,9 @@ func TLSServerWithSourceOptions(options ...workloadapi.X509SourceOption) ListenM
 // remain valid for the lifetime of the listener.
 func TLSServerWithRawConfig(svid x509svid.Source) ListenMode {
 	return &listenMode{
-		mode: tlsServerMode,
-		raw:  true,
-		svid: svid,
+		mode:           tlsServerMode,
+		sourceUnneeded: true,
+		svid:           svid,
 	}
 }
 
@@ -304,11 +314,11 @@ func MTLSServerWithSourceOptions(authorizer tlsconfig.Authorizer, options ...wor
 // listener. The authorizer is used to authorize client X509-SVIDs.
 func MTLSServerWithRawConfig(authorizer tlsconfig.Authorizer, svid x509svid.Source, bundle x509bundle.Source) ListenMode {
 	return &listenMode{
-		mode:       mtlsServerMode,
-		raw:        true,
-		authorizer: authorizer,
-		svid:       svid,
-		bundle:     bundle,
+		mode:           mtlsServerMode,
+		sourceUnneeded: true,
+		authorizer:     authorizer,
+		svid:           svid,
+		bundle:         bundle,
 	}
 }
 
@@ -359,10 +369,10 @@ func MTLSWebServerWithSourceOptions(authorizer tlsconfig.Authorizer, cert *tls.C
 // listener. The authorizer is used to authorize client X509-SVIDs.
 func MTLSWebServerWithRawConfig(authorizer tlsconfig.Authorizer, cert *tls.Certificate, bundle x509bundle.Source) ListenMode {
 	return &listenMode{
-		mode:       mtlsWebServerMode,
-		raw:        true,
-		authorizer: authorizer,
-		cert:       cert,
-		bundle:     bundle,
+		mode:           mtlsWebServerMode,
+		sourceUnneeded: true,
+		authorizer:     authorizer,
+		cert:           cert,
+		bundle:         bundle,
 	}
 }
