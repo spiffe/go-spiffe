@@ -319,7 +319,7 @@ func MTLSWebServer(authorizer tlsconfig.Authorizer, cert *tls.Certificate) Liste
 // The authorizer is used to authorize client X509-SVIDs.
 func MTLSWebServerWithSource(authorizer tlsconfig.Authorizer, cert *tls.Certificate, source *workloadapi.X509Source) ListenMode {
 	return &listenMode{
-		tlsType:    typeMTLSServer,
+		tlsType:    typeMTLSWebServer,
 		cert:       cert,
 		source:     source,
 		authorizer: authorizer,
@@ -333,7 +333,7 @@ func MTLSWebServerWithSource(authorizer tlsconfig.Authorizer, cert *tls.Certific
 // authorizer is used to authorize client X509-SVIDs.
 func MTLSWebServerWithSourceOptions(authorizer tlsconfig.Authorizer, cert *tls.Certificate, options ...workloadapi.X509SourceOption) ListenMode {
 	return &listenMode{
-		tlsType:    typeMTLSServer,
+		tlsType:    typeMTLSWebServer,
 		cert:       cert,
 		options:    options,
 		authorizer: authorizer,
@@ -347,7 +347,7 @@ func MTLSWebServerWithSourceOptions(authorizer tlsconfig.Authorizer, cert *tls.C
 // listener. The authorizer is used to authorize client X509-SVIDs.
 func MTLSWebServerWithConfig(authorizer tlsconfig.Authorizer, cert *tls.Certificate, bundle x509bundle.Source) ListenMode {
 	return &listenMode{
-		tlsType:    typeMTLSServer,
+		tlsType:    typeMTLSWebServer,
 		cert:       cert,
 		bundle:     bundle,
 		authorizer: authorizer,
