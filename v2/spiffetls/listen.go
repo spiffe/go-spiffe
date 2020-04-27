@@ -58,25 +58,22 @@ func NewListenerWithMode(ctx context.Context, inner net.Listener, mode ListenMod
 	m := mode.get()
 
 	var sourceCloser io.Closer
-	source := m.source
-	if source == nil {
-		source, err = workloadapi.NewX509Source(ctx, m.options...)
-		// Close source if there is a failure after this point
-		if err != nil {
-			return nil, spiffetlsErr.New("cannot create X.509 source: %w", err)
-		}
-		defer func() {
+	if !m.sourceUnneeded {
+		source := m.source
+		if source == nil {
+			source, err = workloadapi.NewX509Source(ctx, m.options...)
 			if err != nil {
-				source.Close()
+				return nil, spiffetlsErr.New("cannot create X.509 source: %w", err)
 			}
-		}()
-		sourceCloser = source
-	}
-
-	if m.bundle == nil {
+			// Close source if there is a failure after this point
+			defer func() {
+				if err != nil {
+					source.Close()
+				}
+			}()
+			sourceCloser = source
+		}
 		m.bundle = source
-	}
-	if m.svid == nil {
 		m.svid = source
 	}
 
@@ -90,15 +87,15 @@ func NewListenerWithMode(ctx context.Context, inner net.Listener, mode ListenMod
 		tlsConfig = opt.baseTLSConf
 	}
 
-	switch m.tlsType {
-	case typeTLSServer:
+	switch m.mode {
+	case tlsServerMode:
 		tlsconfig.HookTLSServerConfig(tlsConfig, m.svid)
-	case typeMTLSServer:
+	case mtlsServerMode:
 		tlsconfig.HookMTLSServerConfig(tlsConfig, m.svid, m.bundle, m.authorizer)
-	case typeMTLSWebServer:
+	case mtlsWebServerMode:
 		tlsconfig.HookMTLSWebServerConfig(tlsConfig, m.cert, m.bundle, m.authorizer)
 	default:
-		return nil, spiffetlsErr.New("unknown TLS hook type: %v", m.tlsType)
+		return nil, spiffetlsErr.New("unknown server mode: %v", m.mode)
 	}
 
 	return &listener{
