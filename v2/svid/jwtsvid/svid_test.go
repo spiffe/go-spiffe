@@ -38,9 +38,9 @@ func TestParseAndValidate(t *testing.T) {
 
 	// Create a bundle and add keys
 	bundle1 := jwtbundle.New(trustDomain1)
-	err := bundle1.AddJWTKey("key1", key1.Public())
+	err := bundle1.AddJWTAuthority("authority1", key1.Public())
 	require.NoError(t, err)
-	err = bundle1.AddJWTKey("key2", key2.Public())
+	err = bundle1.AddJWTAuthority("authority2", key2.Public())
 	require.NoError(t, err)
 
 	testCases := []struct {
@@ -63,7 +63,7 @@ func TestParseAndValidate(t *testing.T) {
 					IssuedAt: issuedAt,
 				}
 
-				return generateToken(tb, claims, key1, "key1")
+				return generateToken(tb, claims, key1, "authority1")
 			},
 			svid: &jwtsvid.SVID{
 				ID:       trustDomain1.NewID("/host"),
@@ -98,7 +98,7 @@ func TestParseAndValidate(t *testing.T) {
 					IssuedAt: issuedAt,
 				}
 
-				return generateToken(tb, claims, key1, "key1")
+				return generateToken(tb, claims, key1, "authority1")
 			},
 			err: "jwtsvid: token missing subject claim",
 		},
@@ -113,7 +113,7 @@ func TestParseAndValidate(t *testing.T) {
 					IssuedAt: issuedAt,
 				}
 
-				return generateToken(tb, claims, key1, "key1")
+				return generateToken(tb, claims, key1, "authority1")
 			},
 			err: "jwtsvid: token missing exp claim",
 		},
@@ -130,7 +130,7 @@ func TestParseAndValidate(t *testing.T) {
 					IssuedAt: issuedAt,
 				}
 
-				return generateToken(tb, claims, key1, "key1")
+				return generateToken(tb, claims, key1, "authority1")
 			},
 			err: "jwtsvid: token has expired",
 		},
@@ -147,7 +147,7 @@ func TestParseAndValidate(t *testing.T) {
 					IssuedAt: issuedAt,
 				}
 
-				return generateToken(tb, claims, key1, "key1")
+				return generateToken(tb, claims, key1, "authority1")
 			},
 			err: `jwtsvid: expected audience in ["another"] (audience=["audience"])`,
 		},
@@ -164,7 +164,7 @@ func TestParseAndValidate(t *testing.T) {
 					IssuedAt: issuedAt,
 				}
 
-				return generateToken(tb, claims, key1, "key1")
+				return generateToken(tb, claims, key1, "authority1")
 			},
 			err: "jwtsvid: token has in invalid subject claim: spiffeid: invalid scheme",
 		},
@@ -198,12 +198,12 @@ func TestParseAndValidate(t *testing.T) {
 					IssuedAt: issuedAt,
 				}
 
-				return generateToken(tb, claims, key1, "noKey")
+				return generateToken(tb, claims, key1, "noAuthority")
 			},
 			err: `jwtsvid: no bundle found for trust domain "another.domain"`,
 		},
 		{
-			name:     "no bundle for key",
+			name:     "no bundle for authority",
 			bundle:   bundle1,
 			audience: []string{"audience"},
 			generateToken: func(tb testing.TB) string {
@@ -217,10 +217,10 @@ func TestParseAndValidate(t *testing.T) {
 
 				return generateToken(tb, claims, key1, "noKey")
 			},
-			err: `jwtsvid: no key "noKey" found for trust domain "test.domain"`,
+			err: `jwtsvid: no JWT authority "noKey" found for trust domain "test.domain"`,
 		},
 		{
-			name:     "mismatched key",
+			name:     "mismatched JWT authority",
 			bundle:   bundle1,
 			audience: []string{"audience"},
 			generateToken: func(tb testing.TB) string {
@@ -232,7 +232,7 @@ func TestParseAndValidate(t *testing.T) {
 					IssuedAt: issuedAt,
 				}
 
-				return generateToken(tb, claims, key2, "key1")
+				return generateToken(tb, claims, key2, "authority1")
 			},
 			err: "jwtsvid: unable to get claims from token: square/go-jose: error in cryptographic primitive",
 		},

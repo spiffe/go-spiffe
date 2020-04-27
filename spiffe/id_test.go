@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestValidateID(t *testing.T) {
@@ -26,7 +27,7 @@ func TestValidateID(t *testing.T) {
 			name:          "test_validate_id_invalid_uri",
 			spiffeID:      "192.168.2.2:6688",
 			mode:          AllowAny(),
-			expectedError: "invalid SPIFFE ID: parse 192.168.2.2:6688: first path segment in URL cannot contain colon",
+			expectedError: "first path segment in URL cannot contain colon",
 		},
 		{
 			name:          "test_validate_id_invalid_scheme",
@@ -154,7 +155,8 @@ func TestValidateID(t *testing.T) {
 			if test.expectedError == "" {
 				assert.NoError(t, err)
 			} else {
-				assert.EqualError(t, err, test.expectedError)
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), test.expectedError)
 			}
 		})
 	}

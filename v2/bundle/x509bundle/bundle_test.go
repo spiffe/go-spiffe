@@ -15,11 +15,11 @@ import (
 func TestNew(t *testing.T) {
 	bundle := x509bundle.New(spiffeid.RequireTrustDomainFromString("example.org"))
 	require.NotNil(t, bundle)
-	assert.Len(t, bundle.X509Roots(), 0)
+	assert.Len(t, bundle.X509Authorities(), 0)
 	assert.Equal(t, spiffeid.RequireTrustDomainFromString("example.org"), bundle.TrustDomain())
 }
 
-func TestFromX509Roots(t *testing.T) {
+func TestFromX509Authorities(t *testing.T) {
 	x509Cert1 := &x509.Certificate{
 		Raw: []byte("CERT 1"),
 	}
@@ -27,17 +27,17 @@ func TestFromX509Roots(t *testing.T) {
 		Raw: []byte("CERT 2"),
 	}
 
-	x509roots := []*x509.Certificate{x509Cert1, x509Cert2}
-	b := x509bundle.FromX509Roots(spiffeid.RequireTrustDomainFromString("example.org"), x509roots)
+	x509Authorities := []*x509.Certificate{x509Cert1, x509Cert2}
+	b := x509bundle.FromX509Authorities(spiffeid.RequireTrustDomainFromString("example.org"), x509Authorities)
 	require.NotNil(t, b)
-	assert.Equal(t, b.X509Roots(), x509roots)
+	assert.Equal(t, b.X509Authorities(), x509Authorities)
 }
 
 func TestLoad_Succeeds(t *testing.T) {
 	bundle, err := x509bundle.Load(spiffeid.RequireTrustDomainFromString("example.org"), "testdata/certs.pem")
 	require.NoError(t, err)
 	require.NotNil(t, bundle)
-	assert.Len(t, bundle.X509Roots(), 2)
+	assert.Len(t, bundle.X509Authorities(), 2)
 }
 
 func TestLoad_Fails(t *testing.T) {
@@ -55,7 +55,7 @@ func TestRead_Succeeds(t *testing.T) {
 	bundle, err := x509bundle.Read(spiffeid.RequireTrustDomainFromString("example.org"), file)
 	require.NoError(t, err)
 	require.NotNil(t, bundle)
-	assert.Len(t, bundle.X509Roots(), 2)
+	assert.Len(t, bundle.X509Authorities(), 2)
 }
 
 func TestRead_Fails(t *testing.T) {
@@ -73,21 +73,21 @@ func TestRead_Fails(t *testing.T) {
 
 func TestParse(t *testing.T) {
 	tests := []struct {
-		name           string
-		trustDomain    spiffeid.TrustDomain
-		path           string
-		expNumRoots    int
-		expErrContains string
+		name              string
+		trustDomain       spiffeid.TrustDomain
+		path              string
+		expNumAuthorities int
+		expErrContains    string
 	}{
 		{
-			name:        "Parse multiple certificates should succeed",
-			path:        "testdata/certs.pem",
-			expNumRoots: 2,
+			name:              "Parse multiple certificates should succeed",
+			path:              "testdata/certs.pem",
+			expNumAuthorities: 2,
 		},
 		{
-			name:        "Parse single certificate should succeed",
-			path:        "testdata/cert.pem",
-			expNumRoots: 1,
+			name:              "Parse single certificate should succeed",
+			path:              "testdata/cert.pem",
+			expNumAuthorities: 1,
 		},
 		{
 			name:           "Parse empty bytes should fail",
@@ -125,47 +125,47 @@ func TestParse(t *testing.T) {
 			}
 			require.NoError(t, err)
 			assert.NotNil(t, bundle)
-			assert.Len(t, bundle.X509Roots(), test.expNumRoots)
+			assert.Len(t, bundle.X509Authorities(), test.expNumAuthorities)
 		})
 	}
 }
 
-func TestX509RootCRUD(t *testing.T) {
+func TestX509AuthorityCRUD(t *testing.T) {
 	// Load bundle1, which contains a single certificate
 	bundle1, err := x509bundle.Load(spiffeid.RequireTrustDomainFromString("example-1.org"), "testdata/cert.pem")
 	require.NoError(t, err)
-	assert.Len(t, bundle1.X509Roots(), 1)
+	assert.Len(t, bundle1.X509Authorities(), 1)
 
 	// Load bundle2, which contains 2 certificates
 	// The first certificate is the same than the one used in bundle1
 	bundle2, err := x509bundle.Load(spiffeid.RequireTrustDomainFromString("example-2.org"), "testdata/certs.pem")
 	require.NoError(t, err)
-	assert.Len(t, bundle2.X509Roots(), 2)
-	assert.True(t, bundle2.HasX509Root(bundle1.X509Roots()[0]))
+	assert.Len(t, bundle2.X509Authorities(), 2)
+	assert.True(t, bundle2.HasX509Authority(bundle1.X509Authorities()[0]))
 
-	// Adding a new root increases the roots slice length
-	bundle1.AddX509Root(bundle2.X509Roots()[1])
-	assert.Len(t, bundle1.X509Roots(), 2)
-	assert.True(t, bundle1.HasX509Root(bundle2.X509Roots()[0]))
-	assert.True(t, bundle1.HasX509Root(bundle2.X509Roots()[1]))
+	// Adding a new authority increases the x509Authorities slice length
+	bundle1.AddX509Authority(bundle2.X509Authorities()[1])
+	assert.Len(t, bundle1.X509Authorities(), 2)
+	assert.True(t, bundle1.HasX509Authority(bundle2.X509Authorities()[0]))
+	assert.True(t, bundle1.HasX509Authority(bundle2.X509Authorities()[1]))
 
-	// If the root already exist, it should not be added again
-	bundle1.AddX509Root(bundle2.X509Roots()[0])
-	bundle1.AddX509Root(bundle2.X509Roots()[1])
-	assert.Len(t, bundle1.X509Roots(), 2)
-	assert.True(t, bundle1.HasX509Root(bundle2.X509Roots()[0]))
-	assert.True(t, bundle1.HasX509Root(bundle2.X509Roots()[1]))
+	// If the authority already exist, it should not be added again
+	bundle1.AddX509Authority(bundle2.X509Authorities()[0])
+	bundle1.AddX509Authority(bundle2.X509Authorities()[1])
+	assert.Len(t, bundle1.X509Authorities(), 2)
+	assert.True(t, bundle1.HasX509Authority(bundle2.X509Authorities()[0]))
+	assert.True(t, bundle1.HasX509Authority(bundle2.X509Authorities()[1]))
 
-	// Removing a root, decreases the root slice length
-	cert := bundle1.X509Roots()[0]
-	bundle1.RemoveX509Root(cert)
-	assert.Len(t, bundle1.X509Roots(), 1)
-	assert.False(t, bundle1.HasX509Root(cert))
+	// Removing an authority, decreases the authority slice length
+	cert := bundle1.X509Authorities()[0]
+	bundle1.RemoveX509Authority(cert)
+	assert.Len(t, bundle1.X509Authorities(), 1)
+	assert.False(t, bundle1.HasX509Authority(cert))
 
-	// If the root does not exist, it should keep its size
-	bundle1.RemoveX509Root(cert)
-	assert.Len(t, bundle1.X509Roots(), 1)
-	assert.False(t, bundle1.HasX509Root(cert))
+	// If the authority does not exist, it should keep its size
+	bundle1.RemoveX509Authority(cert)
+	assert.Len(t, bundle1.X509Authorities(), 1)
+	assert.False(t, bundle1.HasX509Authority(cert))
 }
 
 func TestMarshal(t *testing.T) {

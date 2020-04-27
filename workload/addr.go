@@ -7,16 +7,17 @@ import (
 	"os"
 )
 
-const (
-	// SocketEnv is the environment variable holding the default Workload API
-	// address.
-	SocketEnv = "SPIFFE_ENDPOINT_SOCKET"
-)
+// SocketEnv is the environment variable holding the default Workload API
+// address.
+const SocketEnv = "SPIFFE_ENDPOINT_SOCKET"
 
+// GetDefaultAddress retrieves the value of the SocketEnv environment variable.
 func GetDefaultAddress() (string, bool) {
 	return os.LookupEnv(SocketEnv)
 }
 
+// ValidateAddress verifies addr can be parsed as a URL structure and
+// matches the required scheme validations.
 func ValidateAddress(addr string) error {
 	_, err := parseTargetFromAddr(addr)
 	return err
