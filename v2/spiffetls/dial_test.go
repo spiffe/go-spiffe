@@ -2,12 +2,15 @@ package spiffetls_test
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
 	"net"
 	"os"
+	"sync"
+	"syscall"
 	"testing"
 	"time"
 
@@ -36,12 +39,12 @@ func TestDialWithMode(t *testing.T) {
 	// Workload API Server A provides identities to the server workload
 	wlAPIServerA := fakeworkloadapi.NewWorkloadAPI(t)
 	defer wlAPIServerA.Stop()
-	setWorkloadAPIResponse(ca, wlAPIServerA, serverID.String())
+	setWorkloadAPIResponse(ca, wlAPIServerA, serverID)
 
 	// Workload API Server B provides identities to the client workload
 	wlAPIServerB := fakeworkloadapi.NewWorkloadAPI(t)
 	defer wlAPIServerB.Stop()
-	setWorkloadAPIResponse(ca, wlAPIServerB, clientID.String())
+	setWorkloadAPIResponse(ca, wlAPIServerB, clientID)
 
 	// Create custom workload API sources for the server
 	wlCtx, wlCancel := context.WithTimeout(context.Background(), time.Second*5)
@@ -68,6 +71,12 @@ func TestDialWithMode(t *testing.T) {
 	// Create web credentials
 	webCertPool, webCert := test.CreateWebCredentials(t)
 
+	// Flag used to detect if an external dialer was actually used
+	externalDialerUsed := false
+
+	// Buffer used to detect if a base TLS config was actually used
+	externalTLSConfBuffer := &bytes.Buffer{}
+
 	// Test Table
 	tests := []struct {
 		name string
@@ -78,10 +87,12 @@ func TestDialWithMode(t *testing.T) {
 		listenMode   spiffetls.ListenMode
 		listenOption []spiffetls.ListenOption
 
-		defaultWlAPIAddr string
-		expErrContains   string
+		defaultWlAPIAddr   string
+		expErrContains     string
+		usesExternalDialer bool
+		usesBaseTLSConfig  bool
 	}{
-		// Failiures Scenarios
+		// Failure Scenarios
 		{
 			name:             "Wrong workload API server socket",
 			dialMode:         spiffetls.TLSClient(tlsconfig.AuthorizeID(serverID)),
@@ -97,23 +108,30 @@ func TestDialWithMode(t *testing.T) {
 
 		// Dial Option Scenarios
 		{
-			name:             "TLSClient dials using TLS base config",
-			dialMode:         spiffetls.TLSClient(tlsconfig.AuthorizeID(serverID)),
-			listenMode:       spiffetls.TLSServerWithSource(wlAPISourceA),
-			defaultWlAPIAddr: wlAPIServerB.Addr(),
+			name:              "TLSClient dials using TLS base config",
+			dialMode:          spiffetls.TLSClient(tlsconfig.AuthorizeID(serverID)),
+			listenMode:        spiffetls.TLSServerWithSource(wlAPISourceA),
+			defaultWlAPIAddr:  wlAPIServerB.Addr(),
+			usesBaseTLSConfig: true,
 			dialOption: []spiffetls.DialOption{
 				spiffetls.WithDialTLSConfigBase(&tls.Config{
-					MinVersion: tls.VersionTLS13,
+					KeyLogWriter: externalTLSConfBuffer,
 				}),
 			},
 		},
 		{
-			name:             "TLSClient dials using external dialer",
-			dialMode:         spiffetls.TLSClient(tlsconfig.AuthorizeID(serverID)),
-			listenMode:       spiffetls.TLSServerWithSource(wlAPISourceA),
-			defaultWlAPIAddr: wlAPIServerB.Addr(),
+			name:               "TLSClient dials using external dialer",
+			dialMode:           spiffetls.TLSClient(tlsconfig.AuthorizeID(serverID)),
+			listenMode:         spiffetls.TLSServerWithSource(wlAPISourceA),
+			defaultWlAPIAddr:   wlAPIServerB.Addr(),
+			usesExternalDialer: true,
 			dialOption: []spiffetls.DialOption{
-				spiffetls.WithDialer(&net.Dialer{}),
+				spiffetls.WithDialer(&net.Dialer{
+					Control: func(network, addr string, c syscall.RawConn) error {
+						externalDialerUsed = true
+						return nil
+					},
+				}),
 			},
 		},
 
@@ -192,19 +210,21 @@ func TestDialWithMode(t *testing.T) {
 	for _, test := range tests {
 		test := test
 
-		err := os.Setenv("SPIFFE_ENDPOINT_SOCKET", test.defaultWlAPIAddr)
-		require.NoError(t, err)
+		if test.defaultWlAPIAddr != "" {
+			err := os.Setenv("SPIFFE_ENDPOINT_SOCKET", test.defaultWlAPIAddr)
+			require.NoError(t, err)
+		}
 
 		t.Run(test.name, func(t *testing.T) {
 			// Start listening
 			listenCtx, cancelListenCtx := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancelListenCtx()
 
+			var wg sync.WaitGroup
 			var listener net.Listener
 			var listenAddr string
-			listenDoneCh := make(chan struct{})
-			listenDataCh := make(chan string)
-			listenErrCh := make(chan error)
+			listenDataCh := make(chan string, 1)
+			listenErrCh := make(chan error, 1)
 			if test.listenMode != nil {
 				listener, err = spiffetls.ListenWithMode(listenCtx, "tcp", "localhost:0", test.listenMode)
 				require.NoError(t, err)
@@ -212,28 +232,22 @@ func TestDialWithMode(t *testing.T) {
 				defer listener.Close()
 
 				listenAddr = listener.Addr().String()
-
+				wg.Add(1)
 				go func() {
-					for {
-						select {
-						case <-listenDoneCh:
-							return
-						default:
-							conn, err := listener.Accept()
-							if err != nil {
-								listenErrCh <- err
-								return
-							}
-							defer conn.Close()
-
-							data, err := bufio.NewReader(conn).ReadString('\n')
-							if err != nil {
-								listenErrCh <- err
-								return
-							}
-							listenDataCh <- data
-						}
+					defer wg.Done()
+					conn, err := listener.Accept()
+					if err != nil {
+						listenErrCh <- err
+						return
 					}
+					defer conn.Close()
+
+					data, err := bufio.NewReader(conn).ReadString('\n')
+					if err != nil {
+						listenErrCh <- err
+						return
+					}
+					listenDataCh <- data
 				}()
 			}
 
@@ -241,9 +255,13 @@ func TestDialWithMode(t *testing.T) {
 			dialCtx, cancelDialCtx := context.WithTimeout(context.Background(), time.Second*10)
 			defer cancelDialCtx()
 
-			dialConnCh := make(chan net.Conn)
-			dialErrCh := make(chan error)
+			dialConnCh := make(chan net.Conn, 1)
+			dialErrCh := make(chan error, 1)
+			externalDialerUsed = false
+			externalTLSConfBuffer.Reset()
+			wg.Add(1)
 			go func() {
+				defer wg.Done()
 				conn, err := spiffetls.DialWithMode(dialCtx, "tcp", listenAddr, test.dialMode, test.dialOption...)
 				if err != nil {
 					dialErrCh <- err
@@ -253,18 +271,25 @@ func TestDialWithMode(t *testing.T) {
 			}()
 
 			// Assertions
+		loop:
 			for {
 				select {
 				case dialConn := <-dialConnCh:
 					require.NotNil(t, dialConn)
 					defer dialConn.Close()
 
+					if test.usesExternalDialer {
+						require.True(t, externalDialerUsed)
+					}
+					if test.usesBaseTLSConfig {
+						require.NotEmpty(t, externalTLSConfBuffer.String())
+					}
+
 					fmt.Fprint(dialConn, testMsg)
-					close(listenDoneCh)
 
 				case data := <-listenDataCh:
 					require.Equal(t, testMsg, data)
-					return
+					break loop
 
 				case err := <-listenErrCh:
 					t.Fatalf("Listener failed: %v\n", err)
@@ -272,7 +297,7 @@ func TestDialWithMode(t *testing.T) {
 				case err := <-dialErrCh:
 					if test.expErrContains != "" {
 						require.Contains(t, err.Error(), test.expErrContains)
-						return
+						break loop
 					}
 					require.NoError(t, err)
 
@@ -283,12 +308,13 @@ func TestDialWithMode(t *testing.T) {
 					t.Fatalf("Listen context timed out: %v", err)
 				}
 			}
+			wg.Wait()
 		})
 	}
 }
 
-func setWorkloadAPIResponse(ca *test.CA, s *fakeworkloadapi.WorkloadAPI, spiffeID string) {
-	svid, key := ca.CreateX509SVID(spiffeID)
+func setWorkloadAPIResponse(ca *test.CA, s *fakeworkloadapi.WorkloadAPI, spiffeID spiffeid.ID) {
+	svid, key := ca.CreateX509SVID(spiffeID.String())
 	s.SetX509SVIDResponse(&fakeworkloadapi.X509SVIDResponse{
 		Bundle: ca.Roots(),
 		SVIDs: []fakeworkloadapi.X509SVID{
