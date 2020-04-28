@@ -154,9 +154,8 @@ func (w *workloadAPIWrapper) ValidateJWTSVID(ctx context.Context, req *workload.
 }
 
 type X509SVID struct {
-	CertChain     []*x509.Certificate
-	Key           crypto.Signer
-	FederatesWith []string
+	CertChain []*x509.Certificate
+	Key       crypto.Signer
 }
 
 type X509SVIDResponse struct {
@@ -186,11 +185,10 @@ func (r *X509SVIDResponse) ToProto(tb testing.TB) *workload.X509SVIDResponse {
 			require.NoError(tb, err)
 		}
 		pb.Svids = append(pb.Svids, &workload.X509SVID{
-			SpiffeId:      spiffeID,
-			X509Svid:      derBlobFromCerts(svid.CertChain),
-			X509SvidKey:   keyDER,
-			Bundle:        bundle,
-			FederatesWith: svid.FederatesWith,
+			SpiffeId:    spiffeID,
+			X509Svid:    derBlobFromCerts(svid.CertChain),
+			X509SvidKey: keyDER,
+			Bundle:      bundle,
 		})
 	}
 	for k, v := range r.FederatedBundles {
