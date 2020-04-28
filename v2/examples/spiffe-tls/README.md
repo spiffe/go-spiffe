@@ -1,4 +1,4 @@
-# Mutual TLS Example
+# Mutually Authenticated TLS (mTLS)
 
 This example shows how two services can communicate using mTLS with X.509 SVIDs obtained from the SPIFFE Workload API. 
 

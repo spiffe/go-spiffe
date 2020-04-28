@@ -20,7 +20,7 @@ func main() {
 
 	// Set up a `/` resource handler
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		log.Println("call received")
+		log.Println("Request received")
 		_, _ = io.WriteString(w, "Success!!!")
 	})
 
@@ -30,6 +30,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Unable to create X509Source: %v", err)
 	}
+	defer source.Close()
 
 	// Allowed SPIFFE ID
 	clientID := spiffeid.Must("example.org", "client")

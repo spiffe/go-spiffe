@@ -39,6 +39,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Unable to create TLS connection: %v", err)
 	}
+	defer conn.Close()
 
 	// Send a message to the server using the TLS connection
 	fmt.Fprintf(conn, "Hello server\n")

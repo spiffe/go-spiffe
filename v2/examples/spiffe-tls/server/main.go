@@ -37,6 +37,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Unable to create TLS listener: %v", err)
 	}
+	defer listener.Close()
 
 	// Handle connections
 	for {

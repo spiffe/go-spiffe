@@ -11,3 +11,5 @@ This section contains a set of standalone examples that demonstrate different us
 - [gRPC over mTLS](spiffe-grpc/README.md): _Send gRPC requests between workloads over mTLS using automatically rotated X.509 SVIDs obtained from the SPIFFE Workload API_ 
 
 - [HTTP over mTLS](spiffe-http/README.md): _Send HTTP requests between workloads over mTLS using automatically rotated X.509 SVIDs obtained from the SPIFFE Workload API_ 
+
+- [HTTP over TLS with JWT](spiffe-jwt/README.md): _Send http requests between workload over a TLS + JWT authentication using automatically rotated X.509 SVIDs and JWT SVIDs from the SPIFFE Workload API_

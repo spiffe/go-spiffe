@@ -34,6 +34,7 @@ func startWatchers(ctx context.Context) {
 	if err != nil {
 		log.Fatalf("Unable to create workload API client: %v", err)
 	}
+	defer client.Close()
 
 	wg.Add(1)
 	// Start a watcher for X.509 SVID updates
