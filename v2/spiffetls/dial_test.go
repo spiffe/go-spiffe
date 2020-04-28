@@ -211,8 +211,9 @@ func TestDialWithMode(t *testing.T) {
 		test := test
 
 		if test.defaultWlAPIAddr != "" {
-			err := os.Setenv("SPIFFE_ENDPOINT_SOCKET", test.defaultWlAPIAddr)
-			require.NoError(t, err)
+			require.NoError(t, os.Setenv("SPIFFE_ENDPOINT_SOCKET", test.defaultWlAPIAddr))
+		} else {
+			require.NoError(t, os.Unsetenv("SPIFFE_ENDPOINT_SOCKET"))
 		}
 
 		t.Run(test.name, func(t *testing.T) {
@@ -271,7 +272,7 @@ func TestDialWithMode(t *testing.T) {
 			}()
 
 			// Assertions
-		loop:
+			defer wg.Wait()
 			for {
 				select {
 				case dialConn := <-dialConnCh:
@@ -282,14 +283,14 @@ func TestDialWithMode(t *testing.T) {
 						require.True(t, externalDialerUsed)
 					}
 					if test.usesBaseTLSConfig {
-						require.NotEmpty(t, externalTLSConfBuffer.String())
+						require.NotEmpty(t, externalTLSConfBuffer)
 					}
 
 					fmt.Fprint(dialConn, testMsg)
 
 				case data := <-listenDataCh:
 					require.Equal(t, testMsg, data)
-					break loop
+					return
 
 				case err := <-listenErrCh:
 					t.Fatalf("Listener failed: %v\n", err)
@@ -297,7 +298,7 @@ func TestDialWithMode(t *testing.T) {
 				case err := <-dialErrCh:
 					if test.expErrContains != "" {
 						require.Contains(t, err.Error(), test.expErrContains)
-						break loop
+						return
 					}
 					require.NoError(t, err)
 
@@ -308,7 +309,6 @@ func TestDialWithMode(t *testing.T) {
 					t.Fatalf("Listen context timed out: %v", err)
 				}
 			}
-			wg.Wait()
 		})
 	}
 }
