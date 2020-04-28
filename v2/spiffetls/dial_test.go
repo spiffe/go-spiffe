@@ -283,7 +283,7 @@ func TestDialWithMode(t *testing.T) {
 						require.True(t, externalDialerUsed)
 					}
 					if test.usesBaseTLSConfig {
-						require.NotEmpty(t, externalTLSConfBuffer)
+						require.NotEmpty(t, externalTLSConfBuffer.Len())
 					}
 
 					fmt.Fprint(dialConn, testMsg)
