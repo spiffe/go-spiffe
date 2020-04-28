@@ -485,6 +485,9 @@ func TestTLSHandshake(t *testing.T) {
 	ca2 := test.NewCA(t)
 	bundle2 := ca2.Bundle(td2)
 
+	ca3 := test.NewCA(t)
+	bundle3 := ca3.Bundle(td)
+
 	testCases := []struct {
 		name         string
 		serverConfig *tls.Config
@@ -509,6 +512,13 @@ func TestTLSHandshake(t *testing.T) {
 			serverConfig: tlsconfig.TLSServerConfig(serverSVID),
 			clientConfig: tlsconfig.TLSClientConfig(bundle2, tlsconfig.AuthorizeMemberOf(td)),
 			clientErr:    `x509svid: could not get X509 bundle: x509bundle: no X.509 bundle found for trust domain: "domain1.test"`,
+			serverErr:    "remote error: tls: bad certificate",
+		},
+		{
+			name:         "unknown authority",
+			serverConfig: tlsconfig.TLSServerConfig(serverSVID),
+			clientConfig: tlsconfig.TLSClientConfig(bundle3, tlsconfig.AuthorizeMemberOf(td)),
+			clientErr:    `x509svid: could not verify leaf certificate: x509: certificate signed by unknown authority`,
 			serverErr:    "remote error: tls: bad certificate",
 		},
 	}
@@ -545,6 +555,19 @@ func TestMTLSHandshake(t *testing.T) {
 	td2 := spiffeid.RequireTrustDomainFromString("domain2.test")
 	ca2 := test.NewCA(t)
 	bundle2 := ca2.Bundle(td2)
+
+	// Create a new bundle with same TD and SVID in order to verify that
+	// presented certificates fails on handshake.
+	ca3 := test.NewCA(t)
+	bundle3 := ca3.Bundle(td)
+
+	svid3ID := td.NewID("client")
+	svid3Certs, key3 := ca3.CreateX509SVID(svid3ID.String())
+	client3SVID := &x509svid.SVID{
+		ID:           svid3ID,
+		Certificates: svid3Certs,
+		PrivateKey:   key3,
+	}
 
 	testCases := []struct {
 		name         string
@@ -586,6 +609,13 @@ func TestMTLSHandshake(t *testing.T) {
 			clientErr:    "remote error: tls: bad certificate",
 			serverErr:    `x509svid: could not get X509 bundle: x509bundle: no X.509 bundle found for trust domain: "domain1.test"`,
 		},
+		{
+			name:         "unknown authority",
+			serverConfig: tlsconfig.MTLSServerConfig(serverSVID, bundle1, tlsconfig.AuthorizeAny()),
+			clientConfig: tlsconfig.MTLSClientConfig(client3SVID, bundle3, tlsconfig.AuthorizeAny()),
+			serverErr:    "remote error: tls: bad certificate",
+			clientErr:    "x509svid: could not verify leaf certificate: x509: certificate signed by unknown authority",
+		},
 	}
 
 	for _, testCase := range testCases {
@@ -620,6 +650,17 @@ func TestMTLSWebHandshake(t *testing.T) {
 	ca2 := test.NewCA(t)
 	bundle2 := ca2.Bundle(td2)
 
+	// Create a new bundle with same TD and SVID in order to verify that
+	// presented certificates fails on handshake.
+	ca3 := test.NewCA(t)
+	svid3ID := td.NewID("client")
+	svid3Certs, key3 := ca3.CreateX509SVID(svid3ID.String())
+	client3SVID := &x509svid.SVID{
+		ID:           svid3ID,
+		Certificates: svid3Certs,
+		PrivateKey:   key3,
+	}
+
 	testCases := []struct {
 		name         string
 		clientConfig *tls.Config
@@ -652,6 +693,13 @@ func TestMTLSWebHandshake(t *testing.T) {
 			clientErr:    "x509: certificate signed by unknown authority",
 			serverConfig: tlsconfig.MTLSWebServerConfig(tlsCert, bundle1, tlsconfig.AuthorizeAny()),
 			serverErr:    "remote error: tls: bad certificate",
+		},
+		{
+			name:         "unknown authority",
+			clientConfig: tlsconfig.MTLSWebClientConfig(client3SVID, roots),
+			serverConfig: tlsconfig.MTLSWebServerConfig(tlsCert, bundle1, tlsconfig.AuthorizeAny()),
+			clientErr:    "remote error: tls: bad certificate",
+			serverErr:    "x509svid: could not verify leaf certificate: x509: certificate signed by unknown authority",
 		},
 	}
 
