@@ -26,25 +26,22 @@ func DialWithMode(ctx context.Context, network, addr string, mode DialMode, opti
 	m := mode.get()
 
 	var sourceCloser io.Closer
-	source := m.source
-	if source == nil {
-		source, err = workloadapi.NewX509Source(ctx, m.options...)
-		if err != nil {
-			return nil, spiffetlsErr.New("cannot create X.509 source: %w", err)
-		}
-		// Close source if there is a failure after this point
-		defer func() {
+	if !m.sourceUnneeded {
+		source := m.source
+		if source == nil {
+			source, err = workloadapi.NewX509Source(ctx, m.options...)
 			if err != nil {
-				source.Close()
+				return nil, spiffetlsErr.New("cannot create X.509 source: %w", err)
 			}
-		}()
-		sourceCloser = source
-	}
-
-	if m.bundle == nil {
+			// Close source if there is a failure after this point
+			defer func() {
+				if err != nil {
+					source.Close()
+				}
+			}()
+			sourceCloser = source
+		}
 		m.bundle = source
-	}
-	if m.svid == nil {
 		m.svid = source
 	}
 
@@ -58,15 +55,15 @@ func DialWithMode(ctx context.Context, network, addr string, mode DialMode, opti
 		tlsConfig = opt.baseTLSConf
 	}
 
-	switch m.tlsType {
-	case typeTLSClient:
+	switch m.mode {
+	case tlsClientMode:
 		tlsconfig.HookTLSClientConfig(tlsConfig, m.bundle, m.authorizer)
-	case typeMTLSClient:
+	case mtlsClientMode:
 		tlsconfig.HookMTLSClientConfig(tlsConfig, m.svid, m.bundle, m.authorizer)
-	case typeMTLSWebClient:
+	case mtlsWebClientMode:
 		tlsconfig.HookMTLSWebClientConfig(tlsConfig, m.svid, m.roots)
 	default:
-		return nil, spiffetlsErr.New("unknown TLS auth mode: %v", m.tlsType)
+		return nil, spiffetlsErr.New("unknown client mode: %v", m.mode)
 	}
 
 	var conn *tls.Conn
