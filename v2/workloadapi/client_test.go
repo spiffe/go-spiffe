@@ -22,16 +22,17 @@ func TestFetchX509SVID(t *testing.T) {
 	ca := test.NewCA(t)
 	wl := fakeworkloadapi.NewWorkloadAPI(t)
 	defer wl.Stop()
-	c, _ := New(context.TODO(), WithAddr(wl.Addr()))
+	c, err := New(context.Background(), WithAddr(wl.Addr()))
+	require.NoError(t, err)
 	defer c.Close()
 	resp := &fakeworkloadapi.X509SVIDResponse{
 		Bundle: ca.Roots(),
-		SVIDs:  makeX509SVIDs([]string{"spiffe://example.org/foo", "spiffe://example.org/bar"}, ca),
+		SVIDs:  makeX509SVIDs(ca, "spiffe://example.org/foo", "spiffe://example.org/bar"),
 	}
 	wl.SetX509SVIDResponse(resp)
-	svid, err := c.FetchX509SVID(context.TODO())
+	svid, err := c.FetchX509SVID(context.Background())
 
-	assert.Nil(t, err)
+	require.Nil(t, err)
 	assert.Equal(t, "spiffe://example.org/foo", svid.ID.String())
 	assert.Len(t, svid.Certificates, 1)
 	assert.NotEmpty(t, svid.PrivateKey)
@@ -41,19 +42,25 @@ func TestFetchX509SVIDs(t *testing.T) {
 	ca := test.NewCA(t)
 	wl := fakeworkloadapi.NewWorkloadAPI(t)
 	defer wl.Stop()
-	c, _ := New(context.TODO(), WithAddr(wl.Addr()))
+	c, err := New(context.Background(), WithAddr(wl.Addr()))
+	require.NoError(t, err)
 	defer c.Close()
 
 	resp := &fakeworkloadapi.X509SVIDResponse{
 		Bundle: ca.Roots(),
-		SVIDs:  makeX509SVIDs([]string{"spiffe://example.org/foo", "spiffe://example.org/bar"}, ca),
+		SVIDs:  makeX509SVIDs(ca, "spiffe://example.org/foo", "spiffe://example.org/bar"),
 	}
 	wl.SetX509SVIDResponse(resp)
 
-	svids, err := c.FetchX509SVIDs(context.TODO())
-	assert.Nil(t, err)
-	assert.Len(t, svids, 2)
+	svids, err := c.FetchX509SVIDs(context.Background())
+	require.Nil(t, err)
+	require.Len(t, svids, 2)
 	assert.Equal(t, "spiffe://example.org/foo", svids[0].ID.String())
+	assert.NotEmpty(t, svids[0].PrivateKey)
+	assert.Len(t, svids[0].Certificates, 1)
+	assert.Equal(t, "spiffe://example.org/bar", svids[1].ID.String())
+	assert.NotEmpty(t, svids[1].PrivateKey)
+	assert.Len(t, svids[1].Certificates, 1)
 }
 
 func TestFetchX509Bundles(t *testing.T) {
@@ -61,19 +68,22 @@ func TestFetchX509Bundles(t *testing.T) {
 	federatedCA := test.NewCA(t)
 	wl := fakeworkloadapi.NewWorkloadAPI(t)
 	defer wl.Stop()
-	c, _ := New(context.TODO(), WithAddr(wl.Addr()))
+	c, err := New(context.Background(), WithAddr(wl.Addr()))
+	require.NoError(t, err)
+	defer c.Close()
 	defer c.Close()
 
 	resp := &fakeworkloadapi.X509SVIDResponse{
 		Bundle:           ca.Roots(),
-		SVIDs:            makeX509SVIDs([]string{"spiffe://example.org/foo", "spiffe://example.org/bar"}, ca),
+		SVIDs:            makeX509SVIDs(ca, "spiffe://example.org/foo", "spiffe://example.org/bar"),
 		FederatedBundles: map[string][]*x509.Certificate{"spiffe://federated.org": federatedCA.Roots()},
 	}
 	wl.SetX509SVIDResponse(resp)
 
-	bundles, err := c.FetchX509Bundles(context.TODO())
-	assert.Nil(t, err)
-	assert.Len(t, bundles.Bundles(), 2)
+	bundles, err := c.FetchX509Bundles(context.Background())
+	require.Nil(t, err)
+	require.Len(t, bundles.Bundles(), 2)
+	//TODO: inspect bundles
 }
 
 func TestFetchX509Context(t *testing.T) {
@@ -81,20 +91,24 @@ func TestFetchX509Context(t *testing.T) {
 	federatedCA := test.NewCA(t)
 	wl := fakeworkloadapi.NewWorkloadAPI(t)
 	defer wl.Stop()
-	c, _ := New(context.TODO(), WithAddr(wl.Addr()))
+	c, err := New(context.Background(), WithAddr(wl.Addr()))
+	require.NoError(t, err)
+	defer c.Close()
 	defer c.Close()
 
 	resp := &fakeworkloadapi.X509SVIDResponse{
 		Bundle:           ca.Roots(),
-		SVIDs:            makeX509SVIDs([]string{"spiffe://example.org/foo", "spiffe://example.org/bar"}, ca),
+		SVIDs:            makeX509SVIDs(ca, "spiffe://example.org/foo", "spiffe://example.org/bar"),
 		FederatedBundles: map[string][]*x509.Certificate{"spiffe://federated.org": federatedCA.Roots()},
 	}
 	wl.SetX509SVIDResponse(resp)
 
-	x509Ctx, err := c.FetchX509Context(context.TODO())
-	assert.Nil(t, err)
-	assert.Len(t, x509Ctx.SVIDs, 2)
+	x509Ctx, err := c.FetchX509Context(context.Background())
+	require.Nil(t, err)
+	require.Len(t, x509Ctx.SVIDs, 2)
+	//TODO: inspect svids
 	assert.Len(t, x509Ctx.Bundles.Bundles(), 2)
+	//TODO: inspect bundles
 }
 
 func TestWatchX509Context(t *testing.T) {
@@ -102,7 +116,9 @@ func TestWatchX509Context(t *testing.T) {
 	federatedCA := test.NewCA(t)
 	wl := fakeworkloadapi.NewWorkloadAPI(t)
 	defer wl.Stop()
-	c, _ := New(context.TODO(), WithAddr(wl.Addr()))
+	c, err := New(context.Background(), WithAddr(wl.Addr()))
+	require.NoError(t, err)
+	defer c.Close()
 	defer c.Close()
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -122,7 +138,7 @@ func TestWatchX509Context(t *testing.T) {
 	// test first update
 	resp := &fakeworkloadapi.X509SVIDResponse{
 		Bundle:           ca.Roots(),
-		SVIDs:            makeX509SVIDs([]string{"spiffe://example.org/foo", "spiffe://example.org/bar"}, ca),
+		SVIDs:            makeX509SVIDs(ca, "spiffe://example.org/foo", "spiffe://example.org/bar"),
 		FederatedBundles: map[string][]*x509.Certificate{"spiffe://federated.org": federatedCA.Roots()},
 	}
 	wl.SetX509SVIDResponse(resp)
@@ -136,7 +152,7 @@ func TestWatchX509Context(t *testing.T) {
 	// test second update
 	resp = &fakeworkloadapi.X509SVIDResponse{
 		Bundle:           ca.Roots(),
-		SVIDs:            makeX509SVIDs([]string{"spiffe://example.org/baz"}, ca),
+		SVIDs:            makeX509SVIDs(ca, "spiffe://example.org/baz"),
 		FederatedBundles: map[string][]*x509.Certificate{"spiffe://federated.org": federatedCA.Roots()},
 	}
 	wl.SetX509SVIDResponse(resp)
@@ -159,26 +175,25 @@ func TestWatchX509Context(t *testing.T) {
 func TestFetchJWTSVID(t *testing.T) {
 	ca := test.NewCA(t)
 	wl := fakeworkloadapi.NewWorkloadAPI(t)
-	c, _ := New(context.TODO(), WithAddr(wl.Addr()))
 	defer wl.Stop()
+	c, _ := New(context.Background(), WithAddr(wl.Addr()))
 	defer c.Close()
 
-	spiffeID, _ := spiffeid.New("spiffe://example.org", "mytoken")
-	audience := []string{"spiffe://example.org/audience", "spiffe://example.org/extra_audience"}
-	respJWT := makeJWTSVIDResponse(spiffeID.String(), audience, ca)
+	spiffeID := spiffeid.RequireFromString("spiffe://example.org/mytoken")
+	respJWT := makeJWTSVIDResponse(ca, spiffeID.String(), "spiffe://example.org/audience", "spiffe://example.org/extra_audience")
 	wl.SetJWTSVIDResponse(respJWT)
 
 	params := jwtsvid.Params{
 		Subject:        spiffeID,
-		Audience:       audience[0],
+		Audience:       "spiffe://example.org/audience",
 		ExtraAudiences: []string{"spiffe://example.org/extra_audience"},
 	}
 
-	jwtSvid, err := c.FetchJWTSVID(context.TODO(), params)
+	jwtSvid, err := c.FetchJWTSVID(context.Background(), params)
 
-	assert.Nil(t, err)
+	require.Nil(t, err)
 	assert.Equal(t, "spiffe://example.org/mytoken", jwtSvid.ID.String())
-	assert.Equal(t, audience, jwtSvid.Audience)
+	assert.Equal(t, []string{"spiffe://example.org/audience", "spiffe://example.org/extra_audience"}, jwtSvid.Audience)
 	assert.NotNil(t, jwtSvid.Claims)
 	assert.NotEmpty(t, jwtSvid.Expiry)
 	assert.NotEmpty(t, jwtSvid.Marshal())
@@ -187,8 +202,9 @@ func TestFetchJWTSVID(t *testing.T) {
 func TestFetchJWTBundles(t *testing.T) {
 	ca := test.NewCA(t)
 	wl := fakeworkloadapi.NewWorkloadAPI(t)
-	c, _ := New(context.TODO(), WithAddr(wl.Addr()))
 	defer wl.Stop()
+	c, err := New(context.Background(), WithAddr(wl.Addr()))
+	require.NoError(t, err)
 	defer c.Close()
 
 	jwk1 := ca.PublicJWTKey()
@@ -199,13 +215,14 @@ func TestFetchJWTBundles(t *testing.T) {
 	}
 	wl.SetJWTBundle("spiffe://example.org", keys)
 
-	bundleSet, err := c.FetchJWTBundles(context.TODO())
+	bundleSet, err := c.FetchJWTBundles(context.Background())
 
-	assert.Nil(t, err)
+	require.Nil(t, err)
 	assert.Equal(t, 1, bundleSet.Len())
-	spiffeID, _ := spiffeid.New("spiffe://example.org")
-	assert.True(t, bundleSet.Has(spiffeID.TrustDomain()))
-	bundle, _ := bundleSet.Get(spiffeID.TrustDomain())
+	td := spiffeid.RequireTrustDomainFromString("spiffe://example.org")
+	assert.True(t, bundleSet.Has(td))
+	bundle, ok := bundleSet.Get(td)
+	require.True(t, ok)
 	assert.Len(t, bundle.JWTAuthorities(), 2)
 }
 
@@ -213,11 +230,13 @@ func TestWatchJWTBundles(t *testing.T) {
 	ca := test.NewCA(t)
 	wl := fakeworkloadapi.NewWorkloadAPI(t)
 	defer wl.Stop()
-	c, _ := New(context.TODO(), WithAddr(wl.Addr()))
+	c, err := New(context.Background(), WithAddr(wl.Addr()))
+	require.NoError(t, err)
+	defer c.Close()
 	defer c.Close()
 	ctx, cancel := context.WithCancel(context.Background())
 
-	td, _ := spiffeid.TrustDomainFromString("spiffe://example.org")
+	td := spiffeid.RequireTrustDomainFromString("spiffe://example.org")
 	tw := newTestWatcher(t)
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -242,7 +261,8 @@ func TestWatchJWTBundles(t *testing.T) {
 
 	assert.Len(t, tw.Errors(), 1)
 	update := tw.JwtBundles()[len(tw.JwtBundles())-1]
-	bundle, _ := update.Get(td)
+	bundle, ok := update.Get(td)
+	require.True(t, ok)
 	assert.Len(t, bundle.JWTAuthorities(), 1)
 	assert.NotNil(t, bundle.JWTAuthorities()["1"])
 
@@ -258,7 +278,8 @@ func TestWatchJWTBundles(t *testing.T) {
 
 	assert.Len(t, tw.Errors(), 1)
 	update = tw.JwtBundles()[len(tw.JwtBundles())-1]
-	bundle, _ = update.Get(td)
+	bundle, ok = update.Get(td)
+	require.True(t, ok)
 	assert.Len(t, bundle.JWTAuthorities(), 2)
 	assert.NotNil(t, bundle.JWTAuthorities()["1"])
 	assert.NotNil(t, bundle.JWTAuthorities()["2"])
@@ -275,42 +296,43 @@ func TestWatchJWTBundles(t *testing.T) {
 func TestValidateJWTSVID(t *testing.T) {
 	ca := test.NewCA(t)
 	wl := fakeworkloadapi.NewWorkloadAPI(t)
-	c, _ := New(context.TODO(), WithAddr(wl.Addr()))
 	defer wl.Stop()
+	c, err := New(context.Background(), WithAddr(wl.Addr()))
+	require.NoError(t, err)
 	defer c.Close()
 
 	audience := []string{"spiffe://example.org/me", "spiffe://example.org/me_too"}
 	token := ca.CreateJWTSVID("spiffe://example.org/workload", audience)
 
 	t.Run("first audience is valid", func(t *testing.T) {
-		jwtSvid, err := c.ValidateJWTSVID(context.TODO(), token, audience[0])
+		jwtSvid, err := c.ValidateJWTSVID(context.Background(), token, audience[0])
 		assert.Nil(t, err)
 		assert.NotNil(t, jwtSvid)
 	})
 
 	t.Run("second audience is valid", func(t *testing.T) {
-		jwtSvid, err := c.ValidateJWTSVID(context.TODO(), token, audience[1])
+		jwtSvid, err := c.ValidateJWTSVID(context.Background(), token, audience[1])
 		assert.Nil(t, err)
 		assert.NotNil(t, jwtSvid)
 	})
 
 	t.Run("invalid audience returns error", func(t *testing.T) {
-		jwtSvid, err := c.ValidateJWTSVID(context.TODO(), token, "spiffe://example.org/not_me")
+		jwtSvid, err := c.ValidateJWTSVID(context.Background(), token, "spiffe://example.org/not_me")
 		assert.NotNil(t, err)
 		assert.Nil(t, jwtSvid)
 	})
 }
 
-func makeX509SVIDs(spiffeIDs []string, ca *test.CA) []fakeworkloadapi.X509SVID {
+func makeX509SVIDs(ca *test.CA, ids ...string) []fakeworkloadapi.X509SVID {
 	svids := []fakeworkloadapi.X509SVID{}
-	for _, id := range spiffeIDs {
+	for _, id := range ids {
 		svid, key := ca.CreateX509SVID(id)
 		svids = append(svids, fakeworkloadapi.X509SVID{CertChain: svid, Key: key})
 	}
 	return svids
 }
 
-func makeJWTSVIDResponse(spiffeID string, audience []string, ca *test.CA) *workload.JWTSVIDResponse {
+func makeJWTSVIDResponse(ca *test.CA, spiffeID string, audience ...string) *workload.JWTSVIDResponse {
 	token := ca.CreateJWTSVID(spiffeID, audience)
 	svids := []*workload.JWTSVID{
 		{

@@ -91,8 +91,7 @@ func (ca *CA) PublicJWTKey() crypto.PublicKey {
 }
 
 func (ca *CA) CreateJWTSVID(spiffeID string, audience []string) string {
-	d, _ := time.ParseDuration("1h")
-	expiry := time.Now().Add(d)
+	expiry := time.Now().Add(time.Hour)
 	claims := jwt.Claims{
 		Subject:  spiffeID,
 		Issuer:   "FAKECA",
