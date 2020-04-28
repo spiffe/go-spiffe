@@ -4,11 +4,10 @@ This section contains a set of standalone examples that demonstrate different us
 
 ## Use cases
 
-- [SVIDs for mTLS connections](spiffe-tls/README.md): _Get automatically rotated X.509 SVIDs for your workloads and use it to establish mTLS connections between them._
+- [Mutually Authenticated TLS (mTLS)](spiffe-tls/README.md): _Establish mTLS connections between workloads using automatically rotated X.509 SVIDs obtained from the SPIFFE Workload API _
 
 - [SVIDs stream](spiffe-watcher/README.md): _Get automatically rotated X.509 SVIDs and JWT Bundles for your workload._
 
-- [SVIDS for gRPC connections](spiffe-grpc/README.md): _Get automatically rotated X.509 SVIDs for gRPC server and client, and use them to establish mTLS connections between them._
+- [gRPC over mTLS](spiffe-grpc/README.md): _Send gRPC requests between workloads over mTLS using automatically rotated X.509 SVIDs obtained from the SPIFFE Workload API_ 
 
-- [SVIDS for http connections](spiffe-http/README.md): _Get automatically rotated X.509 SVIDs for http server and client, and use them to establish mTLS connections between them._ 
-
+- [HTTP over mTLS](spiffe-http/README.md): _Send HTTP requests between workloads over mTLS using automatically rotated X.509 SVIDs obtained from the SPIFFE Workload API_ 

@@ -1,22 +1,22 @@
 # gRPC SVID example 
 
-This example shows how two services using http can communicate using mTLS with X509 SVIDs obtained from SPIFFE workload API.
+This example shows how two services using HTTP can communicate using mTLS with X509 SVIDs obtained from SPIFFE workload API.
 
-Each service is connecting to workload API to fetch its identities. Since this example assumes the SPIRE implementation, it uses the SPIRE default socket path: `/tmp/agent.sock`. 
+Each service is connecting to the Workload API to fetch its identities. Since this example assumes the SPIRE implementation, it uses the SPIRE default socket path: `/tmp/agent.sock`. 
 
 ```go
 source, err := workloadapi.NewX509Source(ctx, workloadapi.WithClientOptions(workloadapi.WithAddr(socketPath)))
 ```
 
-In case socket path is not provided using [SourceOption](../../workloadapi/option.go#L39) the value from the environment variable `SPIFFE_ENDPOINT_SOCKET` is used
+When the socket path is not provided, the value from the `SPIFFE_ENDPOINT_SOCKET` environment variable is used.
 
 ```go
 source, err := workloadapi.NewX509Source(ctx)
 ```
 
-Then, the **http server** creates a `tls.Config` with server configurations to allow mTLS connections, using previously created [workloadapi.X509Source](../../workloadapi/x509source.go#L17) and validates than the certificate presented to server from client has SPIFFE ID `spiffe://examples.org/client`.
+The **HTTP server** uses the [workloadapi.X509Source](https://pkg.go.dev/github.com/spiffe/go-spiffe/v2/workloadapi?tab=doc#X509Source) to create a `tls.Config` for mTLS that authenticates the client certificate and verifies that it has the SPIFFE ID `spiffe://examples.org/client`.
 
-Created `tls.Config` is used when creating gRPC server.
+The `tls.Config` is used when creating the HTTP server.
 
 ```go
 clientID := spiffeid.Must("example.org", "client")
@@ -28,7 +28,7 @@ server := &http.Server{
 }
 ```
 	
-On the other hand, the **http client** creates a `tls.Config` with client configurations to allow mTLS connections, , using previously created [workloadapi.X509Source](../../workloadapi/x509source.go#L17) and validates than the certificate presented to server from client has SPIFFE ID `spiffe://examples.org/server`. 
+On the other side, the **HTTP client** uses the [workloadapi.X509Source](https://pkg.go.dev/github.com/spiffe/go-spiffe/v2/workloadapi?tab=doc#X509Source) to create a `tls.Config` for mTLS that authenticates the client certificate and verifies that it has the SPIFFE ID `spiffe://examples.org/server`. 
 
 ```go
 serverID := spiffeid.Must("example.org", "server")
@@ -41,11 +41,11 @@ client := &http.Client{
 }
 ```
 
-In both cases, a [tlsconfig.Authorizer](../../spiffetls/tlsconfig/authorizer.go#L12) is set to validate the workload is authorized to connect to the other peer. In this example, the [tlsconfig.Authorizer](../../spiffetls/tlsconfig/authorizer.go#L12) was used to allow the client to reach the server and vice versa.
+The [tlsconfig.Authorizer](https://pkg.go.dev/github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig?tab=doc#Authorizer) is used to authorize the mTLS peer. In this example, both the client and server use it to authorize the specific SPIFFE ID of the other side of the connection.
 
-That is it. The go-spiffe library fetches and automatically renews the X.509 SVIDs of both workloads according to the policy defined in the Workload API provider configuration. In this case, the SPIRE server configuration file.
+That is it! The go-spiffe library fetches and automatically renews the X.509 SVIDs of both workloads from the Workload API provider (i.e. SPIRE).
 
-As soon as the mTLS connection is established, the client sends a message to the server and gets a response.
+As soon as the mTLS connection is established, the client sends an HTTP request to the server and gets a response.
 
 ## Building
 Build the client workload:
@@ -62,11 +62,11 @@ go build
 
 ## Running
 This example assumes the following preconditions:
-- There are a SPIRE server and agent up and running.
+- There is a SPIRE server and agent up and running.
 - There is a Unix workload attestor configured.
 - The trust domain is `example.org`
 - The agent SPIFFE ID is `spiffe://example.org/host`.
-- There are a `server-workload` and `client-workload` users in the system.
+- There is a `server-workload` and `client-workload` user in the system.
 
 ### 1. Create the registration entries
 Create the registration entries for the client and server workloads:
@@ -99,7 +99,7 @@ sudo -u client-workload ./client
 
 The server should display a log `call received` and client `Success!!!`
 
-If a workload with another SPIFFE ID tries to establish a connection, the server will reject it. 
+If either workload encounters a peer with a different SPIFFE ID, they will abort the TLS handshake and the connection will fail.
 
 ```
 sudo -u server-workload ./client

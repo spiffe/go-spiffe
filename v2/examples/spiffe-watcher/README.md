@@ -1,8 +1,8 @@
 # X.509 SVID Watcher example
 
-This example shows how a service can obtain X.509 SVIDs and JWT Bundles from the SPIFFE workload API which are automatically rotated before expiration.
+This example shows how a service can obtain automatically rotated X.509 SVIDs and JWT Bundles from the SPIFFE Workload API.
 
-The first step is to create a workload API client. It implements different methods to query the SPIFFE Workload API. It takes a [workloadapi.ClientOption](../../workloadapi/option.go#L10) to create client.
+The first step is to create a Workload API client. The code assumes it is talking to [SPIRE](https://github.com/spiffe/spire) and uses a [workloadapi.ClientOption](https://pkg.go.dev/github.com/spiffe/go-spiffe/v2/workloadapi?tab=doc#ClientOption) to provide the address to the SPIRE Agent socket.
 
 ```go
 client, err := workloadapi.New(ctx, workloadapi.WithAddr(socketPath))
@@ -14,17 +14,14 @@ In case `workloadapi.WithAddr` is not provided, the value of `SPIFFE_ENDPOINT_SO
 client, err := workloadapi.New(ctx)
 ```
 
-The library provides a watcher interface type [workloadapi.X509ContextWatcher](../../workloadapi/client.go#L322) to manipulate responses when SVIDs rotations or errors.
+The library uses a watcher interface  [workloadapi.X509ContextWatcher](https://pkg.go.dev/github.com/spiffe/go-spiffe/v2/workloadapi?tab=doc#X509ContextWatcher) to send updates (or errors) to clients.
 
-The watcher for X.509 SVID is used in [workloadapi.WatchX509Context](../../workloadapi/client.go#L151) function.
 ```go
 err = client.WatchX509Context(ctx, &x509Watcher{})
 ```
-The watcher will be notifier every time an SVID is update or an error occurrs
+The watcher will be notified every time an SVID is updated or an error occurs.
 
-It is possible to watch for JWT Bundles updates. The library provide a watcher interface type [workloadapi.JWTBundleWatcher](../../workloadapi/client.go#L333) to manipulate responses on JWT Bundles rotations or errors.
-
-The watcher for JWT Bundles is used in  [workloadapi.WatchJWTBundles](../../workloadapi/client.go#L201) 
+It is possible to watch for JWT Bundles updates:
 ```go
 err = client.WatchJWTBundles(ctx, &jwtWatcher{})
 ```
@@ -41,7 +38,7 @@ go build
 
 ## Running
 This example assumes the following preconditions:
-- There are a SPIRE server and agent up and running.
+- There is a SPIRE server and agent up and running.
 - There is a Unix workload attestor configured.
 - The trust domain is `example.org`
 - The agent SPIFFE ID is `spiffe://example.org/host`.
@@ -95,5 +92,3 @@ gLI5JLc=
 jwt bundle updated "example.org": {"keys":[{"kty":"EC","kid":"KULvTqUAs9SwuYGoO06ifavOQkA5Dkic","crv":"P-256","x":"WtHZ13-FO_B4SXhYbtXE-e7TmFl_txMOtY-Ls3jWPeE","y":"UNkGvC4MYOUXbgoHRCXGAtSTVE9zqXCkecjTB2cj9RA"}]}
 jwt bundle updated "example.org": {"keys":[{"kty":"EC","kid":"KULvTqUAs9SwuYGoO06ifavOQkA5Dkic","
 ```
-
-

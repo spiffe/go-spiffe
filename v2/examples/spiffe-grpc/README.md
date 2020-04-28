@@ -1,22 +1,22 @@
-# gRPC SVID example 
+# gRPC over mTLS example 
 
-This example shows how two services using gRPC can communicate using mTLS with X509 SVIDs obtained from SPIFFE workload API.
+This example shows how two services using gRPC can communicate using mTLS with X509 SVIDs obtained from SPIFFE Workload API.
 
-Each service is connecting to workload API to fetch its identities. Since this example assumes the SPIRE implementation, it uses the SPIRE default socket path: `/tmp/agent.sock`. 
+Each service is connecting to the Workload API to fetch its identities. Since this example assumes the SPIRE implementation, it uses the SPIRE default socket path: `/tmp/agent.sock`. 
 
 ```go
 source, err := workloadapi.NewX509Source(ctx, workloadapi.WithClientOptions(workloadapi.WithAddr(socketPath)))
 ```
 
-In case socket path is not provided using [SourceOption](../../workloadapi/option.go#L39) the value from the environment variable `SPIFFE_ENDPOINT_SOCKET` is used
+When the socket path is not provided, the value from the `SPIFFE_ENDPOINT_SOCKET` environment variable is used.
 
 ```go
 source, err := workloadapi.NewX509Source(ctx)
 ```
 
-Then, the **gRPC server** creates a `tls.Config` with server configurations to allow mTLS connections, using previously created [workloadapi.X509Source](../../workloadapi/x509source.go#L17) and validates than the certificate presented to server from client has SPIFFE ID `spiffe://examples.org/client`.
+The **gRPC server** uses the [workloadapi.X509Source](https://pkg.go.dev/github.com/spiffe/go-spiffe/v2/workloadapi?tab=doc#X509Source) to create a `tls.Config` for mTLS that authenticates the client certificate and verifies that it has the SPIFFE ID `spiffe://examples.org/client`.
 
-Created `tls.Config` is used when creating gRPC server.
+The `tls.Config` is used to create TLS transport credentials for the gRPC server.
 
 ```go
 clientID := spiffeid.Must("example.org", "client")
@@ -25,7 +25,7 @@ tlsConfig := tlsconfig.MTLSServerConfig(source, source, tlsconfig.AuthorizeID(cl
 s := grpc.NewServer(grpc.Creds(credentials.NewTLS(tlsConfig)))
 ```
 	
-On the other hand, the **gRPC client** creates a `tls.Config` with client configurations to allow mTLS connections, , using previously created [workloadapi.X509Source](../../workloadapi/x509source.go#L17) and validates than the certificate presented to server from client has SPIFFE ID `spiffe://examples.org/server`. 
+On the other side, the **gRPC client** uses the [workloadapi.X509Source](https://pkg.go.dev/github.com/spiffe/go-spiffe/v2/workloadapi?tab=doc#X509Source) to create a `tls.Config` for mTLS that authenticates the server certificate and verifies that it has the SPIFFE ID `spiffe://examples.org/server`.
 
 ```go
 serverID := spiffeid.Must("example.org", "server")
@@ -34,9 +34,9 @@ tlsConfig := tlsconfig.MTLSClientConfig(source, source, tlsconfig.AuthorizeID(se
 conn, err := grpc.DialContext(ctx, "localhost:50051", grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
 ```
 
-In both cases, a [tlsconfig.Authorizer](../../spiffetls/tlsconfig/authorizer.go#L12) is set to validate the workload is authorized to connect to the other peer. In this example, the [tlsconfig.Authorizer](../../spiffetls/tlsconfig/authorizer.go#L12) was used to allow the client to reach the server and vice versa.
+The [tlsconfig.Authorizer](https://pkg.go.dev/github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig?tab=doc#Authorizer) is used to authorize the mTLS peer. In this example, both the client and server use it to authorize the specific SPIFFE ID of the other side of the connection.
 
-That is it. The go-spiffe library fetches and automatically renews the X.509 SVIDs of both workloads according to the policy defined in the Workload API provider configuration. In this case, the SPIRE server configuration file.
+That is it! The go-spiffe library fetches and automatically renews the X.509 SVIDs of both workloads from the Workload API provider (i.e. SPIRE).
 
 As soon as the mTLS connection is established, the client sends a message to the server and gets a response.
 
@@ -90,9 +90,9 @@ Run the client with the `client-workload` user:
 sudo -u client-workload ./client
 ```
 
-The server should have got a _"world"_ message and responded with a _"Hello world"_ message.
+The server should have received a _"world"_ message and responded with a _"Hello world"_ message.
 
-If a workload with another SPIFFE ID tries to establish a connection, the server will reject it. 
+If either workload encounters a peer with a different SPIFFE ID, they will abort the TLS handshake and the connection will fail. 
 
 ```
 sudo -u server-workload ./client

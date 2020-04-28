@@ -1,11 +1,11 @@
-# Mutual TLS example
+# Mutual TLS Example
 
-This example shows how two services can communicate using mTLS with X.509 SVIDs obtained from the SPIFFE workload API. 
+This example shows how two services can communicate using mTLS with X.509 SVIDs obtained from the SPIFFE Workload API. 
 
-One of the workloads acts as a client and the other as the server. , it uses the SPIRE default socket path: `/tmp/agent.sock`. This value can also be set directly in the environment or using the [workloadapi.ClientOption](../../workloadapi/option.go#L17) function.
+One of the workloads acts as a client and the other as the server. The use the SPIRE default socket path: `/tmp/agent.sock`. This value can also be set via the `SPIFFE_ENDOINT_SOCKET` environment variable.
 
-The **server workload** creates a listener using the [spiffetls.Listen](../../spiffetls/listen.go#L38) function.
-It uses [spiffetls.MTLSServerWithSourceOptions](../../spiffetls/mode.go#L281) to configure source, and validates presented certificate from client has expected SPIFFE ID.
+The **server workload** creates a listener using the [spiffetls.Listen](https://pkg.go.dev/github.com/spiffe/go-spiffe/v2/spiffetls?tab=doc#Listen) function.
+It uses [spiffetls.MTLSServerWithSourceOptions](https://pkg.go.dev/github.com/spiffe/go-spiffe/v2/spiffetls?tab=doc#MTLSServerWithSourceOptions) to configure  the source, and validates that clients present an X509-SVID with an expected SPIFFE ID.
 
 ```go
 listener, err := spiffetls.ListenWithMode(ctx, "tcp", serverAddress,
@@ -15,14 +15,14 @@ listener, err := spiffetls.ListenWithMode(ctx, "tcp", serverAddress,
     ))
 ```
 
-Another alternative is to use [](../../spiffetls/listen.go#L21) it will use the value from environment variable `SPIFFE_ENDPOINT_SOCKET` to create connection to workload API
+Alternatively, the listener can use the `SPIFFE_ENDPOINT_SOCKET` environment variable to locate the Workload API.
 
 ```go
 listener, err := spiffetls.Listen(context.Background(), "tcp", serverAddress, tlsconfig.AuthorizeID(spiffeID))
 ```
 
-On the other hand, the **client workload** creates a `net.Conn` using the [spiffetls.Dial](../../spiffetls/dial.go#L25) function. 
-It uses [spiffetls.MTLSServerWithSourceOptions](../../spiffetls/mode.go#L281) to configure source, and validates than presented certificate from server has expected SPIFFE ID.
+On the other side, the **client workload** dials the server using the [spiffetls.Dial](https://pkg.go.dev/github.com/spiffe/go-spiffe/v2/spiffetls?tab=doc#Dial) function. 
+It uses [spiffetls.MTLSClientWithSourceOptions](https://pkg.go.dev/github.com/spiffe/go-spiffe/v2/spiffetls?tab=doc#MTLSClientWithSourceOptions) to configure the source with the Workload API address, and validates that the server X509-SVID has the expected SPIFFE ID.
 
 ```go
 conn, err := spiffetls.DialWithMode(ctx, "tcp", serverAddress,
@@ -32,15 +32,15 @@ conn, err := spiffetls.DialWithMode(ctx, "tcp", serverAddress,
     ))
 ```
 
-In the same way than with Listen, Dial allows using environment variable `SPIFFE_ENDPOINT_SOCKET` to create connection to workload API
+As with Listen, Dial can also use the `SPIFFE_ENDPOINT_SOCKET` environment variable to locate the Workload API
 
 ```go
 conn, err := spiffetls.Dial(ctx, "tcp", serverAddress, tlsconfig.AuthorizeID(spiffeID))
 ``` 
 
-In both cases, a [tlsconfig.Authorizer](../../spiffetls/tlsconfig/authorizer.go#L12) is set to validate the workload is authorized to connect to the other peer. In this example, the [tlsconfig.Authorizer](../../spiffetls/tlsconfig/authorizer.go#L12) was used to allow the client to reach the server and vice versa.
+The [tlsconfig.Authorizer](https://pkg.go.dev/github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig?tab=doc#Authorizer) is used to authorize the mTLS peer. In this example, both the client and server use it to authorize the specific SPIFFE ID of the other side of the connection.
 
-That is it. The go-spiffe library fetches and automatically renews the X.509 SVIDs of both workloads according to the policy defined in the Workload API provider configuration. In this case, the SPIRE server configuration file.
+That is it! The go-spiffe library fetches and automatically renews the X.509 SVIDs of both workloads from the Workload API provider (i.e. SPIRE).
 
 As soon as the mTLS connection is established, the client sends a message to the server and gets a response.
 
@@ -60,11 +60,11 @@ go build
 
 ## Running
 This example assumes the following preconditions:
-- There are a SPIRE server and agent up and running.
+- There is a SPIRE server and agent up and running.
 - There is a Unix workload attestor configured.
 - The trust domain is `example.org`
 - The agent SPIFFE ID is `spiffe://example.org/host`.
-- There are a `server-workload` and `client-workload` users in the system.
+- There is a `server-workload` and `client-workload` user in the system.
 
 ### 1. Create the registration entries
 Create the registration entries for the client and server workloads:
@@ -97,7 +97,7 @@ sudo -u client-workload ./client
 
 The server should have got a _"Hello server"_ message and responded with a _"Hello client"_ message.
 
-If a workload with another SPIFFE ID tries to establish a connection, the server will reject it. 
+If either workload encounters a peer with a different SPIFFE ID, they will abort the TLS handshake and the connection will fail. 
  
 ```
 sudo -u server-workload ./client
