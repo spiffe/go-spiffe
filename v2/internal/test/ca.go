@@ -27,6 +27,8 @@ type CA struct {
 	parent *CA
 	cert   *x509.Certificate
 	key    crypto.Signer
+	jwtKey crypto.Signer
+	jwtKid string
 }
 
 type CertificateOption interface {
@@ -41,10 +43,15 @@ func (co certificateOption) apply(c *x509.Certificate) {
 
 func NewCA(tb testing.TB, options ...CertificateOption) *CA {
 	cert, key := CreateCACertificate(tb, nil, nil, options...)
+	jwtKey := NewEC256Key(tb)
+	jwtKid := NewKeyID(tb)
+
 	return &CA{
-		tb:   tb,
-		cert: cert,
-		key:  key,
+		tb:     tb,
+		cert:   cert,
+		key:    key,
+		jwtKey: jwtKey,
+		jwtKid: jwtKid,
 	}
 }
 
@@ -79,17 +86,15 @@ func (ca *CA) Bundle(td spiffeid.TrustDomain) *x509bundle.Bundle {
 	return bundle
 }
 
-func (ca *CA) PublicKey() crypto.PublicKey {
-	return ca.key.Public()
+func (ca *CA) PublicJWTKey() crypto.PublicKey {
+	return ca.jwtKey.Public()
 }
 
 func (ca *CA) CreateJWTSVID(spiffeID string, audience []string) string {
-	issuer := "CA"
-	d, _ := time.ParseDuration("1h")
-	expiry := time.Now().Add(d)
+	expiry := time.Now().Add(time.Hour)
 	claims := jwt.Claims{
 		Subject:  spiffeID,
-		Issuer:   issuer,
+		Issuer:   "FAKECA",
 		Audience: audience,
 		IssuedAt: jwt.NewNumericDate(time.Now()),
 		Expiry:   jwt.NewNumericDate(expiry),
@@ -98,20 +103,18 @@ func (ca *CA) CreateJWTSVID(spiffeID string, audience []string) string {
 	jwtSigner, err := jose.NewSigner(
 		jose.SigningKey{
 			Algorithm: jose.ES256,
-			Key:       cryptosigner.Opaque(ca.key),
+			Key: jose.JSONWebKey{
+				Key:   cryptosigner.Opaque(ca.jwtKey),
+				KeyID: ca.jwtKid,
+			},
 		},
 		new(jose.SignerOptions).WithType("JWT"),
 	)
-	if err != nil {
-		ca.tb.Error(err)
-		return ""
-	}
+	require.NoError(ca.tb, err)
 
 	signedToken, err := jwt.Signed(jwtSigner).Claims(claims).CompactSerialize()
-	if err != nil {
-		ca.tb.Error(err)
-		return ""
-	}
+	require.NoError(ca.tb, err)
+
 	return signedToken
 }
 func CreateCACertificate(tb testing.TB, parent *x509.Certificate, parentKey crypto.Signer, options ...CertificateOption) (*x509.Certificate, crypto.Signer) {
