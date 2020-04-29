@@ -37,7 +37,7 @@ func TestFetchX509SVID(t *testing.T) {
 	wl.SetX509SVIDResponse(resp)
 	svid, err := c.FetchX509SVID(context.Background())
 
-	require.Nil(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "spiffe://example.org/foo", svid.ID.String())
 	assert.Len(t, svid.Certificates, 1)
 	assert.NotEmpty(t, svid.PrivateKey)
@@ -58,7 +58,7 @@ func TestFetchX509SVIDs(t *testing.T) {
 	wl.SetX509SVIDResponse(resp)
 
 	svids, err := c.FetchX509SVIDs(context.Background())
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Len(t, svids, 2)
 	assert.Equal(t, "spiffe://example.org/foo", svids[0].ID.String())
 	assert.NotEmpty(t, svids[0].PrivateKey)
@@ -78,17 +78,27 @@ func TestFetchX509Bundles(t *testing.T) {
 	defer c.Close()
 	defer c.Close()
 
-	resp := &fakeworkloadapi.X509SVIDResponse{
+	svids := makeX509SVIDs(ca, "spiffe://example.org/foo", "spiffe://example.org/bar")
+
+	wl.SetX509SVIDResponse(&fakeworkloadapi.X509SVIDResponse{
 		Bundle:           ca.X509Bundle(),
-		SVIDs:            makeX509SVIDs(ca, "spiffe://example.org/foo", "spiffe://example.org/bar"),
+		SVIDs:            svids,
 		FederatedBundles: []*x509bundle.Bundle{federatedCA.X509Bundle()},
-	}
-	wl.SetX509SVIDResponse(resp)
+	})
 
 	bundles, err := c.FetchX509Bundles(context.Background())
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Len(t, bundles.Bundles(), 2)
 	//TODO: inspect bundles
+
+	// Now set the next response without any bundles and assert that the call
+	// fails since the bundle cannot be empty.
+	wl.SetX509SVIDResponse(&fakeworkloadapi.X509SVIDResponse{
+		SVIDs: svids,
+	})
+	bundles, err = c.FetchX509Bundles(context.Background())
+	require.EqualError(t, err, `empty X.509 bundle for trust domain "example.org"`)
+	require.Nil(t, bundles)
 }
 
 func TestFetchX509Context(t *testing.T) {
@@ -101,19 +111,30 @@ func TestFetchX509Context(t *testing.T) {
 	defer c.Close()
 	defer c.Close()
 
+	svids := makeX509SVIDs(ca, "spiffe://example.org/foo", "spiffe://example.org/bar")
+
 	resp := &fakeworkloadapi.X509SVIDResponse{
 		Bundle:           ca.X509Bundle(),
-		SVIDs:            makeX509SVIDs(ca, "spiffe://example.org/foo", "spiffe://example.org/bar"),
+		SVIDs:            svids,
 		FederatedBundles: []*x509bundle.Bundle{federatedCA.X509Bundle()},
 	}
 	wl.SetX509SVIDResponse(resp)
 
 	x509Ctx, err := c.FetchX509Context(context.Background())
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Len(t, x509Ctx.SVIDs, 2)
 	//TODO: inspect svids
 	assert.Len(t, x509Ctx.Bundles.Bundles(), 2)
 	//TODO: inspect bundles
+
+	// Now set the next response without any bundles and assert that the call
+	// fails since the bundle cannot be empty.
+	wl.SetX509SVIDResponse(&fakeworkloadapi.X509SVIDResponse{
+		SVIDs: svids,
+	})
+	x509Ctx, err = c.FetchX509Context(context.Background())
+	require.EqualError(t, err, `empty X.509 bundle for trust domain "example.org"`)
+	require.Nil(t, x509Ctx)
 }
 
 func TestWatchX509Context(t *testing.T) {
@@ -196,7 +217,7 @@ func TestFetchJWTSVID(t *testing.T) {
 
 	jwtSvid, err := c.FetchJWTSVID(context.Background(), params)
 
-	require.Nil(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "spiffe://example.org/mytoken", jwtSvid.ID.String())
 	assert.Equal(t, []string{"spiffe://example.org/audience", "spiffe://example.org/extra_audience"}, jwtSvid.Audience)
 	assert.NotNil(t, jwtSvid.Claims)
@@ -216,7 +237,7 @@ func TestFetchJWTBundles(t *testing.T) {
 
 	bundleSet, err := c.FetchJWTBundles(context.Background())
 
-	require.Nil(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, 1, bundleSet.Len())
 	assert.True(t, bundleSet.Has(td))
 	bundle, ok := bundleSet.Get(td)
@@ -293,13 +314,13 @@ func TestValidateJWTSVID(t *testing.T) {
 
 	t.Run("first audience is valid", func(t *testing.T) {
 		jwtSvid, err := c.ValidateJWTSVID(context.Background(), token, audience[0])
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 		assert.NotNil(t, jwtSvid)
 	})
 
 	t.Run("second audience is valid", func(t *testing.T) {
 		jwtSvid, err := c.ValidateJWTSVID(context.Background(), token, audience[1])
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 		assert.NotNil(t, jwtSvid)
 	})
 
