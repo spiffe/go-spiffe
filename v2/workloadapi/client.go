@@ -74,7 +74,7 @@ func (c *Client) FetchX509SVID(ctx context.Context) (*x509svid.SVID, error) {
 		return nil, err
 	}
 
-	svids, err := parseX509SVIDs(resp, 1)
+	svids, err := parseX509SVIDs(resp, true)
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +97,7 @@ func (c *Client) FetchX509SVIDs(ctx context.Context) ([]*x509svid.SVID, error) {
 		return nil, err
 	}
 
-	return parseX509SVIDs(resp, -1)
+	return parseX509SVIDs(resp, false)
 }
 
 // FetchX509Bundles fetches the X.509 bundles.
@@ -348,7 +348,7 @@ func defaultClientConfig() clientConfig {
 }
 
 func parseX509Context(resp *workload.X509SVIDResponse) (*X509Context, error) {
-	svids, err := parseX509SVIDs(resp, -1)
+	svids, err := parseX509SVIDs(resp, false)
 	if err != nil {
 		return nil, err
 	}
@@ -364,14 +364,13 @@ func parseX509Context(resp *workload.X509SVIDResponse) (*X509Context, error) {
 	}, nil
 }
 
-// parseX509SVIDs parses between 1 and n SVIDs from the response. It fails
-// if it cannot parse at least one, since the SVID is required in the response
-// and the spec indicates clients SHOULD reject such messages. If n is less
-// than one, then all SVIDs are returned.
-func parseX509SVIDs(resp *workload.X509SVIDResponse, n int) ([]*x509svid.SVID, error) {
-	switch {
-	case n < 1, n > len(resp.Svids):
-		n = len(resp.Svids)
+// parseX509SVIDs parses one or all of the SVIDs in the response. If firstOnly
+// is true, then only the first SVID in the response is parsed and returned.
+// Otherwise all SVIDs are parsed and returned.
+func parseX509SVIDs(resp *workload.X509SVIDResponse, firstOnly bool) ([]*x509svid.SVID, error) {
+	n := len(resp.Svids)
+	if firstOnly {
+		n = 1
 	}
 
 	svids := make([]*x509svid.SVID, 0, n)

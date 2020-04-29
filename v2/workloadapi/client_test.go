@@ -91,13 +91,13 @@ func TestFetchX509Bundles(t *testing.T) {
 	require.Len(t, bundles.Bundles(), 2)
 	//TODO: inspect bundles
 
-	// Now set the next response without any bundles and Assert that the call
-	// since the bundle cannot be empty.
+	// Now set the next response without any bundles and assert that the call
+	// fails since the bundle cannot be empty.
 	wl.SetX509SVIDResponse(&fakeworkloadapi.X509SVIDResponse{
 		SVIDs: svids,
 	})
 	bundles, err = c.FetchX509Bundles(context.Background())
-	require.EqualError(t, err, `empty X.509 bundle for trust domain "example.org"`, td)
+	require.EqualError(t, err, `empty X.509 bundle for trust domain "example.org"`)
 	require.Nil(t, bundles)
 }
 
@@ -127,13 +127,13 @@ func TestFetchX509Context(t *testing.T) {
 	assert.Len(t, x509Ctx.Bundles.Bundles(), 2)
 	//TODO: inspect bundles
 
-	// Now set the next response without any bundles and Assert that the call
-	// since the bundle cannot be empty.
+	// Now set the next response without any bundles and assert that the call
+	// fails since the bundle cannot be empty.
 	wl.SetX509SVIDResponse(&fakeworkloadapi.X509SVIDResponse{
 		SVIDs: svids,
 	})
 	x509Ctx, err = c.FetchX509Context(context.Background())
-	require.EqualError(t, err, `empty X.509 bundle for trust domain "example.org"`, td)
+	require.EqualError(t, err, `empty X.509 bundle for trust domain "example.org"`)
 	require.Nil(t, x509Ctx)
 }
 
