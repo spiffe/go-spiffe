@@ -21,7 +21,7 @@ func main() {
 	// Set up a `/` resource handler
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		log.Println("call received")
-		io.WriteString(w, "Success!!!")
+		_, _ = io.WriteString(w, "Success!!!")
 	})
 
 	// Create a `workloadapi.X509Source`, it will connect to Workload API using provided socket.
