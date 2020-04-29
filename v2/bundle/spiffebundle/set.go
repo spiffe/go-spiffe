@@ -114,7 +114,7 @@ func (s *Set) GetX509BundleForTrustDomain(trustDomain spiffeid.TrustDomain) (*x5
 
 	bundle, ok := s.bundles[trustDomain]
 	if !ok {
-		return nil, spiffebundleErr.New("no SPIFFE bundle for trust domain %q", trustDomain)
+		return nil, spiffebundleErr.New("no X.509 bundle for trust domain %q", trustDomain)
 	}
 
 	return bundle.X509Bundle(), nil
@@ -128,7 +128,7 @@ func (s *Set) GetJWTBundleForTrustDomain(trustDomain spiffeid.TrustDomain) (*jwt
 
 	bundle, ok := s.bundles[trustDomain]
 	if !ok {
-		return nil, spiffebundleErr.New("no SPIFFE bundle for trust domain %q", trustDomain)
+		return nil, spiffebundleErr.New("no JWT bundle for trust domain %q", trustDomain)
 	}
 
 	return bundle.JWTBundle(), nil

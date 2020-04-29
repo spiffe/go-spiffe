@@ -12,13 +12,13 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestWatchBundle_OnUpate(t *testing.T) {
+func TestWatchBundle_OnUpdate(t *testing.T) {
 	var watcher *fakewatcher
-	ca1 := test.NewCA(t)
-	bundle1 := spiffebundle.FromX509Bundle(ca1.Bundle(td))
+	ca1 := test.NewCA(t, td)
+	bundle1 := ca1.Bundle()
 	bundle1.SetRefreshHint(time.Second)
-	ca2 := test.NewCA(t)
-	bundle2 := spiffebundle.FromX509Bundle(ca2.Bundle(td))
+	ca2 := test.NewCA(t, td)
+	bundle2 := ca2.Bundle()
 	bundle2.SetRefreshHint(2 * time.Second)
 	bundles := []*spiffebundle.Bundle{bundle1, bundle2}
 
@@ -101,7 +101,7 @@ func (w *fakewatcher) NextRefresh(refreshHint time.Duration) time.Duration {
 
 func (w *fakewatcher) OnUpdate(bundle *spiffebundle.Bundle) {
 	w.latestBundle = bundle
-	assert.True(w.t, bundle.Equal(w.expectedBundles[w.onUpdateCalls]))
+	assert.Equal(w.t, w.expectedBundles[w.onUpdateCalls], bundle)
 	w.onUpdateCalls++
 	w.cancel()
 }

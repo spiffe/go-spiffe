@@ -5,20 +5,21 @@ import (
 	"net"
 	"testing"
 
-	"github.com/spiffe/go-spiffe/v2/bundle/spiffebundle"
 	"github.com/spiffe/go-spiffe/v2/federation"
 	"github.com/spiffe/go-spiffe/v2/internal/test"
 	"github.com/spiffe/go-spiffe/v2/internal/test/fakebundleendpoint"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
-	"github.com/spiffe/go-spiffe/v2/svid/x509svid"
 	"github.com/stretchr/testify/assert"
 )
 
-var td = spiffeid.RequireTrustDomainFromString("domain.test")
+var (
+	td           = spiffeid.RequireTrustDomainFromString("domain.test")
+	localhostIPs = []net.IP{net.IPv4(127, 0, 0, 1), net.IPv6loopback}
+)
 
 func TestFetchBundle_WebPKIRoots(t *testing.T) {
-	ca := test.NewCA(t)
-	bundle := spiffebundle.FromX509Bundle(ca.Bundle(td))
+	ca := test.NewCA(t, td)
+	bundle := ca.Bundle()
 
 	be := fakebundleendpoint.New(t, fakebundleendpoint.WithTestBundles(bundle))
 	defer be.Shutdown()
@@ -26,16 +27,14 @@ func TestFetchBundle_WebPKIRoots(t *testing.T) {
 	fetchedBundle, err := federation.FetchBundle(context.Background(), td, be.FetchBundleURL(),
 		federation.WithWebPKIRoots(be.RootCAs()))
 	assert.NoError(t, err)
-	assert.True(t, bundle.Equal(fetchedBundle))
+	assert.Equal(t, fetchedBundle, bundle)
 }
 
 func TestFetchBundle_SPIFFEAuth(t *testing.T) {
 	id := td.NewID("control-plane/test-bundle-endpoint")
-	ipaddresses := []net.IP{net.IPv4(127, 0, 0, 1), net.IPv6loopback}
-	ca := test.NewCA(t, test.WithIPAddresses(ipaddresses))
-	cert, pk := ca.CreateX509SVID(id.String(), test.WithIPAddresses(ipaddresses))
-	svid := &x509svid.SVID{ID: id, Certificates: cert, PrivateKey: pk}
-	bundle := spiffebundle.FromX509Bundle(ca.Bundle(td))
+	ca := test.NewCA(t, td)
+	svid := ca.CreateX509SVID(id, test.WithIPAddresses(localhostIPs...))
+	bundle := ca.Bundle()
 
 	be := fakebundleendpoint.New(t,
 		fakebundleendpoint.WithTestBundles(bundle),
@@ -45,16 +44,14 @@ func TestFetchBundle_SPIFFEAuth(t *testing.T) {
 	fetchedBundle, err := federation.FetchBundle(context.Background(), td, be.FetchBundleURL(),
 		federation.WithSPIFFEAuth(bundle, id))
 	assert.NoError(t, err)
-	assert.True(t, bundle.Equal(fetchedBundle))
+	assert.Equal(t, fetchedBundle, bundle)
 }
 
 func TestFetchBundle_SPIFFEAuth_UnexpectedID(t *testing.T) {
 	id := td.NewID("control-plane/test-bundle-endpoint")
-	ipaddresses := []net.IP{net.IPv4(127, 0, 0, 1), net.IPv6loopback}
-	ca := test.NewCA(t, test.WithIPAddresses(ipaddresses))
-	cert, pk := ca.CreateX509SVID(id.String(), test.WithIPAddresses(ipaddresses))
-	svid := &x509svid.SVID{ID: id, Certificates: cert, PrivateKey: pk}
-	bundle := spiffebundle.FromX509Bundle(ca.Bundle(td))
+	ca := test.NewCA(t, td)
+	svid := ca.CreateX509SVID(id, test.WithIPAddresses(localhostIPs...))
+	bundle := ca.Bundle()
 
 	be := fakebundleendpoint.New(t,
 		fakebundleendpoint.WithTestBundles(bundle),

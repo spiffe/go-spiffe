@@ -2,31 +2,36 @@ package workloadapi
 
 import (
 	"context"
-	"crypto"
-	"crypto/x509"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/spiffe/go-spiffe/v2/bundle/jwtbundle"
+	"github.com/spiffe/go-spiffe/v2/bundle/x509bundle"
 	"github.com/spiffe/go-spiffe/v2/internal/test"
 	"github.com/spiffe/go-spiffe/v2/internal/test/fakeworkloadapi"
 	"github.com/spiffe/go-spiffe/v2/proto/spiffe/workload"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/spiffe/go-spiffe/v2/svid/jwtsvid"
+	"github.com/spiffe/go-spiffe/v2/svid/x509svid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
+var (
+	td          = spiffeid.RequireTrustDomainFromString("example.org")
+	federatedTD = spiffeid.RequireTrustDomainFromString("federated.test")
+)
+
 func TestFetchX509SVID(t *testing.T) {
-	ca := test.NewCA(t)
-	wl := fakeworkloadapi.NewWorkloadAPI(t)
+	ca := test.NewCA(t, td)
+	wl := fakeworkloadapi.New(t)
 	defer wl.Stop()
 	c, err := New(context.Background(), WithAddr(wl.Addr()))
 	require.NoError(t, err)
 	defer c.Close()
 	resp := &fakeworkloadapi.X509SVIDResponse{
-		Bundle: ca.Roots(),
+		Bundle: ca.X509Bundle(),
 		SVIDs:  makeX509SVIDs(ca, "spiffe://example.org/foo", "spiffe://example.org/bar"),
 	}
 	wl.SetX509SVIDResponse(resp)
@@ -39,15 +44,15 @@ func TestFetchX509SVID(t *testing.T) {
 }
 
 func TestFetchX509SVIDs(t *testing.T) {
-	ca := test.NewCA(t)
-	wl := fakeworkloadapi.NewWorkloadAPI(t)
+	ca := test.NewCA(t, td)
+	wl := fakeworkloadapi.New(t)
 	defer wl.Stop()
 	c, err := New(context.Background(), WithAddr(wl.Addr()))
 	require.NoError(t, err)
 	defer c.Close()
 
 	resp := &fakeworkloadapi.X509SVIDResponse{
-		Bundle: ca.Roots(),
+		Bundle: ca.X509Bundle(),
 		SVIDs:  makeX509SVIDs(ca, "spiffe://example.org/foo", "spiffe://example.org/bar"),
 	}
 	wl.SetX509SVIDResponse(resp)
@@ -64,9 +69,9 @@ func TestFetchX509SVIDs(t *testing.T) {
 }
 
 func TestFetchX509Bundles(t *testing.T) {
-	ca := test.NewCA(t)
-	federatedCA := test.NewCA(t)
-	wl := fakeworkloadapi.NewWorkloadAPI(t)
+	ca := test.NewCA(t, td)
+	federatedCA := test.NewCA(t, federatedTD)
+	wl := fakeworkloadapi.New(t)
 	defer wl.Stop()
 	c, err := New(context.Background(), WithAddr(wl.Addr()))
 	require.NoError(t, err)
@@ -74,9 +79,9 @@ func TestFetchX509Bundles(t *testing.T) {
 	defer c.Close()
 
 	resp := &fakeworkloadapi.X509SVIDResponse{
-		Bundle:           ca.Roots(),
+		Bundle:           ca.X509Bundle(),
 		SVIDs:            makeX509SVIDs(ca, "spiffe://example.org/foo", "spiffe://example.org/bar"),
-		FederatedBundles: map[string][]*x509.Certificate{"spiffe://federated.org": federatedCA.Roots()},
+		FederatedBundles: []*x509bundle.Bundle{federatedCA.X509Bundle()},
 	}
 	wl.SetX509SVIDResponse(resp)
 
@@ -87,9 +92,9 @@ func TestFetchX509Bundles(t *testing.T) {
 }
 
 func TestFetchX509Context(t *testing.T) {
-	ca := test.NewCA(t)
-	federatedCA := test.NewCA(t)
-	wl := fakeworkloadapi.NewWorkloadAPI(t)
+	ca := test.NewCA(t, td)
+	federatedCA := test.NewCA(t, federatedTD)
+	wl := fakeworkloadapi.New(t)
 	defer wl.Stop()
 	c, err := New(context.Background(), WithAddr(wl.Addr()))
 	require.NoError(t, err)
@@ -97,9 +102,9 @@ func TestFetchX509Context(t *testing.T) {
 	defer c.Close()
 
 	resp := &fakeworkloadapi.X509SVIDResponse{
-		Bundle:           ca.Roots(),
+		Bundle:           ca.X509Bundle(),
 		SVIDs:            makeX509SVIDs(ca, "spiffe://example.org/foo", "spiffe://example.org/bar"),
-		FederatedBundles: map[string][]*x509.Certificate{"spiffe://federated.org": federatedCA.Roots()},
+		FederatedBundles: []*x509bundle.Bundle{federatedCA.X509Bundle()},
 	}
 	wl.SetX509SVIDResponse(resp)
 
@@ -112,9 +117,9 @@ func TestFetchX509Context(t *testing.T) {
 }
 
 func TestWatchX509Context(t *testing.T) {
-	ca := test.NewCA(t)
-	federatedCA := test.NewCA(t)
-	wl := fakeworkloadapi.NewWorkloadAPI(t)
+	ca := test.NewCA(t, td)
+	federatedCA := test.NewCA(t, federatedTD)
+	wl := fakeworkloadapi.New(t)
 	defer wl.Stop()
 	c, err := New(context.Background(), WithAddr(wl.Addr()))
 	require.NoError(t, err)
@@ -137,9 +142,9 @@ func TestWatchX509Context(t *testing.T) {
 
 	// test first update
 	resp := &fakeworkloadapi.X509SVIDResponse{
-		Bundle:           ca.Roots(),
+		Bundle:           ca.X509Bundle(),
 		SVIDs:            makeX509SVIDs(ca, "spiffe://example.org/foo", "spiffe://example.org/bar"),
-		FederatedBundles: map[string][]*x509.Certificate{"spiffe://federated.org": federatedCA.Roots()},
+		FederatedBundles: []*x509bundle.Bundle{federatedCA.X509Bundle()},
 	}
 	wl.SetX509SVIDResponse(resp)
 
@@ -151,9 +156,9 @@ func TestWatchX509Context(t *testing.T) {
 
 	// test second update
 	resp = &fakeworkloadapi.X509SVIDResponse{
-		Bundle:           ca.Roots(),
+		Bundle:           ca.X509Bundle(),
 		SVIDs:            makeX509SVIDs(ca, "spiffe://example.org/baz"),
-		FederatedBundles: map[string][]*x509.Certificate{"spiffe://federated.org": federatedCA.Roots()},
+		FederatedBundles: []*x509bundle.Bundle{federatedCA.X509Bundle()},
 	}
 	wl.SetX509SVIDResponse(resp)
 	tw.WaitForUpdates(1)
@@ -173,8 +178,8 @@ func TestWatchX509Context(t *testing.T) {
 }
 
 func TestFetchJWTSVID(t *testing.T) {
-	ca := test.NewCA(t)
-	wl := fakeworkloadapi.NewWorkloadAPI(t)
+	ca := test.NewCA(t, td)
+	wl := fakeworkloadapi.New(t)
 	defer wl.Stop()
 	c, _ := New(context.Background(), WithAddr(wl.Addr()))
 	defer c.Close()
@@ -200,45 +205,40 @@ func TestFetchJWTSVID(t *testing.T) {
 }
 
 func TestFetchJWTBundles(t *testing.T) {
-	ca := test.NewCA(t)
-	wl := fakeworkloadapi.NewWorkloadAPI(t)
+	ca := test.NewCA(t, td)
+	wl := fakeworkloadapi.New(t)
 	defer wl.Stop()
 	c, err := New(context.Background(), WithAddr(wl.Addr()))
 	require.NoError(t, err)
 	defer c.Close()
 
-	jwk1 := ca.PublicJWTKey()
-	jwk2 := ca.PublicJWTKey()
-	keys := map[string]crypto.PublicKey{
-		"1": jwk1,
-		"2": jwk2,
-	}
-	wl.SetJWTBundle("spiffe://example.org", keys)
+	wl.SetJWTBundles(ca.JWTBundle())
 
 	bundleSet, err := c.FetchJWTBundles(context.Background())
 
 	require.Nil(t, err)
 	assert.Equal(t, 1, bundleSet.Len())
-	td := spiffeid.RequireTrustDomainFromString("spiffe://example.org")
 	assert.True(t, bundleSet.Has(td))
 	bundle, ok := bundleSet.Get(td)
 	require.True(t, ok)
-	assert.Len(t, bundle.JWTAuthorities(), 2)
+	assert.Len(t, bundle.JWTAuthorities(), 1)
 }
 
 func TestWatchJWTBundles(t *testing.T) {
-	ca := test.NewCA(t)
-	wl := fakeworkloadapi.NewWorkloadAPI(t)
+	wl := fakeworkloadapi.New(t)
 	defer wl.Stop()
 	c, err := New(context.Background(), WithAddr(wl.Addr()))
 	require.NoError(t, err)
 	defer c.Close()
-	defer c.Close()
-	ctx, cancel := context.WithCancel(context.Background())
+
+	var wg sync.WaitGroup
+	defer wg.Wait()
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
 
 	td := spiffeid.RequireTrustDomainFromString("spiffe://example.org")
 	tw := newTestWatcher(t)
-	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
 		_ = c.WatchJWTBundles(ctx, tw)
@@ -251,11 +251,8 @@ func TestWatchJWTBundles(t *testing.T) {
 	assert.Len(t, tw.JwtBundles(), 0)
 
 	// test first update
-	jwk1 := ca.PublicJWTKey()
-	keys := map[string]crypto.PublicKey{
-		"1": jwk1,
-	}
-	wl.SetJWTBundle(td.String(), keys)
+	ca1 := test.NewCA(t, td)
+	wl.SetJWTBundles(ca1.JWTBundle())
 
 	tw.WaitForUpdates(1)
 
@@ -263,16 +260,11 @@ func TestWatchJWTBundles(t *testing.T) {
 	update := tw.JwtBundles()[len(tw.JwtBundles())-1]
 	bundle, ok := update.Get(td)
 	require.True(t, ok)
-	assert.Len(t, bundle.JWTAuthorities(), 1)
-	assert.NotNil(t, bundle.JWTAuthorities()["1"])
+	assert.Equal(t, ca1.JWTBundle(), bundle)
 
 	// test second update
-	jwk2 := ca.PublicJWTKey()
-	keys = map[string]crypto.PublicKey{
-		"1": jwk1,
-		"2": jwk2,
-	}
-	wl.SetJWTBundle(td.String(), keys)
+	ca2 := test.NewCA(t, td)
+	wl.SetJWTBundles(ca2.JWTBundle())
 
 	tw.WaitForUpdates(1)
 
@@ -280,29 +272,24 @@ func TestWatchJWTBundles(t *testing.T) {
 	update = tw.JwtBundles()[len(tw.JwtBundles())-1]
 	bundle, ok = update.Get(td)
 	require.True(t, ok)
-	assert.Len(t, bundle.JWTAuthorities(), 2)
-	assert.NotNil(t, bundle.JWTAuthorities()["1"])
-	assert.NotNil(t, bundle.JWTAuthorities()["2"])
+	assert.Equal(t, ca2.JWTBundle(), bundle)
 
 	// test error
 	wl.Stop()
 	tw.WaitForUpdates(1)
 	assert.Len(t, tw.Errors(), 2)
-
-	cancel()
-	wg.Wait()
 }
 
 func TestValidateJWTSVID(t *testing.T) {
-	ca := test.NewCA(t)
-	wl := fakeworkloadapi.NewWorkloadAPI(t)
+	ca := test.NewCA(t, td)
+	wl := fakeworkloadapi.New(t)
 	defer wl.Stop()
 	c, err := New(context.Background(), WithAddr(wl.Addr()))
 	require.NoError(t, err)
 	defer c.Close()
 
 	audience := []string{"spiffe://example.org/me", "spiffe://example.org/me_too"}
-	token := ca.CreateJWTSVID("spiffe://example.org/workload", audience)
+	token := ca.CreateJWTSVID(td.NewID("/workload"), audience).Marshal()
 
 	t.Run("first audience is valid", func(t *testing.T) {
 		jwtSvid, err := c.ValidateJWTSVID(context.Background(), token, audience[0])
@@ -323,25 +310,25 @@ func TestValidateJWTSVID(t *testing.T) {
 	})
 }
 
-func makeX509SVIDs(ca *test.CA, ids ...string) []fakeworkloadapi.X509SVID {
-	svids := []fakeworkloadapi.X509SVID{}
+func makeX509SVIDs(ca *test.CA, ids ...string) []*x509svid.SVID {
+	svids := []*x509svid.SVID{}
 	for _, id := range ids {
-		svid, key := ca.CreateX509SVID(id)
-		svids = append(svids, fakeworkloadapi.X509SVID{CertChain: svid, Key: key})
+		svids = append(svids, ca.CreateX509SVID(spiffeid.RequireFromString(id)))
 	}
 	return svids
 }
 
 func makeJWTSVIDResponse(ca *test.CA, spiffeID string, audience ...string) *workload.JWTSVIDResponse {
-	token := ca.CreateJWTSVID(spiffeID, audience)
+	token := ca.CreateJWTSVID(spiffeid.RequireFromString(spiffeID), audience)
 	svids := []*workload.JWTSVID{
 		{
 			SpiffeId: spiffeID,
-			Svid:     token,
+			Svid:     token.Marshal(),
 		},
 	}
 	return &workload.JWTSVIDResponse{
-		Svids: svids}
+		Svids: svids,
+	}
 }
 
 type testWatcher struct {

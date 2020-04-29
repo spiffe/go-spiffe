@@ -107,7 +107,7 @@ func Parse(trustDomain spiffeid.TrustDomain, bundleBytes []byte) (*Bundle, error
 			}
 			bundle.AddX509Authority(key.Certificates[0])
 		case jwtSVIDUse:
-			if err := bundle.AddJWTAuthorities(key.KeyID, key.Key); err != nil {
+			if err := bundle.AddJWTAuthority(key.KeyID, key.Key); err != nil {
 				return nil, spiffebundleErr.New("error adding authority %d of JWKS: %v", i, errs.Unwrap(err))
 			}
 		}
@@ -119,35 +119,31 @@ func Parse(trustDomain spiffeid.TrustDomain, bundleBytes []byte) (*Bundle, error
 // FromX509Bundle creates a bundle from an X.509 bundle.
 // The function panics in case of a nil X.509 bundle.
 func FromX509Bundle(x509Bundle *x509bundle.Bundle) *Bundle {
-	return &Bundle{
-		trustDomain:     x509Bundle.TrustDomain(),
-		x509Authorities: x509Bundle.X509Authorities(),
-	}
+	bundle := New(x509Bundle.TrustDomain())
+	bundle.x509Authorities = x509Bundle.X509Authorities()
+	return bundle
 }
 
 // FromJWTBundle creates a bundle from a JWT bundle.
 // The function panics in case of a nil JWT bundle.
 func FromJWTBundle(jwtBundle *jwtbundle.Bundle) *Bundle {
-	return &Bundle{
-		trustDomain:    jwtBundle.TrustDomain(),
-		jwtAuthorities: jwtBundle.JWTAuthorities(),
-	}
+	bundle := New(jwtBundle.TrustDomain())
+	bundle.jwtAuthorities = jwtBundle.JWTAuthorities()
+	return bundle
 }
 
 // FromX509Authorities creates a bundle from X.509 certificates.
 func FromX509Authorities(trustDomain spiffeid.TrustDomain, x509Authorities []*x509.Certificate) *Bundle {
-	return &Bundle{
-		trustDomain:     trustDomain,
-		x509Authorities: x509util.CopyX509Authorities(x509Authorities),
-	}
+	bundle := New(trustDomain)
+	bundle.x509Authorities = x509util.CopyX509Authorities(x509Authorities)
+	return bundle
 }
 
 // FromJWTAuthorities creates a new bundle from JWT authorities.
 func FromJWTAuthorities(trustDomain spiffeid.TrustDomain, jwtAuthorities map[string]crypto.PublicKey) *Bundle {
-	return &Bundle{
-		trustDomain:    trustDomain,
-		jwtAuthorities: jwtutil.CopyJWTAuthorities(jwtAuthorities),
-	}
+	bundle := New(trustDomain)
+	bundle.jwtAuthorities = jwtutil.CopyJWTAuthorities(jwtAuthorities)
+	return bundle
 }
 
 // TrustDomain returns the trust domain that the bundle belongs to.
@@ -242,7 +238,7 @@ func (b *Bundle) HasJWTAuthority(keyID string) bool {
 
 // AddJWTAuthority adds a JWT authority to the bundle. If a JWT authority already exists
 // under the given key ID, it is replaced. A key ID must be specified.
-func (b *Bundle) AddJWTAuthorities(keyID string, jwtAuthority crypto.PublicKey) error {
+func (b *Bundle) AddJWTAuthority(keyID string, jwtAuthority crypto.PublicKey) error {
 	if keyID == "" {
 		return spiffebundleErr.New("keyID cannot be empty")
 	}
@@ -410,7 +406,7 @@ func (b *Bundle) GetX509BundleForTrustDomain(trustDomain spiffeid.TrustDomain) (
 	defer b.mtx.RUnlock()
 
 	if b.trustDomain != trustDomain {
-		return nil, spiffebundleErr.New("no SPIFFE bundle for trust domain %q", trustDomain)
+		return nil, spiffebundleErr.New("no X.509 bundle for trust domain %q", trustDomain)
 	}
 
 	return b.X509Bundle(), nil
@@ -424,7 +420,7 @@ func (b *Bundle) GetJWTBundleForTrustDomain(trustDomain spiffeid.TrustDomain) (*
 	defer b.mtx.RUnlock()
 
 	if b.trustDomain != trustDomain {
-		return nil, spiffebundleErr.New("no SPIFFE bundle for trust domain %q", trustDomain)
+		return nil, spiffebundleErr.New("no JWT bundle for trust domain %q", trustDomain)
 	}
 
 	return b.JWTBundle(), nil

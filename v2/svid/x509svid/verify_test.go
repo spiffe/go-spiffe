@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"testing"
 
+	"github.com/spiffe/go-spiffe/v2/bundle/spiffebundle"
 	"github.com/spiffe/go-spiffe/v2/bundle/x509bundle"
 	"github.com/spiffe/go-spiffe/v2/internal/test"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
@@ -13,22 +14,24 @@ import (
 )
 
 func TestVerify(t *testing.T) {
-	ca1 := test.NewCA(t)
-	leaf1, _ := ca1.CreateX509SVID("spiffe://domain1.test/workload")
+	td1 := spiffeid.RequireTrustDomainFromString("domain1.test")
+	ca1 := test.NewCA(t, td1)
+	leaf1 := ca1.CreateX509SVID(td1.NewID("/workload")).Certificates
 	leaf1NoURI := removeURIs(leaf1[0])
 	leaf1DupUris := dupURIs(leaf1[0])
 	leaf1IsCA := setIsCA(leaf1[0])
 	leaf1WithCertSign := appendKeyUsage(leaf1[0], x509.KeyUsageCertSign)
 	leaf1WithCRLSign := appendKeyUsage(leaf1[0], x509.KeyUsageCRLSign)
-	bundle1 := ca1.Bundle(spiffeid.RequireTrustDomainFromString("spiffe://domain1.test"))
+	bundle1 := ca1.X509Bundle()
 
-	ca2 := test.NewCA(t)
-	bundle2 := ca2.Bundle(spiffeid.RequireTrustDomainFromString("spiffe://domain2.test"))
+	td2 := spiffeid.RequireTrustDomainFromString("spiffe://domain2.test")
+	ca2 := test.NewCA(t, td2)
+	bundle2 := ca2.X509Bundle()
 
 	// bad leaf cert... invalid spiffe ID
-	leafBad, _ := ca1.CreateX509SVID("sparfe://domain1.test/workload")
+	leafBad, _ := ca1.CreateX509Certificate(test.WithURIs(&url.URL{Scheme: "sparfe", Host: "domain1.test", Path: "/workload"}))
 	// bad set of roots... sets roots for ca2 under domain1.test
-	bundleBad := ca2.Bundle(spiffeid.RequireTrustDomainFromString("spiffe://domain1.test"))
+	bundleBad := spiffebundle.FromX509Authorities(td1, bundle2.X509Authorities())
 
 	testCases := []struct {
 		name       string
@@ -129,9 +132,10 @@ func TestVerify(t *testing.T) {
 }
 
 func TestParseAndVerify(t *testing.T) {
-	ca1 := test.NewCA(t)
-	leaf1, _ := ca1.CreateX509SVID("spiffe://domain1.test/workload")
-	bundle1 := ca1.Bundle(spiffeid.RequireTrustDomainFromString("spiffe://domain1.test"))
+	td1 := spiffeid.RequireTrustDomainFromString("domain1.test")
+	ca1 := test.NewCA(t, td1)
+	leaf1 := ca1.CreateX509SVID(td1.NewID("/workload")).Certificates
+	bundle1 := ca1.X509Bundle()
 
 	rawLeaf := leaf1[0].Raw
 	_, verifiedChains, err := x509svid.ParseAndVerify([][]byte{rawLeaf}, bundle1)
