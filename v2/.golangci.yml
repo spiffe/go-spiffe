@@ -2,6 +2,9 @@ run:
   # timeout for analysis, e.g. 30s, 5m, default is 1m
   deadline: 10m
 
+  # include examples
+  skip-dirs-use-default: false
+
   skip-dirs:
     - testdata$
     - test/mock
