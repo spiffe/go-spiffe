@@ -291,7 +291,6 @@ func TestListenAndDial(t *testing.T) {
 			if test.listenMode != nil {
 				listener, err = spiffetls.ListenWithMode(listenCtx, test.listenProtocol, test.listenLAddr, test.listenMode, test.listenOption...)
 				if test.listenErr != "" {
-					require.Error(t, err)
 					require.EqualError(t, err, test.listenErr)
 					return
 				}
@@ -330,7 +329,6 @@ func TestListenAndDial(t *testing.T) {
 				// Test Listen function
 				listener, err = spiffetls.Listen(listenCtx, test.listenProtocol, test.listenLAddr, tlsconfig.AuthorizeID(clientID))
 				if test.listenErr != "" {
-					require.Error(t, err)
 					require.EqualError(t, err, test.listenErr)
 				}
 			}
