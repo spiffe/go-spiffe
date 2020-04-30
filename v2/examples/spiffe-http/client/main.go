@@ -27,6 +27,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Unable to create X509Source %v", err)
 	}
+	defer source.Close()
 
 	// Allowed SPIFFE ID
 	serverID := spiffeid.Must("example.org", "server")

@@ -1,4 +1,4 @@
-# gRPC SVID example 
+# HTTP over mTLS
 
 This example shows how two services using HTTP can communicate using mTLS with X509 SVIDs obtained from SPIFFE workload API.
 
@@ -28,7 +28,7 @@ server := &http.Server{
 }
 ```
 	
-On the other side, the **HTTP client** uses the [workloadapi.X509Source](https://pkg.go.dev/github.com/spiffe/go-spiffe/v2/workloadapi?tab=doc#X509Source) to create a `tls.Config` for mTLS that authenticates the client certificate and verifies that it has the SPIFFE ID `spiffe://examples.org/server`. 
+On the other side, the **HTTP client** uses the [workloadapi.X509Source](https://pkg.go.dev/github.com/spiffe/go-spiffe/v2/workloadapi?tab=doc#X509Source) to create a `tls.Config` for mTLS that authenticates the server certificate and verifies that it has the SPIFFE ID `spiffe://examples.org/server`. 
 
 ```go
 serverID := spiffeid.Must("example.org", "server")
@@ -97,7 +97,7 @@ Run the client with the `client-workload` user:
 sudo -u client-workload ./client
 ```
 
-The server should display a log `call received` and client `Success!!!`
+The server should display a log `Request received` and client `Success!!!`
 
 If either workload encounters a peer with a different SPIFFE ID, they will abort the TLS handshake and the connection will fail.
 
