@@ -21,6 +21,7 @@ import (
 	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
 	"github.com/spiffe/go-spiffe/v2/svid/x509svid"
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -319,10 +320,10 @@ func TestListenAndDial(t *testing.T) {
 					// Test serverConn.PeerID()
 					spiffeID, err := spiffetls.PeerIDFromConn(conn)
 					if test.serverConnPeerIDErr == "" {
-						require.NoError(t, err)
-						require.Equal(t, clientID, spiffeID)
+						assert.NoError(t, err)
+						assert.Equal(t, clientID, spiffeID)
 					} else {
-						require.EqualError(t, err, test.serverConnPeerIDErr)
+						assert.EqualError(t, err, test.serverConnPeerIDErr)
 					}
 				}()
 			} else {
@@ -353,7 +354,7 @@ func TestListenAndDial(t *testing.T) {
 					conn, err = spiffetls.DialWithMode(dialCtx, "tcp", listenAddr, test.dialMode, test.dialOption...)
 				}
 				if len(test.listenOption) > 0 {
-					require.NotEmpty(t, externalTLSConfBuffer.Len())
+					assert.NotEmpty(t, externalTLSConfBuffer.Len())
 				}
 				if err != nil {
 					dialErrCh <- err
@@ -420,13 +421,16 @@ func testClose(t *testing.T, listenMode spiffetls.ListenMode, dialMode spiffetls
 	listener, err := spiffetls.ListenWithMode(listenCtx, defaultListenProtocol, defaultListenLAddr, listenMode)
 	require.NoError(t, err)
 
+	var wg sync.WaitGroup
+	defer wg.Wait()
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		conn, err := listener.Accept()
 		require.NoError(t, err)
 
 		_, err = io.Copy(conn, conn)
-		require.NoError(t, err)
-
+		assert.NoError(t, err)
 		conn.Close()
 	}()
 
