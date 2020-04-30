@@ -1,10 +1,12 @@
 package logger
 
-var Null Logger = NullLogger{}
+// Null is a no-op logger. It is used to suppress logging and is the default
+// logger for the library.
+var Null Logger = nullLogger{}
 
-type NullLogger struct{}
+type nullLogger struct{}
 
-func (NullLogger) Debugf(format string, args ...interface{}) {}
-func (NullLogger) Infof(format string, args ...interface{})  {}
-func (NullLogger) Warnf(format string, args ...interface{})  {}
-func (NullLogger) Errorf(format string, args ...interface{}) {}
+func (nullLogger) Debugf(format string, args ...interface{}) {}
+func (nullLogger) Infof(format string, args ...interface{})  {}
+func (nullLogger) Warnf(format string, args ...interface{})  {}
+func (nullLogger) Errorf(format string, args ...interface{}) {}
