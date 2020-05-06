@@ -689,8 +689,8 @@ func testConnection(t testing.TB, serverConfig *tls.Config, clientConfig *tls.Co
 		require.NoError(t, err)
 	}()
 
-	complete := make(chan struct{})
-	defer close(complete)
+	done := make(chan struct{})
+	defer close(done)
 	go func() {
 		errCh <- func() error {
 			conn, err := ln.Accept()
@@ -698,7 +698,7 @@ func testConnection(t testing.TB, serverConfig *tls.Config, clientConfig *tls.Co
 				return err
 			}
 			defer func() {
-				<-complete
+				<-done
 				conn.Close()
 			}()
 			buf := make([]byte, 1)
