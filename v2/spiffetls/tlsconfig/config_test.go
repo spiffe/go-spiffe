@@ -688,14 +688,19 @@ func testConnection(t testing.TB, serverConfig *tls.Config, clientConfig *tls.Co
 		}
 		require.NoError(t, err)
 	}()
+
+	done := make(chan struct{})
+	defer close(done)
 	go func() {
 		errCh <- func() error {
 			conn, err := ln.Accept()
 			if err != nil {
 				return err
 			}
-			defer conn.Close()
-
+			defer func() {
+				<-done
+				conn.Close()
+			}()
 			buf := make([]byte, 1)
 			if _, err = conn.Read(buf); err != nil {
 				return err
