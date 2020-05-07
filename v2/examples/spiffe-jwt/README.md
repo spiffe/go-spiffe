@@ -35,7 +35,7 @@ jwtSource, err := workloadapi.NewJWTSource(ctx, clientOptions)
 ```
 
 A middleware is added to authenticate client JWT-SVIDs provided in the `Authorization` header.
-This middleware validates token the token using the [jwtsvid.ParseAndValidate](https://pkg.go.dev/github.com/spiffe/go-spiffe/v2/svid/jwtsvid?tab=doc#ParseAndValidate) using bundles obtained from the JWTSource.
+This middleware validates the token using the [jwtsvid.ParseAndValidate](https://pkg.go.dev/github.com/spiffe/go-spiffe/v2/svid/jwtsvid?tab=doc#ParseAndValidate) using bundles obtained from the JWTSource.
 
 ```go
 svid, err := jwtsvid.ParseAndValidate(token, a.jwtSource, a.audiences)
