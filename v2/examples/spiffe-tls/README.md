@@ -6,9 +6,9 @@ One workload acts as a client and the other as the server.
 
 The scenario goes like this:
 1. The server starts listening for incoming SPIFFE-compliant mTLS connections.
-2. The client establish an SPIFFE-compliant mTLS connection to the server. 
-3. The server starts waiting a message from the client.
-4. The client sends a "Hello server" message and starts waiting a response.
+2. The client establishes an SPIFFE-compliant mTLS connection to the server. 
+3. The server starts waiting for a message from the client.
+4. The client sends a "Hello server" message and starts waiting for a response.
 5. The server reads the client's message, logs it to stdout, and sends a "Hello client" message as the response.
 6. The client reads the server's response and then closes the connection.
 
@@ -25,7 +25,7 @@ Where:
 - ctx is a `context.Context`. `ListenWithMode` blocks until the first Workload API response is received or this context times out or is cancelled.
 - serverAddress is the address (`localhost:55555`) where the server workload is going to listen for client connections.
 - [spiffetls.MTLSServerWithSourceOptions](https://pkg.go.dev/github.com/spiffe/go-spiffe/v2/spiffetls?tab=doc#MTLSServerWithSourceOptions) is used to configure the [X509Source](https://pkg.go.dev/github.com/spiffe/go-spiffe/v2@v2.0.0-alpha.3/workloadapi?tab=doc#X509Source) used by the internal Workload API client.
-- clientID is a SPIFFE ID (`spiffe://example.org/client`), which along with the [tlsconfig.AuthorizeID](https://pkg.go.dev/github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig?tab=doc#AuthorizeID) function makes the server to accept only clients that present an X509-SVID having such identity. You can pick any of the functions that return a [tlsconfig.Authorizer](https://pkg.go.dev/github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig?tab=doc#Authorizer) included with the library, or you can make your own. 
+- clientID is a SPIFFE ID (`spiffe://example.org/client`), which along with the [tlsconfig.AuthorizeID](https://pkg.go.dev/github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig?tab=doc#AuthorizeID) function configures the server to accept only clients that present an X509-SVID with a matching SPIFFE ID. You can pick any of the functions that return a [tlsconfig.Authorizer](https://pkg.go.dev/github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig?tab=doc#Authorizer) included with the library, or you can make your own. 
 - socketPath is the address of the Workload API (`unix:///tmp/agent.sock`) to which the internal Workload API client connects to get up-to-date SVIDs. Alternatively, we could have omitted this configuration option, in which case the listener would have used the `SPIFFE_ENDPOINT_SOCKET` environment variable to locate the Workload API, then the code could have been written like this:
 ```go
 	listener, err := spiffetls.Listen(ctx, "tcp", serverAddress, tlsconfig.AuthorizeID(spiffeID))
@@ -44,14 +44,14 @@ Where:
 - ctx is a `context.Context`. `DialWithMode` blocks until the first Workload API response is received or this context times out or is cancelled.
 - serverAddress is the address (`localhost:55555`) where the server workload is listening for client connections.
 - [spiffetls.MTLSClientWithSourceOptions](https://pkg.go.dev/github.com/spiffe/go-spiffe/v2/spiffetls?tab=doc#MTLSClientWithSourceOptions) is used to configure the [X509Source](https://pkg.go.dev/github.com/spiffe/go-spiffe/v2@v2.0.0-alpha.3/workloadapi?tab=doc#X509Source) used by the internal Workload API client.
-- spiffeID is a SPIFFE ID (`spiffe://example.org/server`), which along with the [tlsconfig.AuthorizeID](https://pkg.go.dev/github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig?tab=doc#AuthorizeID) function makes the client to connect only to a server that presents an X509-SVID having such identity. You can pick any of the functions that return a [tlsconfig.Authorizer](https://pkg.go.dev/github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig?tab=doc#Authorizer) included with the library, or you can make your own. 
+- spiffeID is a SPIFFE ID (`spiffe://example.org/server`), which along with the [tlsconfig.AuthorizeID](https://pkg.go.dev/github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig?tab=doc#AuthorizeID) function configures the client to connect only to a server that presents an X509-SVID with a matching SPIFFE ID. You can pick any of the functions that return a [tlsconfig.Authorizer](https://pkg.go.dev/github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig?tab=doc#Authorizer) included with the library, or you can make your own. 
 - socketPath is the address of the Workload API (`unix:///tmp/agent.sock`) to which the internal Workload API client connects to get up-to-date SVIDs. Alternatively, we could have omitted this configuration option, in which case the dialer would have used the `SPIFFE_ENDPOINT_SOCKET` environment variable to locate the Workload API, then the code could have been written like this:
 ```go
 	conn, err := spiffetls.Dial(ctx, "tcp", serverAddress, tlsconfig.AuthorizeID(spiffeID))
 ```
 
 ## That is it!
-As we can see the go-spiffe library allows your application to use the Workload API transparently for both ends of the connection, it takes care of fetching and automatically renewing the X.509 SVIDs needed to mantain a secure communication.
+As we can see the go-spiffe library allows your application to use the Workload API transparently for both ends of the connection. The go-spiffe takes care of fetching and automatically renewing the X.509 SVIDs needed to mantain a secure communication.
 
 ## Building
 To build the client workload:
@@ -71,7 +71,7 @@ This example assumes the following preconditions:
 - There is a SPIRE server and a SPIRE agent up and running.
 - There is a Unix workload attestor configured.
 - The trust domain is `example.org`.
-- The agent'S SPIFFE ID is `spiffe://example.org/host`.
+- The agent's SPIFFE ID is `spiffe://example.org/host`.
 - There is a `server-workload` user and a `client-workload` user in the system.
 
 ### 1. Create the registration entries
@@ -103,9 +103,9 @@ Run the client with the `client-workload` user:
 sudo -u client-workload ./client
 ```
 
-The server should have got a _"Hello server"_ message and responded with a _"Hello client"_ message.
+The server should have received a _"Hello server"_ message and responded with a _"Hello client"_ message.
 
-If either workload encounters a peer with a different SPIFFE ID than the one it expects, they abort the TLS handshake and the connection fails.  
+If either workload encounters a peer with a different SPIFFE ID than the one it expects, the workload aborts the TLS handshake and the connection fails.  
 For instance, when running the client with the server's user: 
 ```
 sudo -u server-workload ./client
@@ -113,7 +113,7 @@ sudo -u server-workload ./client
 Unable to read server response: remote error: tls: bad certificate
 ```
 
-And the server logs:
+The server log would contain:
 ```
 Error reading incoming data: unexpected ID "spiffe://example.org/server"
 ```
