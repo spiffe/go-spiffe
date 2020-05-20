@@ -1,6 +1,6 @@
 # Mutually Authenticated TLS (mTLS)
 
-This example shows how to use the go-spiffe library to make two workloads establish an mTLS connection using X.509 SVIDs obtained from the SPIFFE Workload API. 
+This example shows how to use the go-spiffe library to establish an mTLS connection between two workloads using X.509 SVIDs obtained from the SPIFFE Workload API. 
 
 One workload acts as a client and the other as the server. 
 
@@ -26,7 +26,7 @@ Where:
 - serverAddress is the address (`localhost:55555`) where the server workload is going to listen for client connections.
 - [spiffetls.MTLSServerWithSourceOptions](https://pkg.go.dev/github.com/spiffe/go-spiffe/v2/spiffetls?tab=doc#MTLSServerWithSourceOptions) is used to configure the [X509Source](https://pkg.go.dev/github.com/spiffe/go-spiffe/v2@v2.0.0-alpha.3/workloadapi?tab=doc#X509Source) used by the internal Workload API client.
 - clientID is a SPIFFE ID (`spiffe://example.org/client`), which along with the [tlsconfig.AuthorizeID](https://pkg.go.dev/github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig?tab=doc#AuthorizeID) function configures the server to accept only clients that present an X509-SVID with a matching SPIFFE ID. You can pick any of the functions that return a [tlsconfig.Authorizer](https://pkg.go.dev/github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig?tab=doc#Authorizer) included with the library, or you can make your own. 
-- socketPath is the address of the Workload API (`unix:///tmp/agent.sock`) to which the internal Workload API client connects to get up-to-date SVIDs. Alternatively, we could have omitted this configuration option, in which case the listener would have used the `SPIFFE_ENDPOINT_SOCKET` environment variable to locate the Workload API, then the code could have been written like this:
+- socketPath is the address of the Workload API (`unix:///tmp/agent.sock`) to which the internal Workload API client connects to get up-to-date SVIDs. Alternatively, we could have omitted this configuration option, in which case the listener would have used the `SPIFFE_ENDPOINT_SOCKET` environment variable to locate the Workload API. The code could have then been written like this:
 ```go
 	listener, err := spiffetls.Listen(ctx, "tcp", serverAddress, tlsconfig.AuthorizeID(spiffeID))
 ```
@@ -45,13 +45,13 @@ Where:
 - serverAddress is the address (`localhost:55555`) where the server workload is listening for client connections.
 - [spiffetls.MTLSClientWithSourceOptions](https://pkg.go.dev/github.com/spiffe/go-spiffe/v2/spiffetls?tab=doc#MTLSClientWithSourceOptions) is used to configure the [X509Source](https://pkg.go.dev/github.com/spiffe/go-spiffe/v2@v2.0.0-alpha.3/workloadapi?tab=doc#X509Source) used by the internal Workload API client.
 - spiffeID is a SPIFFE ID (`spiffe://example.org/server`), which along with the [tlsconfig.AuthorizeID](https://pkg.go.dev/github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig?tab=doc#AuthorizeID) function configures the client to connect only to a server that presents an X509-SVID with a matching SPIFFE ID. You can pick any of the functions that return a [tlsconfig.Authorizer](https://pkg.go.dev/github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig?tab=doc#Authorizer) included with the library, or you can make your own. 
-- socketPath is the address of the Workload API (`unix:///tmp/agent.sock`) to which the internal Workload API client connects to get up-to-date SVIDs. Alternatively, we could have omitted this configuration option, in which case the dialer would have used the `SPIFFE_ENDPOINT_SOCKET` environment variable to locate the Workload API, then the code could have been written like this:
+- socketPath is the address of the Workload API (`unix:///tmp/agent.sock`) to which the internal Workload API client connects to get up-to-date SVIDs. Alternatively, we could have omitted this configuration option, in which case the dialer would have used the `SPIFFE_ENDPOINT_SOCKET` environment variable to locate the Workload API. The code could have then been written like this:
 ```go
 	conn, err := spiffetls.Dial(ctx, "tcp", serverAddress, tlsconfig.AuthorizeID(spiffeID))
 ```
 
 ## That is it!
-As we can see the go-spiffe library allows your application to use the Workload API transparently for both ends of the connection. The go-spiffe takes care of fetching and automatically renewing the X.509 SVIDs needed to mantain a secure communication.
+As we can see the go-spiffe library allows your application to use the Workload API transparently for both ends of the connection. The go-spiffe library takes care of fetching and automatically renewing the X.509 SVIDs needed to maintain a secure communication.
 
 ## Building
 To build the client workload:
