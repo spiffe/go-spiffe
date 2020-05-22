@@ -41,7 +41,7 @@ func main() {
 	// to a server that presents an X.509-SVID having "spiffe://example.org/server"
 	// as its SPIFFE ID.
 	proxy := httputil.NewSingleHostReverseProxy(remote)
-	transport := *(http.DefaultTransport.(*http.Transport))
+	transport := *(http.DefaultTransport.(*http.Transport)) //nolint
 	transport.TLSClientConfig = tlsconfig.TLSClientConfig(
 		x509Source, tlsconfig.AuthorizeID(spiffeid.Must("example.org", "server")),
 	)
