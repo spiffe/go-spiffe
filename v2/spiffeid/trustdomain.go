@@ -88,8 +88,8 @@ func (td TrustDomain) NewID(path string) ID {
 	}
 }
 
-// Empty returns true if the trust domain value is empty.
-func (td TrustDomain) Empty() bool {
+// IsZero returns true if the trust domain is the zero value.
+func (td TrustDomain) IsZero() bool {
 	return td.name == ""
 }
 

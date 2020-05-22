@@ -146,7 +146,7 @@ func (id ID) Path() string {
 // String returns the string representation of the SPIFFE ID, e.g.,
 // "spiffe://example.org/foo/bar".
 func (id ID) String() string {
-	if id.Empty() {
+	if id.IsZero() {
 		return ""
 	}
 
@@ -155,7 +155,7 @@ func (id ID) String() string {
 
 // URL returns a URL for SPIFFE ID.
 func (id ID) URL() *url.URL {
-	if id.Empty() {
+	if id.IsZero() {
 		return &url.URL{}
 	}
 
@@ -166,9 +166,9 @@ func (id ID) URL() *url.URL {
 	}
 }
 
-// Empty returns true if the SPIFFE ID is empty.
-func (id ID) Empty() bool {
-	return id.td.Empty()
+// IsZero returns true if the SPIFFE ID is the zero value.
+func (id ID) IsZero() bool {
+	return id.td.IsZero()
 }
 
 func normalizeTrustDomain(td string) string {
