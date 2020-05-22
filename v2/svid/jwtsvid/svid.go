@@ -101,7 +101,7 @@ func parse(token string, audience []string, getClaims tokenValidator) (*SVID, er
 	// domain of the SPIFFE ID.
 	var claims jwt.Claims
 	if err := tok.UnsafeClaimsWithoutVerification(&claims); err != nil {
-		return nil, jwtsvidErr.New("no able to get claims from token: %v", err)
+		return nil, jwtsvidErr.New("unable to get claims from token: %v", err)
 	}
 
 	switch {
@@ -113,7 +113,7 @@ func parse(token string, audience []string, getClaims tokenValidator) (*SVID, er
 
 	spiffeID, err := spiffeid.FromString(claims.Subject)
 	if err != nil {
-		return nil, jwtsvidErr.New("token has in invalid subject claim: %v", err)
+		return nil, jwtsvidErr.New("token has an invalid subject claim: %v", err)
 	}
 
 	// Create generic map of claims
