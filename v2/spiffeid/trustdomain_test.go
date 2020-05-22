@@ -205,6 +205,6 @@ func TestTrustDomainNewID(t *testing.T) {
 	assert.Equal(t, id, td.NewID(""))
 }
 
-func TestTrustDomainEmpty(t *testing.T) {
-	assert.True(t, spiffeid.TrustDomain{}.Empty())
+func TestTrustDomainIsZero(t *testing.T) {
+	assert.True(t, spiffeid.TrustDomain{}.IsZero())
 }

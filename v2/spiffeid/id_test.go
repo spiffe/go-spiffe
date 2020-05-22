@@ -474,8 +474,8 @@ func TestIDURL(t *testing.T) {
 	assert.Equal(t, &url.URL{}, id.URL())
 }
 
-func TestIDEmpty(t *testing.T) {
-	assert.True(t, spiffeid.ID{}.Empty())
+func TestIDIsZero(t *testing.T) {
+	assert.True(t, spiffeid.ID{}.IsZero())
 }
 
 func parseURI(t *testing.T, id string) *url.URL {
