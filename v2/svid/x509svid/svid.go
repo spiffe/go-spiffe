@@ -155,7 +155,7 @@ func validateCertificates(certificates []*x509.Certificate) (*spiffeid.ID, error
 }
 
 func validateLeafCertificate(leaf *x509.Certificate) (*spiffeid.ID, error) {
-	leafID, err := getIDFromCertificate(leaf)
+	leafID, err := IDFromCert(leaf)
 	if err != nil {
 		return nil, errs.New("cannot get leaf certificate SPIFFE ID: %v", err)
 	}

@@ -23,7 +23,7 @@ func Verify(certs []*x509.Certificate, bundleSource x509bundle.Source) (spiffeid
 	}
 
 	leaf := certs[0]
-	id, err := getIDFromCertificate(leaf)
+	id, err := IDFromCert(leaf)
 	if err != nil {
 		return spiffeid.ID{}, nil, x509svidErr.New("could not get leaf SPIFFE ID: %w", err)
 	}
@@ -69,10 +69,10 @@ func ParseAndVerify(rawCerts [][]byte, bundleSource x509bundle.Source) (spiffeid
 	return Verify(certs, bundleSource)
 }
 
-// getIDFromCertificate extracts the SPIFFE ID from the  URI SAN of the
-// provided certificate. If the certificate has no URI SAN or
-// the SPIFFE ID is malformed, it will return an error.
-func getIDFromCertificate(cert *x509.Certificate) (spiffeid.ID, error) {
+// IDFromCert extracts the SPIFFE ID from the URI SAN of the provided
+// certificate. It will return an an error if the certificate does not have
+// exactly one URI SAN with a well-formed SPIFFE ID.
+func IDFromCert(cert *x509.Certificate) (spiffeid.ID, error) {
 	switch {
 	case len(cert.URIs) == 0:
 		return spiffeid.ID{}, errs.New("certificate contains no URI SAN")
