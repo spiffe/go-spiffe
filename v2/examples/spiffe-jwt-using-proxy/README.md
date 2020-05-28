@@ -8,10 +8,10 @@ The scenario used in this example goes like this:
 1. The server:
    - Creates an X509Source struct.
    - Creates a JWTSource struct.
-   - Starts listening HTTP requests using TLS authentication for establishing the connection. Only one resource is served at `/`.
+   - Starts listening for HTTP requests using TLS authentication for establishing the connection. Only one resource is served at `/`.
 2. The reverse proxy:
    - Creates an X509Source struct.
-   - Starts listening HTTP requests using TLS authentication for establishing the connection. It forwards requests to `/` only. 
+   - Starts listening for HTTP requests using TLS authentication for establishing the connection. It forwards requests to `/` only. 
 3. The client:
    - Creates an X509Source struct.
    - Creates a JWTSource struct.
