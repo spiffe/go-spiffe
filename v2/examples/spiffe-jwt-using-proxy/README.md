@@ -1,30 +1,30 @@
-# HTTP over TLS and JWT-SVIDs
+# Authenticating Workloads over TLS-encrypted HTTP Connections Using JWT-SVIDs
 
 This example shows how to use the go-spiffe library to make a server workload authenticate a client workload using JWT-SVIDs fetched from the Workload API. 
 
 JWT-SVIDs are useful when the workloads are not able to establish an mTLS communication channel between each other. For instance, when the server workload is behind a TLS terminating load balancer or proxy, a client workload cannot be authenticated directly by the server via mTLS and X.509-SVID. So, an alternative is to forego authenticating the client at the load balancer or proxy and instead require that clients authenticate via SPIFFE JWT-SVIDs conveyed directly to the server via the application layer.
 
 The scenario used in this example goes like this:
-1. The server starts:
-   - Creates an X509Source.
-   - Creates a JWTSource.
+1. The server:
+   - Creates an X509Source struct.
+   - Creates a JWTSource struct.
    - Starts listening HTTP requests using TLS authentication for establishing the connection. Only one resource is served at `/`.
-2. The reverse proxy starts:
-   - Creates an X509Source.
-   - Starts listening HTTP requests using TLS authentication for establishing the connection. It forwards request to `/` only. 
-3. The client starts:
-   - Creates an X509Source.
-   - Creates a JWTSource.
+2. The reverse proxy:
+   - Creates an X509Source struct.
+   - Starts listening HTTP requests using TLS authentication for establishing the connection. It forwards requests to `/` only. 
+3. The client:
+   - Creates an X509Source struct.
+   - Creates a JWTSource struct.
    - Fetches a JWT-SVID using the JWTSource.
    - Creates a `GET /` request with the JWT-SVID set as the value of the `Authorization` header.
    - Sends the request to the proxy using TLS authentication for establishing the connection. 
 4. The proxy receives the request, logs the request's method and URL, and forwards the request to the server.
 5. The server receives the request, extracts the JWT-SVID from the `Authorization` header, and verifies the token. If the token is valid, it logs `Request received` and returns a response with a body containing the string `Success!!!`, otherwise an `Unauthorized` HTTP code is returned.
-6.  The proxy receives the response from the server and pass it to the client.
-7.  The client receives the response, if it has an HTTP 200 status its body is logged, otherwise it logs the status code.
+6.  The proxy receives the response from the server and passes it to the client.
+7.  The client receives the response. If the response has an HTTP 200 status, its body is logged, otherwise the HTTP status code is logged.
 
-## Creating an X509Source
-As you may noted, the three workloads create a [workloadapi.X509Source](https://pkg.go.dev/github.com/spiffe/go-spiffe/v2/workloadapi?tab=doc#X509Source).
+## Creating an X509Source struct
+As you may noted, the three workloads create a [workloadapi.X509Source](https://pkg.go.dev/github.com/spiffe/go-spiffe/v2/workloadapi?tab=doc#X509Source) struct.
 ```go
 	x509Source, err := workloadapi.NewX509Source(
 		ctx,
@@ -32,12 +32,12 @@ As you may noted, the three workloads create a [workloadapi.X509Source](https://
 	)
 ```
 Where:
-- ctx is a `context.Context`. `NewX509Source` blocks until the first Workload API response is received or this context times out or is cancelled.
+- ctx is a `context.Context`. `NewX509Source` function blocks until the first Workload API response is received or this context times out or is cancelled.
 - socketPath is the address of the Workload API (`unix:///tmp/agent.sock`) to which the internal Workload API client connects to get up-to-date SVIDs. Alternatively, we could have omitted this configuration option, in which case the listener would have used the `SPIFFE_ENDPOINT_SOCKET` environment variable to locate the Workload API. The code could have then been written like this:
 ```go
 	x509Source, err := workloadapi.NewX509Source(ctx)
 ```
-In all cases, the `X509Source` is used to create a `tls.Config` for the underlying transport connection of the HTTP client/server. Althought there are some differences on its usage in each case: 
+In all cases, the `X509Source` is used to create a `tls.Config` for the underlying transport connection of the HTTP client/server. However, there are some differences in its usage on the server, client, and proxy workloads: 
 
 The **server workload** uses the `X509Source` to create the [TLSServerConfig](https://pkg.go.dev/github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig?tab=doc#TLSServerConfig) for the HTTP server used:
 ```go
@@ -78,7 +78,7 @@ The **proxy workload** uses the `X509Source` to create the [TLSClientConfig](htt
 ```
 This enables the proxy to verify that the X.509-SVID presented by the server has the specified SPIFFE ID by using:
 - The trust bundle provided by the Workload API via the `X509Source`.
-- The [Authorizer](https://pkg.go.dev/github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig?tab=doc#Authorizer) returned by [tlsconfig.AuthorizeID()](https://pkg.go.dev/github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig?tab=doc#AuthorizeID)
+- The [Authorizer](https://pkg.go.dev/github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig?tab=doc#Authorizer) function returned by [tlsconfig.AuthorizeID()](https://pkg.go.dev/github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig?tab=doc#AuthorizeID)
 
 The **proxy workload** also uses the `X509Source` to create the [TLSServerConfig](https://pkg.go.dev/github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig?tab=doc#TLSServerConfig) for the HTTP server used:
 ```go
@@ -89,8 +89,8 @@ The **proxy workload** also uses the `X509Source` to create the [TLSServerConfig
 ```
 This enables the proxy to present an X.509-SVID to the client. This SVID is provided by the `X509Source` via the Workload API, and contains the SPIFFE ID of the server (as explained later in **Create the registration entries** section).
 
-## Creating a JWTSource
-On the scenario described we can see that only the client and the server workloads create a [JWTSource](https://pkg.go.dev/github.com/spiffe/go-spiffe/v2/workloadapi?tab=doc#JWTSource), this is because the proxy workload doesn't need to deal with JWTs since the server is the one in charge of authenticating the clients:
+## Creating a JWTSource struct
+On the scenario described we can see that only the client and the server workloads create a [workloadapi.JWTSource](https://pkg.go.dev/github.com/spiffe/go-spiffe/v2/workloadapi?tab=doc#JWTSource). This is because the proxy workload doesn't need to deal with JWTs since the server is the one in charge of authenticating the clients:
 ```go
     jwtSource, err := workloadapi.NewJWTSource(
 		ctx,
@@ -98,12 +98,12 @@ On the scenario described we can see that only the client and the server workloa
 	)
 ```
 Where:
-- ctx is a `context.Context`. `NewJWTSource` blocks until the first Workload API response is received or this context times out or is cancelled.
+- ctx is a `context.Context`. `NewJWTSource` function blocks until the first Workload API response is received or this context times out or is cancelled.
 - socketPath is the address of the Workload API (`unix:///tmp/agent.sock`) to which the internal Workload API client connects to get up-to-date SVIDs. Alternatively, we could have omitted this configuration option, in which case the listener would have used the `SPIFFE_ENDPOINT_SOCKET` environment variable to locate the Workload API. The code could have then been written like this:
 ```go
 	jwtSource, err := workloadapi.NewJWTSource(ctx)
 ```
-Althought both workloads create a `JWTSource`, it is used differently in each case:
+Although both client and server workloads create a `JWTSource`, it is used differently in each case:
 
 The **client workload** uses the `JWTSource` to get a JWT-SVID by calling its [FetchJWTSVID](https://pkg.go.dev/github.com/spiffe/go-spiffe/v2/workloadapi?tab=doc#JWTSource.FetchJWTSVID) function:
 ```go
@@ -112,8 +112,8 @@ The **client workload** uses the `JWTSource` to get a JWT-SVID by calling its [F
 	})
 ```
 Where:
-- ctx is a `context.Context`. `FetchJWTSVID` blocks until a response is received or this context times out or is cancelled.
-- audience is the intended recipient of the JWT-SVID, by default it is `spiffe://example.org/server`, otherwise it is equals to the value passed as the first argument of the client's executable.
+- ctx is a `context.Context`. `FetchJWTSVID` method blocks until a response is received or this context times out or is cancelled.
+- audience is the intended recipient of the JWT-SVID. By default it is `spiffe://example.org/server`, otherwise it is equal to the value passed as the first argument of the client's executable.
 
 Then, the client uses the JWT-SVID to set a bearer token to the request's `Authorization` header:
 ```go
@@ -136,7 +136,7 @@ Where:
 When `ParseAndValidate` returns an error, the server returns an `Unauthorized` status. Otherwise, the request continues normal processing.
 
 ## That is it!
-As we can see the go-spiffe library allows your application avoiding to deal with the implementation details of the Workload API. You just create the SVID sources you need and then ask the library for what you need in an ergonomic fashion.
+As we can see the go-spiffe library allows your application avoiding to deal with the implementation details of the Workload API. You just create the SVID sources and then simply ask the library for what you need.
 
 ## Building
 To build the client workload:
@@ -159,11 +159,11 @@ go build
 
 ## Running
 This example assumes the following preconditions:
-- There is a SPIRE server and agent up and running.
+- There is a SPIRE Server and Agent up and running.
 - There is a Unix workload attestor configured.
 - The trust domain is `example.org`.
 - The agent SPIFFE ID is `spiffe://example.org/host`.
-- There is a `server-workload` and `client-workload` user in the system.
+- There are `server-workload` and `client-workload` users in the system.
 
 ### 1. Create the registration entries
 Create two registration entries, one for the client workload and another for the server and proxy workloads:
@@ -202,12 +202,12 @@ Run the client with the `client-workload` user:
 sudo -u client-workload ./client
 ```
 
-For each componet the logs would contain:  
-| Component| Log content        |
-|----------|--------------------|
-| Proxy    | `GET /`            |
-| Server   | `Request received` |
-| Client   | `Success!!!`       |
+For each component the logs would contain:  
+| Component| Log content (stdout) |
+|----------|----------------------|
+| Proxy    | `GET /`              |
+| Server   | `Request received`   |
+| Client   | `Success!!!`         |
 
 To demonstrate a failure, we can run the client using a wrong audience as the first argument:
 

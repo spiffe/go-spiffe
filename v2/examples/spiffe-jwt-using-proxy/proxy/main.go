@@ -21,11 +21,11 @@ func main() {
 		log.Fatalf("Unable to parse server URL: %v", err)
 	}
 
-	// Set a timeout to prevent from hanging if this workload is not properly registered in SPIRE.
+	// Set a timeout to prevent the request from hanging if this workload is not properly registered in SPIRE.
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	// Create an X509Source to fetch a SPIFFE X.509-SVID automatically from the
+	// Create an X509Source struct to fetch a SPIFFE X.509-SVID automatically from the
 	// Workload API, and use it to establish the TLS connection by presenting it
 	// to the client.
 	x509Source, err := workloadapi.NewX509Source(

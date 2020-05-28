@@ -51,8 +51,8 @@ func (a *authenticator) authenticateClient(next http.Handler) http.Handler {
 func main() {
 	ctx := context.Background()
 
-	// Create options to configure Sources to use SPIRE agent's expected socket path,
-	// by default Sources use the value of the `SPIFFE_ENDPOINT_SOCKET` environment variable,
+	// Create options to configure Sources to use SPIRE Agent's expected socket path.
+	// By default, Sources uses the value of the `SPIFFE_ENDPOINT_SOCKET` environment variable,
 	// so creating this is not required.
 	clientOptions := workloadapi.WithClientOptions(workloadapi.WithAddr(socketPath))
 

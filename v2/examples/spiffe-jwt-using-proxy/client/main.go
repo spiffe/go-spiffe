@@ -21,13 +21,13 @@ const (
 )
 
 func main() {
-	// Set a timeout to prevent from hanging if this workload is not properly registered in SPIRE.
+	// Set a timeout to prevent the request from hanging if this workload is not properly registered in SPIRE.
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	clientOptions := workloadapi.WithClientOptions(workloadapi.WithAddr(socketPath))
 
-	// Create a X509Source to fetch the trust bundle as needed to verify the X509-SVID presented by the server.
+	// Create an X509Source struct to fetch the trust bundle as needed to verify the X509-SVID presented by the server.
 	x509Source, err := workloadapi.NewX509Source(ctx, clientOptions)
 	if err != nil {
 		log.Fatalf("Unable to create X509Source %v", err)
@@ -36,7 +36,7 @@ func main() {
 
 	serverID := spiffeid.Must("example.org", "server")
 
-	// By default, this example uses the server's SPIFFE ID as the audience,
+	// By default, this example uses the server's SPIFFE ID as the audience.
 	// It doesn't have to be a SPIFFE ID as long as it follows the JWT-SVID guidelines (https://github.com/spiffe/spiffe/blob/master/standards/JWT-SVID.md#32-audience)
 	audience := serverID.String()
 	args := os.Args
@@ -51,8 +51,8 @@ func main() {
 	}
 	defer jwtSource.Close()
 
-	// Fetch a JWT-SVID and set the `Authorization` header,
-	// alternatively, it is possible to fetch the JWT-SVID using `workloadapi.FetchJWTSVID`.
+	// Fetch a JWT-SVID and set the `Authorization` header.
+	// Alternatively, it is possible to fetch the JWT-SVID using `workloadapi.FetchJWTSVID`.
 	svid, err := jwtSource.FetchJWTSVID(ctx, jwtsvid.Params{
 		Audience: audience,
 	})
