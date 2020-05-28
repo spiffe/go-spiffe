@@ -2,10 +2,10 @@ package spiffetls
 
 import (
 	"crypto/tls"
-	"crypto/x509"
 	"net"
 
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
+	"github.com/spiffe/go-spiffe/v2/svid/x509svid"
 )
 
 type PeerIDGetter interface {
@@ -30,21 +30,9 @@ func peerIDFromConnectionState(state tls.ConnectionState) (spiffeid.ID, error) {
 	if len(state.PeerCertificates) == 0 {
 		return spiffeid.ID{}, spiffetlsErr.New("no peer certificates")
 	}
-	return peerIDFromCert(state.PeerCertificates[0])
-}
-
-func peerIDFromCert(cert *x509.Certificate) (spiffeid.ID, error) {
-	uris := cert.URIs
-	switch {
-	case len(uris) == 0:
-		return spiffeid.ID{}, spiffetlsErr.New("no URI SANs")
-	case len(uris) > 1:
-		return spiffeid.ID{}, spiffetlsErr.New("more than one URI SAN")
-	}
-
-	id, err := spiffeid.FromURI(uris[0])
+	id, err := x509svid.IDFromCert(state.PeerCertificates[0])
 	if err != nil {
-		return spiffeid.ID{}, spiffetlsErr.New("invalid URI SAN: %w", err)
+		return spiffeid.ID{}, spiffetlsErr.New("invalid peer certificate: %w", err)
 	}
 	return id, nil
 }
