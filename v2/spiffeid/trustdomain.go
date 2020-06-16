@@ -74,7 +74,7 @@ func (td TrustDomain) ID() ID {
 	}
 }
 
-// ID returns a string representation of the the SPIFFE ID of the trust domain,
+// IDString returns a string representation of the the SPIFFE ID of the trust domain,
 // e.g. "spiffe://example.org".
 func (td TrustDomain) IDString() string {
 	return td.ID().String()
