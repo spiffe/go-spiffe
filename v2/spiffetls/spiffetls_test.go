@@ -47,26 +47,6 @@ type testEnv struct {
 	wlAPIServerB *fakeworkloadapi.WorkloadAPI
 }
 
-type testCase struct {
-	name string
-
-	dialMode   spiffetls.DialMode
-	dialOption []spiffetls.DialOption
-
-	listenMode   spiffetls.ListenMode
-	listenOption []spiffetls.ListenOption
-
-	defaultWlAPIAddr    string
-	dialErr             string
-	listenErr           string
-	listenLAddr         string
-	listenProtocol      string
-	serverConnPeerIDErr string
-	clientConnPeerIDErr string
-	usesExternalDialer  bool
-	usesBaseTLSConfig   bool
-}
-
 func TestListenAndDial(t *testing.T) {
 	testEnv, done := setupTestEnv(t)
 	defer done()
@@ -85,7 +65,25 @@ func TestListenAndDial(t *testing.T) {
 	externalTLSConfBuffer := &bytes.Buffer{}
 
 	// Test Table
-	tests := []testCase{
+	tests := []struct {
+		name string
+
+		dialMode   spiffetls.DialMode
+		dialOption []spiffetls.DialOption
+
+		listenMode   spiffetls.ListenMode
+		listenOption []spiffetls.ListenOption
+
+		defaultWlAPIAddr    string
+		dialErr             string
+		listenErr           string
+		listenLAddr         string
+		listenProtocol      string
+		serverConnPeerIDErr string
+		clientConnPeerIDErr string
+		usesExternalDialer  bool
+		usesBaseTLSConfig   bool
+	}{
 		// Failure Scenarios
 		{
 			name:             "Wrong workload API server socket",
