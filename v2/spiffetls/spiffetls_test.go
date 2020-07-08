@@ -37,38 +37,25 @@ var (
 	testMsg  = "Hello!\n"
 )
 
+type testEnv struct {
+	ca           *test.CA
+	wlAPISourceA *workloadapi.X509Source
+	wlAPISourceB *workloadapi.X509Source
+	wlAPIClientA *workloadapi.Client
+	wlAPIClientB *workloadapi.Client
+	wlAPIServerA *fakeworkloadapi.WorkloadAPI
+	wlAPIServerB *fakeworkloadapi.WorkloadAPI
+	wlCancel     context.CancelFunc
+	err          error
+}
+
 func TestListenAndDial(t *testing.T) {
-	// Common CA for client and server SVIDs
-	ca := test.NewCA(t, td)
-
-	// Start two fake workload API servers called "A" and "B"
-	// Workload API Server A provides identities to the server workload
-	wlAPIServerA := fakeworkloadapi.New(t)
-	defer wlAPIServerA.Stop()
-	setWorkloadAPIResponse(ca, wlAPIServerA, serverID)
-
-	// Workload API Server B provides identities to the client workload
-	wlAPIServerB := fakeworkloadapi.New(t)
-	defer wlAPIServerB.Stop()
-	setWorkloadAPIResponse(ca, wlAPIServerB, clientID)
-
-	// Create custom workload API sources for the server
-	wlCtx, wlCancel := context.WithTimeout(context.Background(), time.Second*5)
-	defer wlCancel()
-	wlAPIClientA, err := workloadapi.New(wlCtx, workloadapi.WithAddr(wlAPIServerA.Addr()))
-	require.NoError(t, err)
-	wlAPISourceA, err := workloadapi.NewX509Source(wlCtx, workloadapi.WithClient(wlAPIClientA))
-	require.NoError(t, err)
-
-	// Create custom workload API sources for the client
-	wlAPIClientB, err := workloadapi.New(wlCtx, workloadapi.WithAddr(wlAPIServerB.Addr()))
-	require.NoError(t, err)
-	wlAPISourceB, err := workloadapi.NewX509Source(wlCtx, workloadapi.WithClient(wlAPIClientB))
-	require.NoError(t, err)
+	testEnv, cleanup := setupTestEnv(t)
+	defer cleanup()
 
 	// Create custom SVID and bundle source (not backed by workload API)
-	bundleSource := ca.X509Bundle()
-	svidSource := ca.CreateX509SVID(clientID)
+	bundleSource := testEnv.ca.X509Bundle()
+	svidSource := testEnv.ca.CreateX509SVID(clientID)
 
 	// Create web credentials
 	webCertPool, webCert := test.CreateWebCredentials(t)
@@ -110,20 +97,20 @@ func TestListenAndDial(t *testing.T) {
 		{
 			name:             "No server listening",
 			dialMode:         spiffetls.TLSClient(tlsconfig.AuthorizeID(serverID)),
-			defaultWlAPIAddr: wlAPIServerB.Addr(),
+			defaultWlAPIAddr: testEnv.wlAPIServerB.Addr(),
 			dialErr:          "spiffetls: unable to dial: dial tcp: missing address",
 		},
 		{
 			name:           "Invalid server protocol",
 			listenProtocol: "invalid",
-			listenMode:     spiffetls.TLSServerWithSource(wlAPISourceA),
+			listenMode:     spiffetls.TLSServerWithSource(testEnv.wlAPISourceA),
 			listenErr:      "listen invalid: unknown network invalid",
 		},
 		{
 			name:           "Missing server port",
 			listenProtocol: "tcp",
 			listenLAddr:    "invalid",
-			listenMode:     spiffetls.TLSServerWithSource(wlAPISourceA),
+			listenMode:     spiffetls.TLSServerWithSource(testEnv.wlAPISourceA),
 			listenErr:      "listen tcp: address invalid: missing port in address",
 		},
 		{
@@ -137,9 +124,9 @@ func TestListenAndDial(t *testing.T) {
 		{
 			name:                "TLSClient dials using TLS base config",
 			dialMode:            spiffetls.TLSClient(tlsconfig.AuthorizeID(serverID)),
-			listenMode:          spiffetls.TLSServerWithSource(wlAPISourceA),
+			listenMode:          spiffetls.TLSServerWithSource(testEnv.wlAPISourceA),
 			serverConnPeerIDErr: "spiffetls: no peer certificates",
-			defaultWlAPIAddr:    wlAPIServerB.Addr(),
+			defaultWlAPIAddr:    testEnv.wlAPIServerB.Addr(),
 			usesBaseTLSConfig:   true,
 			dialOption: []spiffetls.DialOption{
 				spiffetls.WithDialTLSConfigBase(&tls.Config{
@@ -150,9 +137,9 @@ func TestListenAndDial(t *testing.T) {
 		{
 			name:                "TLSClient dials using external dialer",
 			dialMode:            spiffetls.TLSClient(tlsconfig.AuthorizeID(serverID)),
-			listenMode:          spiffetls.TLSServerWithSource(wlAPISourceA),
+			listenMode:          spiffetls.TLSServerWithSource(testEnv.wlAPISourceA),
 			serverConnPeerIDErr: "spiffetls: no peer certificates",
-			defaultWlAPIAddr:    wlAPIServerB.Addr(),
+			defaultWlAPIAddr:    testEnv.wlAPIServerB.Addr(),
 			usesExternalDialer:  true,
 			dialOption: []spiffetls.DialOption{
 				spiffetls.WithDialer(&net.Dialer{
@@ -166,79 +153,79 @@ func TestListenAndDial(t *testing.T) {
 		{
 			name:       "TLSServer with ListenOption",
 			dialMode:   spiffetls.TLSClient(tlsconfig.AuthorizeID(serverID)),
-			listenMode: spiffetls.TLSServerWithSource(wlAPISourceA),
+			listenMode: spiffetls.TLSServerWithSource(testEnv.wlAPISourceA),
 			listenOption: []spiffetls.ListenOption{
 				spiffetls.WithListenTLSConfigBase(&tls.Config{
 					KeyLogWriter: externalTLSConfBuffer,
 				}),
 			},
 			serverConnPeerIDErr: "spiffetls: no peer certificates",
-			defaultWlAPIAddr:    wlAPIServerB.Addr(),
+			defaultWlAPIAddr:    testEnv.wlAPIServerB.Addr(),
 		},
 
 		// Defaults Scenarios
 		{
 			name:                "TLSClient succeeds",
 			dialMode:            spiffetls.TLSClient(tlsconfig.AuthorizeID(serverID)),
-			listenMode:          spiffetls.TLSServerWithSource(wlAPISourceA),
-			defaultWlAPIAddr:    wlAPIServerB.Addr(),
+			listenMode:          spiffetls.TLSServerWithSource(testEnv.wlAPISourceA),
+			defaultWlAPIAddr:    testEnv.wlAPIServerB.Addr(),
 			serverConnPeerIDErr: "spiffetls: no peer certificates",
 		},
 		{
 			name:                "TLSClient succeeds with Dial",
-			listenMode:          spiffetls.TLSServerWithSource(wlAPISourceA),
+			listenMode:          spiffetls.TLSServerWithSource(testEnv.wlAPISourceA),
 			serverConnPeerIDErr: "spiffetls: no peer certificates",
-			defaultWlAPIAddr:    wlAPIServerB.Addr(),
+			defaultWlAPIAddr:    testEnv.wlAPIServerB.Addr(),
 		},
 		{
 			name:             "MTLSClient succeeds",
 			dialMode:         spiffetls.MTLSClient(tlsconfig.AuthorizeID(serverID)),
-			listenMode:       spiffetls.MTLSServerWithSource(tlsconfig.AuthorizeID(clientID), wlAPISourceA),
-			defaultWlAPIAddr: wlAPIServerB.Addr(),
+			listenMode:       spiffetls.MTLSServerWithSource(tlsconfig.AuthorizeID(clientID), testEnv.wlAPISourceA),
+			defaultWlAPIAddr: testEnv.wlAPIServerB.Addr(),
 		},
 		{
 			name:                "MTLSWebClient / MTLSWebServer succeeds",
 			dialMode:            spiffetls.MTLSWebClient(webCertPool),
 			listenMode:          spiffetls.MTLSWebServer(tlsconfig.AuthorizeID(clientID), webCert),
-			defaultWlAPIAddr:    wlAPIServerB.Addr(),
+			defaultWlAPIAddr:    testEnv.wlAPIServerB.Addr(),
 			clientConnPeerIDErr: "spiffetls: no URI SANs",
 		},
 
 		// *WithSource Scenario
 		{
 			name:                "TLSClientWithSource / TLSServerWithSource succeeds",
-			dialMode:            spiffetls.TLSClientWithSource(tlsconfig.AuthorizeID(serverID), wlAPISourceB),
-			listenMode:          spiffetls.TLSServerWithSource(wlAPISourceA),
+			dialMode:            spiffetls.TLSClientWithSource(tlsconfig.AuthorizeID(serverID), testEnv.wlAPISourceB),
+			listenMode:          spiffetls.TLSServerWithSource(testEnv.wlAPISourceA),
 			serverConnPeerIDErr: "spiffetls: no peer certificates",
 		},
 		{
 			name:       "MTLSClientWithSource / MTLSServerWithSource succeeds",
-			dialMode:   spiffetls.MTLSClientWithSource(tlsconfig.AuthorizeID(serverID), wlAPISourceB),
-			listenMode: spiffetls.MTLSServerWithSource(tlsconfig.AuthorizeID(clientID), wlAPISourceA),
+			dialMode:   spiffetls.MTLSClientWithSource(tlsconfig.AuthorizeID(serverID), testEnv.wlAPISourceB),
+			listenMode: spiffetls.MTLSServerWithSource(tlsconfig.AuthorizeID(clientID), testEnv.wlAPISourceA),
 		},
 		{
 			name:                "MTLSWebClientWithSource / MTLSWebServerWithSource succeeds",
-			dialMode:            spiffetls.MTLSWebClientWithSource(webCertPool, wlAPISourceB),
-			listenMode:          spiffetls.MTLSWebServerWithSource(tlsconfig.AuthorizeID(clientID), webCert, wlAPISourceA),
+			dialMode:            spiffetls.MTLSWebClientWithSource(webCertPool, testEnv.wlAPISourceB),
+			listenMode:          spiffetls.MTLSWebServerWithSource(tlsconfig.AuthorizeID(clientID), webCert, testEnv.wlAPISourceA),
 			clientConnPeerIDErr: "spiffetls: no URI SANs",
 		},
 
 		// *WithSourceOptions Scenario
 		{
 			name:                "TLSClientWithSourceOptions / TLSServerWithSourceOptions succeeds",
-			dialMode:            spiffetls.TLSClientWithSourceOptions(tlsconfig.AuthorizeID(serverID), workloadapi.WithClient(wlAPIClientB)),
-			listenMode:          spiffetls.TLSServerWithSourceOptions(workloadapi.WithClientOptions(workloadapi.WithAddr(wlAPIServerA.Addr()))),
+			dialMode:            spiffetls.TLSClientWithSourceOptions(tlsconfig.AuthorizeID(serverID), workloadapi.WithClient(testEnv.wlAPIClientB)),
+			listenMode:          spiffetls.TLSServerWithSourceOptions(workloadapi.WithClientOptions(workloadapi.WithAddr(testEnv.wlAPIServerA.Addr()))),
 			serverConnPeerIDErr: "spiffetls: no peer certificates",
 		},
 		{
 			name:       "MTLSClientWithSourceOptions / MTLSServerWithSourceOptions succeeds",
-			dialMode:   spiffetls.MTLSClientWithSourceOptions(tlsconfig.AuthorizeID(serverID), workloadapi.WithClient(wlAPIClientB)),
-			listenMode: spiffetls.MTLSServerWithSourceOptions(tlsconfig.AuthorizeID(clientID), workloadapi.WithClientOptions(workloadapi.WithAddr(wlAPIServerA.Addr()))),
+			dialMode:   spiffetls.MTLSClientWithSourceOptions(tlsconfig.AuthorizeID(serverID), workloadapi.WithClient(testEnv.wlAPIClientB)),
+			listenMode: spiffetls.MTLSServerWithSourceOptions(tlsconfig.AuthorizeID(clientID), workloadapi.WithClientOptions(workloadapi.WithAddr(testEnv.wlAPIServerA.Addr()))),
 		},
 		{
 			name:                "MTLSWebClientWithSourceOptions / MTLSWebServerWithSourceOptions succeeds",
-			dialMode:            spiffetls.MTLSWebClientWithSourceOptions(webCertPool, workloadapi.WithClient(wlAPIClientB)),
-			listenMode:          spiffetls.MTLSWebServerWithSourceOptions(tlsconfig.AuthorizeID(clientID), webCert, workloadapi.WithClientOptions(workloadapi.WithAddr(wlAPIServerA.Addr()))),
+			dialMode:            spiffetls.MTLSWebClientWithSourceOptions(webCertPool, workloadapi.WithClient(testEnv.wlAPIClientB)),
+			listenMode:          spiffetls.MTLSWebServerWithSourceOptions(tlsconfig.AuthorizeID(clientID), webCert, workloadapi.WithClientOptions(workloadapi.WithAddr(testEnv.wlAPIServerA.Addr()))),
 			clientConnPeerIDErr: "spiffetls: no URI SANs",
 		},
 
@@ -246,13 +233,13 @@ func TestListenAndDial(t *testing.T) {
 		{
 			name:                "TLSClientWithRawConfig / TLSServerWithRawConfig succeeds",
 			dialMode:            spiffetls.TLSClientWithRawConfig(tlsconfig.AuthorizeID(serverID), bundleSource),
-			listenMode:          spiffetls.TLSServerWithRawConfig(wlAPISourceA),
+			listenMode:          spiffetls.TLSServerWithRawConfig(testEnv.wlAPISourceA),
 			serverConnPeerIDErr: "spiffetls: no peer certificates",
 		},
 		{
 			name:       "MTLSClientWithRawConfig / MTLSServerWithRawConfig succeeds",
 			dialMode:   spiffetls.MTLSClientWithRawConfig(tlsconfig.AuthorizeID(serverID), svidSource, bundleSource),
-			listenMode: spiffetls.MTLSServerWithRawConfig(tlsconfig.AuthorizeID(clientID), wlAPISourceA, bundleSource),
+			listenMode: spiffetls.MTLSServerWithRawConfig(tlsconfig.AuthorizeID(clientID), testEnv.wlAPISourceA, bundleSource),
 		},
 		{
 			name:                "MTLSWebClientWithRawConfig / MTLSWebServerWithRawConfig succeeds",
@@ -261,8 +248,6 @@ func TestListenAndDial(t *testing.T) {
 			clientConnPeerIDErr: "spiffetls: no URI SANs",
 		},
 	}
-
-	testClose(t, spiffetls.TLSServerWithSource(wlAPISourceA), spiffetls.TLSClientWithSource(tlsconfig.AuthorizeID(serverID), wlAPISourceB))
 
 	for _, test := range tests {
 		test := test
@@ -279,7 +264,6 @@ func TestListenAndDial(t *testing.T) {
 			defer cancelListenCtx()
 
 			var wg sync.WaitGroup
-			var listener net.Listener
 			var listenAddr string
 			listenDataCh := make(chan string, 1)
 			listenErrCh := make(chan error, 1)
@@ -290,7 +274,7 @@ func TestListenAndDial(t *testing.T) {
 				test.listenProtocol = defaultListenProtocol
 			}
 			if test.listenMode != nil {
-				listener, err = spiffetls.ListenWithMode(listenCtx, test.listenProtocol, test.listenLAddr, test.listenMode, test.listenOption...)
+				listener, err := spiffetls.ListenWithMode(listenCtx, test.listenProtocol, test.listenLAddr, test.listenMode, test.listenOption...)
 				if test.listenErr != "" {
 					require.EqualError(t, err, test.listenErr)
 					return
@@ -328,7 +312,7 @@ func TestListenAndDial(t *testing.T) {
 				}()
 			} else {
 				// Test Listen function
-				listener, err = spiffetls.Listen(listenCtx, test.listenProtocol, test.listenLAddr, tlsconfig.AuthorizeID(clientID))
+				_, err := spiffetls.Listen(listenCtx, test.listenProtocol, test.listenLAddr, tlsconfig.AuthorizeID(clientID))
 				if test.listenErr != "" {
 					require.EqualError(t, err, test.listenErr)
 				}
@@ -414,11 +398,13 @@ func TestListenAndDial(t *testing.T) {
 	}
 }
 
-// testClose tests closing connections and listener
-func testClose(t *testing.T, listenMode spiffetls.ListenMode, dialMode spiffetls.DialMode) {
+func TestClose(t *testing.T) {
+	testEnv, cleanup := setupTestEnv(t)
+	defer cleanup()
+
 	listenCtx, cancelListenCtx := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancelListenCtx()
-	listener, err := spiffetls.ListenWithMode(listenCtx, defaultListenProtocol, defaultListenLAddr, listenMode)
+	listener, err := spiffetls.ListenWithMode(listenCtx, defaultListenProtocol, defaultListenLAddr, spiffetls.TLSServerWithSource(testEnv.wlAPISourceA))
 	require.NoError(t, err)
 
 	var wg sync.WaitGroup
@@ -436,7 +422,7 @@ func testClose(t *testing.T, listenMode spiffetls.ListenMode, dialMode spiffetls
 
 	dialCtx, cancelDialCtx := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancelDialCtx()
-	conn, err := spiffetls.DialWithMode(dialCtx, "tcp", listener.Addr().String(), dialMode)
+	conn, err := spiffetls.DialWithMode(dialCtx, "tcp", listener.Addr().String(), spiffetls.TLSClientWithSource(tlsconfig.AuthorizeID(serverID), testEnv.wlAPISourceB))
 	require.NoError(t, err)
 
 	// Test writing data to the connection
@@ -471,4 +457,71 @@ func setWorkloadAPIResponse(ca *test.CA, s *fakeworkloadapi.WorkloadAPI, spiffeI
 		Bundle: ca.X509Bundle(),
 		SVIDs:  []*x509svid.SVID{ca.CreateX509SVID(spiffeID)},
 	})
+}
+
+func setupTestEnv(t *testing.T) (*testEnv, func()) {
+	testEnv := &testEnv{}
+
+	cleanup := func() {
+		if testEnv.wlAPIClientA != nil {
+			testEnv.wlAPIClientA.Close()
+		}
+
+		if testEnv.wlAPIClientB != nil {
+			testEnv.wlAPIClientB.Close()
+		}
+
+		if testEnv.wlAPIServerA != nil {
+			testEnv.wlAPIServerA.Stop()
+		}
+
+		if testEnv.wlAPIServerB != nil {
+			testEnv.wlAPIServerB.Stop()
+		}
+
+		if testEnv.wlCancel != nil {
+			testEnv.wlCancel()
+		}
+
+		if testEnv.err != nil {
+			t.Fatal(testEnv.err)
+		}
+	}
+
+	// Common CA for client and server SVIDs
+	testEnv.ca = test.NewCA(t, td)
+
+	// Start two fake workload API servers called "A" and "B"
+	// Workload API Server A provides identities to the server workload
+	testEnv.wlAPIServerA = fakeworkloadapi.New(t)
+	setWorkloadAPIResponse(testEnv.ca, testEnv.wlAPIServerA, serverID)
+
+	// Workload API Server B provides identities to the client workload
+	testEnv.wlAPIServerB = fakeworkloadapi.New(t)
+	setWorkloadAPIResponse(testEnv.ca, testEnv.wlAPIServerB, clientID)
+
+	// Create custom workload API sources for the server
+	wlCtx, wlCancel := context.WithTimeout(context.Background(), time.Second*5)
+	testEnv.wlCancel = wlCancel
+	testEnv.wlAPIClientA, testEnv.err = workloadapi.New(wlCtx, workloadapi.WithAddr(testEnv.wlAPIServerA.Addr()))
+	if testEnv.err != nil {
+		cleanup()
+	}
+	testEnv.wlAPISourceA, testEnv.err = workloadapi.NewX509Source(wlCtx, workloadapi.WithClient(testEnv.wlAPIClientA))
+	if testEnv.err != nil {
+		cleanup()
+	}
+
+	// Create custom workload API sources for the client
+	testEnv.wlAPIClientB, testEnv.err = workloadapi.New(wlCtx, workloadapi.WithAddr(testEnv.wlAPIServerB.Addr()))
+	if testEnv.err != nil {
+		cleanup()
+	}
+
+	testEnv.wlAPISourceB, testEnv.err = workloadapi.NewX509Source(wlCtx, workloadapi.WithClient(testEnv.wlAPIClientB))
+	if testEnv.err != nil {
+		cleanup()
+	}
+
+	return testEnv, cleanup
 }
