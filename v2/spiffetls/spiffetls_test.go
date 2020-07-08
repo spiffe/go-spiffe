@@ -45,11 +45,13 @@ type testEnv struct {
 	wlAPIClientB *workloadapi.Client
 	wlAPIServerA *fakeworkloadapi.WorkloadAPI
 	wlAPIServerB *fakeworkloadapi.WorkloadAPI
+	wlCancel     context.CancelFunc
+	err          error
 }
 
 func TestListenAndDial(t *testing.T) {
-	testEnv, done := setupTestEnv(t)
-	defer done()
+	testEnv := setupTestEnv(t)
+	defer cleanup(t, testEnv)
 
 	// Create custom SVID and bundle source (not backed by workload API)
 	bundleSource := testEnv.ca.X509Bundle()
@@ -397,8 +399,8 @@ func TestListenAndDial(t *testing.T) {
 }
 
 func TestClose(t *testing.T) {
-	testEnv, done := setupTestEnv(t)
-	defer done()
+	testEnv := setupTestEnv(t)
+	defer cleanup(t, testEnv)
 
 	listenCtx, cancelListenCtx := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancelListenCtx()
@@ -457,47 +459,69 @@ func setWorkloadAPIResponse(ca *test.CA, s *fakeworkloadapi.WorkloadAPI, spiffeI
 	})
 }
 
-func setupTestEnv(t *testing.T) (*testEnv, func()) {
+func setupTestEnv(t *testing.T) *testEnv {
+	testEnv := &testEnv{}
+
 	// Common CA for client and server SVIDs
-	ca := test.NewCA(t, td)
+	testEnv.ca = test.NewCA(t, td)
 
 	// Start two fake workload API servers called "A" and "B"
 	// Workload API Server A provides identities to the server workload
-	wlAPIServerA := fakeworkloadapi.New(t)
-	setWorkloadAPIResponse(ca, wlAPIServerA, serverID)
+	testEnv.wlAPIServerA = fakeworkloadapi.New(t)
+	setWorkloadAPIResponse(testEnv.ca, testEnv.wlAPIServerA, serverID)
 
 	// Workload API Server B provides identities to the client workload
-	wlAPIServerB := fakeworkloadapi.New(t)
-	setWorkloadAPIResponse(ca, wlAPIServerB, clientID)
+	testEnv.wlAPIServerB = fakeworkloadapi.New(t)
+	setWorkloadAPIResponse(testEnv.ca, testEnv.wlAPIServerB, clientID)
 
 	// Create custom workload API sources for the server
 	wlCtx, wlCancel := context.WithTimeout(context.Background(), time.Second*5)
-	wlAPIClientA, err := workloadapi.New(wlCtx, workloadapi.WithAddr(wlAPIServerA.Addr()))
-	require.NoError(t, err)
-	wlAPISourceA, err := workloadapi.NewX509Source(wlCtx, workloadapi.WithClient(wlAPIClientA))
-	require.NoError(t, err)
+	testEnv.wlCancel = wlCancel
+	testEnv.wlAPIClientA, testEnv.err = workloadapi.New(wlCtx, workloadapi.WithAddr(testEnv.wlAPIServerA.Addr()))
+	if testEnv.err != nil {
+		cleanup(t, testEnv)
+	}
+	testEnv.wlAPISourceA, testEnv.err = workloadapi.NewX509Source(wlCtx, workloadapi.WithClient(testEnv.wlAPIClientA))
+	if testEnv.err != nil {
+		cleanup(t, testEnv)
+	}
 
 	// Create custom workload API sources for the client
-	wlAPIClientB, err := workloadapi.New(wlCtx, workloadapi.WithAddr(wlAPIServerB.Addr()))
-	require.NoError(t, err)
-	wlAPISourceB, err := workloadapi.NewX509Source(wlCtx, workloadapi.WithClient(wlAPIClientB))
-	require.NoError(t, err)
-
-	testEnv := &testEnv{
-		ca:           ca,
-		wlAPISourceA: wlAPISourceA,
-		wlAPISourceB: wlAPISourceB,
-		wlAPIClientA: wlAPIClientA,
-		wlAPIClientB: wlAPIClientB,
-		wlAPIServerA: wlAPIServerA,
-		wlAPIServerB: wlAPIServerB,
+	testEnv.wlAPIClientB, testEnv.err = workloadapi.New(wlCtx, workloadapi.WithAddr(testEnv.wlAPIServerB.Addr()))
+	if testEnv.err != nil {
+		cleanup(t, testEnv)
 	}
 
-	done := func() {
-		wlAPIServerA.Stop()
-		wlAPIServerB.Stop()
-		wlCancel()
+	testEnv.wlAPISourceB, testEnv.err = workloadapi.NewX509Source(wlCtx, workloadapi.WithClient(testEnv.wlAPIClientB))
+	if testEnv.err != nil {
+		cleanup(t, testEnv)
 	}
 
-	return testEnv, done
+	return testEnv
+}
+
+func cleanup(t *testing.T, testEnv *testEnv) {
+	if testEnv.wlAPIClientA != nil {
+		testEnv.wlAPIClientA.Close()
+	}
+
+	if testEnv.wlAPIClientB != nil {
+		testEnv.wlAPIClientB.Close()
+	}
+
+	if testEnv.wlAPIServerA != nil {
+		testEnv.wlAPIServerA.Stop()
+	}
+
+	if testEnv.wlAPIServerB != nil {
+		testEnv.wlAPIServerB.Stop()
+	}
+
+	if testEnv.wlCancel != nil {
+		testEnv.wlCancel()
+	}
+
+	if testEnv.err != nil {
+		t.Fatal(testEnv.err)
+	}
 }
