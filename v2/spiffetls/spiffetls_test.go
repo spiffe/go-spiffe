@@ -50,7 +50,7 @@ type testEnv struct {
 }
 
 func TestListenAndDial(t *testing.T) {
-	testEnv := setupTestEnv(t)
+	testEnv, cleanup := setupTestEnv(t)
 	defer cleanup(t, testEnv)
 
 	// Create custom SVID and bundle source (not backed by workload API)
@@ -399,7 +399,7 @@ func TestListenAndDial(t *testing.T) {
 }
 
 func TestClose(t *testing.T) {
-	testEnv := setupTestEnv(t)
+	testEnv, cleanup := setupTestEnv(t)
 	defer cleanup(t, testEnv)
 
 	listenCtx, cancelListenCtx := context.WithTimeout(context.Background(), 10*time.Second)
@@ -459,7 +459,33 @@ func setWorkloadAPIResponse(ca *test.CA, s *fakeworkloadapi.WorkloadAPI, spiffeI
 	})
 }
 
-func setupTestEnv(t *testing.T) *testEnv {
+func setupTestEnv(t *testing.T) (*testEnv, func(t *testing.T, testEnv *testEnv)) {
+	cleanup := func(t *testing.T, testEnv *testEnv) {
+		if testEnv.wlAPIClientA != nil {
+			testEnv.wlAPIClientA.Close()
+		}
+
+		if testEnv.wlAPIClientB != nil {
+			testEnv.wlAPIClientB.Close()
+		}
+
+		if testEnv.wlAPIServerA != nil {
+			testEnv.wlAPIServerA.Stop()
+		}
+
+		if testEnv.wlAPIServerB != nil {
+			testEnv.wlAPIServerB.Stop()
+		}
+
+		if testEnv.wlCancel != nil {
+			testEnv.wlCancel()
+		}
+
+		if testEnv.err != nil {
+			t.Fatal(testEnv.err)
+		}
+	}
+
 	testEnv := &testEnv{}
 
 	// Common CA for client and server SVIDs
@@ -497,31 +523,5 @@ func setupTestEnv(t *testing.T) *testEnv {
 		cleanup(t, testEnv)
 	}
 
-	return testEnv
-}
-
-func cleanup(t *testing.T, testEnv *testEnv) {
-	if testEnv.wlAPIClientA != nil {
-		testEnv.wlAPIClientA.Close()
-	}
-
-	if testEnv.wlAPIClientB != nil {
-		testEnv.wlAPIClientB.Close()
-	}
-
-	if testEnv.wlAPIServerA != nil {
-		testEnv.wlAPIServerA.Stop()
-	}
-
-	if testEnv.wlAPIServerB != nil {
-		testEnv.wlAPIServerB.Stop()
-	}
-
-	if testEnv.wlCancel != nil {
-		testEnv.wlCancel()
-	}
-
-	if testEnv.err != nil {
-		t.Fatal(testEnv.err)
-	}
+	return testEnv, cleanup
 }
