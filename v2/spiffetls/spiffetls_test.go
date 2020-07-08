@@ -51,7 +51,7 @@ type testEnv struct {
 
 func TestListenAndDial(t *testing.T) {
 	testEnv, cleanup := setupTestEnv(t)
-	defer cleanup(t, testEnv)
+	defer cleanup()
 
 	// Create custom SVID and bundle source (not backed by workload API)
 	bundleSource := testEnv.ca.X509Bundle()
@@ -400,7 +400,7 @@ func TestListenAndDial(t *testing.T) {
 
 func TestClose(t *testing.T) {
 	testEnv, cleanup := setupTestEnv(t)
-	defer cleanup(t, testEnv)
+	defer cleanup()
 
 	listenCtx, cancelListenCtx := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancelListenCtx()
@@ -459,8 +459,10 @@ func setWorkloadAPIResponse(ca *test.CA, s *fakeworkloadapi.WorkloadAPI, spiffeI
 	})
 }
 
-func setupTestEnv(t *testing.T) (*testEnv, func(t *testing.T, testEnv *testEnv)) {
-	cleanup := func(t *testing.T, testEnv *testEnv) {
+func setupTestEnv(t *testing.T) (*testEnv, func()) {
+	testEnv := &testEnv{}
+
+	cleanup := func() {
 		if testEnv.wlAPIClientA != nil {
 			testEnv.wlAPIClientA.Close()
 		}
@@ -486,8 +488,6 @@ func setupTestEnv(t *testing.T) (*testEnv, func(t *testing.T, testEnv *testEnv))
 		}
 	}
 
-	testEnv := &testEnv{}
-
 	// Common CA for client and server SVIDs
 	testEnv.ca = test.NewCA(t, td)
 
@@ -505,22 +505,22 @@ func setupTestEnv(t *testing.T) (*testEnv, func(t *testing.T, testEnv *testEnv))
 	testEnv.wlCancel = wlCancel
 	testEnv.wlAPIClientA, testEnv.err = workloadapi.New(wlCtx, workloadapi.WithAddr(testEnv.wlAPIServerA.Addr()))
 	if testEnv.err != nil {
-		cleanup(t, testEnv)
+		cleanup()
 	}
 	testEnv.wlAPISourceA, testEnv.err = workloadapi.NewX509Source(wlCtx, workloadapi.WithClient(testEnv.wlAPIClientA))
 	if testEnv.err != nil {
-		cleanup(t, testEnv)
+		cleanup()
 	}
 
 	// Create custom workload API sources for the client
 	testEnv.wlAPIClientB, testEnv.err = workloadapi.New(wlCtx, workloadapi.WithAddr(testEnv.wlAPIServerB.Addr()))
 	if testEnv.err != nil {
-		cleanup(t, testEnv)
+		cleanup()
 	}
 
 	testEnv.wlAPISourceB, testEnv.err = workloadapi.NewX509Source(wlCtx, workloadapi.WithClient(testEnv.wlAPIClientB))
 	if testEnv.err != nil {
-		cleanup(t, testEnv)
+		cleanup()
 	}
 
 	return testEnv, cleanup
