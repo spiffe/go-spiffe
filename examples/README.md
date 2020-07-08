@@ -1,6 +1,12 @@
+# Deprecation Warning
+
+__NOTE:__ The code samples in this directory were written for the [v1 version](../README.md) of the go-spiffe library, which will be deprecated soon.
+
+We recommend that you write new code using the `v2` go-spiffe module. See [go-spiffe (v2) Examples](../v2/examples) for code samples written for the `v2` go-spiffe module. See [go-spiffe (v2)](../v2) for general information about the `v2` go-spiffe module.
+
 # Examples
 
-This section contains a set of standalone examples that demonstrate different use cases for the go-spiffe library.
+This section contains a set of standalone examples that demonstrate different use cases for the `v1` go-spiffe library.
 
 ## Use cases
 
