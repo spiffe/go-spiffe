@@ -1,6 +1,6 @@
 # HTTP over TLS with JWT
 
-This example shows how two services using HTTP can communicate using TLS with the server presenting an X509 SVID and expecting a client to authenticate with a JWT-SVID. The SVIDs are retrieve, and authentication is accomplished, via the SPIFFE Workload API.
+This example shows how two services using HTTP can communicate using TLS with the server presenting an X509 SVID and expecting a client to authenticate with a JWT-SVID. The SVIDs are retrieved, and authentication is accomplished, via the SPIFFE Workload API.
 
 The **HTTP server** creates a [workloadapi.X509Source](https://pkg.go.dev/github.com/spiffe/go-spiffe/v2/workloadapi?tab=doc#X509Source).
 
@@ -95,7 +95,7 @@ go build
 
 ## Running
 This example assumes the following preconditions:
-- There is a SPIRE server and agent up and running.
+- There is a SPIRE Server and Agent up and running.
 - There is a Unix workload attestor configured.
 - The trust domain is `example.org`
 - The agent SPIFFE ID is `spiffe://example.org/host`.
@@ -132,7 +132,7 @@ sudo -u client-workload ./client
 
 The server should display a log `Request received` and client `Success!!!`
 
-To demonstrate a failure, an alternate audience value can be used. The server is expecting it's own SPIFFE ID as the audience value and will reject the token if it doesn't match.
+To demonstrate a failure, an alternate audience value can be used. The server is expecting its own SPIFFE ID as the audience value and will reject the token if it doesn't match.
 
 ```
 sudo -u client-workload ./client spiffe://example.org/some-other-server
