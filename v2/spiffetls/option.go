@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"net"
 
+	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
 	"github.com/zeebo/errs"
 )
 
@@ -23,12 +24,14 @@ func (fn dialOption) apply(c *dialConfig) {
 type dialConfig struct {
 	baseTLSConf *tls.Config
 	dialer      *net.Dialer
+	tlsoptions  []tlsconfig.Option
 }
 
 type listenOption func(*listenConfig)
 
 type listenConfig struct {
 	baseTLSConf *tls.Config
+	tlsoptions  []tlsconfig.Option
 }
 
 func (fn listenOption) apply(c *listenConfig) {
@@ -41,6 +44,13 @@ func (fn listenOption) apply(c *listenConfig) {
 func WithDialTLSConfigBase(base *tls.Config) DialOption {
 	return dialOption(func(c *dialConfig) {
 		c.baseTLSConf = base
+	})
+}
+
+// WithDialTLSOptions provides options to use for the TLS config.
+func WithDialTLSOptions(opts ...tlsconfig.Option) DialOption {
+	return dialOption(func(c *dialConfig) {
+		c.tlsoptions = opts
 	})
 }
 
@@ -63,5 +73,12 @@ type ListenOption interface {
 func WithListenTLSConfigBase(base *tls.Config) ListenOption {
 	return listenOption(func(c *listenConfig) {
 		c.baseTLSConf = base
+	})
+}
+
+// WithListenTLSOptions provides options to use when doing Server mTLS.
+func WithListenTLSOptions(opts ...tlsconfig.Option) ListenOption {
+	return listenOption(func(c *listenConfig) {
+		c.tlsoptions = opts
 	})
 }

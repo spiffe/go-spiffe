@@ -1,15 +1,15 @@
-# go-spiffe (v1) library [![GoDoc](https://godoc.org/github.com/spiffe/go-spiffe?status.svg)](https://godoc.org/github.com/spiffe/go-spiffe)
-
 # Deprecation Warning
 
 __NOTE:__ This version of the library will be deprecated soon.
 
-The new [v2](./v2) module is currently in alpha release and published under
+The [v2](./v2) module is in **beta** and published under
 `github.com/spiffe/go-spiffe/v2`, following go module guidelines.
 
-New code should consider using the `v2` module.
+**New code should strongly consider using the `v2` module.**
 
 See the [v2 README](./v2) for more details.
+
+# go-spiffe (v1) library [![GoDoc](https://godoc.org/github.com/spiffe/go-spiffe?status.svg)](https://godoc.org/github.com/spiffe/go-spiffe)
 
 ## Overview
 
