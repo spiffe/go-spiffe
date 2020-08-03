@@ -29,9 +29,8 @@ func TestTLSPeer(t *testing.T) {
 		Bundle: domain1CA.Roots(),
 		SVIDs: []spiffetest.X509SVID{
 			{
-				CertChain:     serverSVID,
-				Key:           serverKey,
-				FederatesWith: []string{"spiffe://domain2.test"},
+				CertChain: serverSVID,
+				Key:       serverKey,
 			},
 		},
 		FederatedBundles: map[string][]*x509.Certificate{
@@ -48,9 +47,8 @@ func TestTLSPeer(t *testing.T) {
 		Bundle: domain2CA.Roots(),
 		SVIDs: []spiffetest.X509SVID{
 			{
-				CertChain:     clientSVID,
-				Key:           clientKey,
-				FederatesWith: []string{"spiffe://domain1.test"},
+				CertChain: clientSVID,
+				Key:       clientKey,
 			},
 		},
 		FederatedBundles: map[string][]*x509.Certificate{
@@ -103,9 +101,8 @@ func TestTLSPeerGRPC(t *testing.T) {
 		Bundle: domain1CA.Roots(),
 		SVIDs: []spiffetest.X509SVID{
 			{
-				CertChain:     serverSVID,
-				Key:           serverKey,
-				FederatesWith: []string{"spiffe://domain2.test"},
+				CertChain: serverSVID,
+				Key:       serverKey,
 			},
 		},
 		FederatedBundles: map[string][]*x509.Certificate{
@@ -122,9 +119,8 @@ func TestTLSPeerGRPC(t *testing.T) {
 		Bundle: domain2CA.Roots(),
 		SVIDs: []spiffetest.X509SVID{
 			{
-				CertChain:     clientSVID,
-				Key:           clientKey,
-				FederatesWith: []string{"spiffe://domain1.test"},
+				CertChain: clientSVID,
+				Key:       clientKey,
 			},
 		},
 		FederatedBundles: map[string][]*x509.Certificate{
