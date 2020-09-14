@@ -22,7 +22,7 @@ func ExpectAnyPeer() ExpectPeerFunc {
 func ExpectPeer(expectedID string) ExpectPeerFunc {
 	return func(peerID string, _ [][]*x509.Certificate) error {
 		if peerID != expectedID {
-			return fmt.Errorf("unexpected peer ID %q", peerID)
+			return fmt.Errorf("unexpected peer ID %q: expected %q", peerID, expectedID)
 		}
 		return nil
 	}
@@ -36,7 +36,7 @@ func ExpectPeers(expectedIDs ...string) ExpectPeerFunc {
 	}
 	return func(peerID string, _ [][]*x509.Certificate) error {
 		if _, ok := m[peerID]; !ok {
-			return fmt.Errorf("unexpected peer ID %q", peerID)
+			return fmt.Errorf("unexpected peer ID %q: expected one of %q", peerID, expectedIDs)
 		}
 		return nil
 	}
@@ -47,7 +47,7 @@ func ExpectPeers(expectedIDs ...string) ExpectPeerFunc {
 func ExpectPeerInDomain(expectedDomain string) ExpectPeerFunc {
 	return func(peerID string, _ [][]*x509.Certificate) error {
 		if domain := getPeerTrustDomain(peerID); domain != expectedDomain {
-			return fmt.Errorf("unexpected peer trust domain %q", domain)
+			return fmt.Errorf("unexpected trust domain %q for peer ID %q: expected trust domain %q", domain, peerID, expectedDomain)
 		}
 		return nil
 	}
