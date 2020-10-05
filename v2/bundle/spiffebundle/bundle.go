@@ -365,6 +365,20 @@ func (b *Bundle) Marshal() ([]byte, error) {
 	return json.Marshal(jwks)
 }
 
+// Clone clones the bundle.
+func (b *Bundle) Clone() *Bundle {
+	b.mtx.RLock()
+	defer b.mtx.RUnlock()
+
+	return &Bundle{
+		trustDomain:     b.trustDomain,
+		refreshHint:     copyRefreshHint(b.refreshHint),
+		sequenceNumber:  copySequenceNumber(b.sequenceNumber),
+		x509Authorities: x509util.CopyX509Authorities(b.x509Authorities),
+		jwtAuthorities:  jwtutil.CopyJWTAuthorities(b.jwtAuthorities),
+	}
+}
+
 // X509Bundle returns an X.509 bundle containing the X.509 authorities in the SPIFFE
 // bundle.
 func (b *Bundle) X509Bundle() *x509bundle.Bundle {
@@ -426,6 +440,7 @@ func (b *Bundle) GetJWTBundleForTrustDomain(trustDomain spiffeid.TrustDomain) (*
 	return b.JWTBundle(), nil
 }
 
+// Equal compares the bundle for equality against the given bundle.
 func (b *Bundle) Equal(other *Bundle) bool {
 	if b == nil || other == nil {
 		return b == other
@@ -452,4 +467,20 @@ func sequenceNumberEqual(a, b *uint64) bool {
 	}
 
 	return *a == *b
+}
+
+func copyRefreshHint(refreshHint *time.Duration) *time.Duration {
+	if refreshHint == nil {
+		return nil
+	}
+	copied := *refreshHint
+	return &copied
+}
+
+func copySequenceNumber(sequenceNumber *uint64) *uint64 {
+	if sequenceNumber == nil {
+		return nil
+	}
+	copied := *sequenceNumber
+	return &copied
 }
