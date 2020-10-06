@@ -11,6 +11,7 @@ import (
 	"github.com/spiffe/go-spiffe/v2/bundle/jwtbundle"
 	"github.com/spiffe/go-spiffe/v2/bundle/spiffebundle"
 	"github.com/spiffe/go-spiffe/v2/bundle/x509bundle"
+	"github.com/spiffe/go-spiffe/v2/internal/test"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -24,7 +25,8 @@ type testCase struct {
 }
 
 var (
-	td        = spiffeid.RequireTrustDomainFromString("example.org")
+	td        = spiffeid.RequireTrustDomainFromString("domain.test")
+	td2       = spiffeid.RequireTrustDomainFromString("domain2.test")
 	x509Cert1 = &x509.Certificate{
 		Raw: []byte("CERT 1"),
 	}
@@ -302,10 +304,9 @@ func TestGetBundleForTrustDomain(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, b, b1)
 
-	td2 := spiffeid.RequireTrustDomainFromString("example-2.org")
 	b2, err := b.GetBundleForTrustDomain(td2)
 	require.Nil(t, b2)
-	require.EqualError(t, err, `spiffebundle: no SPIFFE bundle for trust domain "example-2.org"`)
+	require.EqualError(t, err, `spiffebundle: no SPIFFE bundle for trust domain "domain2.test"`)
 }
 
 func TestGetX509BundleForTrustDomain(t *testing.T) {
@@ -315,10 +316,9 @@ func TestGetX509BundleForTrustDomain(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, xb1, xb2)
 
-	td2 := spiffeid.RequireTrustDomainFromString("example-2.org")
 	xb2, err = sb.GetX509BundleForTrustDomain(td2)
 	require.Nil(t, xb2)
-	require.EqualError(t, err, `spiffebundle: no X.509 bundle for trust domain "example-2.org"`)
+	require.EqualError(t, err, `spiffebundle: no X.509 bundle for trust domain "domain2.test"`)
 }
 
 func TestGetJWTBundleForTrustDomain(t *testing.T) {
@@ -328,10 +328,139 @@ func TestGetJWTBundleForTrustDomain(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, jb1, jb2)
 
-	td2 := spiffeid.RequireTrustDomainFromString("example-2.org")
 	jb2, err = sb.GetJWTBundleForTrustDomain(td2)
 	require.Nil(t, jb2)
-	require.EqualError(t, err, `spiffebundle: no JWT bundle for trust domain "example-2.org"`)
+	require.EqualError(t, err, `spiffebundle: no JWT bundle for trust domain "domain2.test"`)
+}
+
+func TestEqual(t *testing.T) {
+	ca1 := test.NewCA(t, td)
+	ca2 := test.NewCA(t, td2)
+
+	empty := spiffebundle.New(td)
+	empty2 := spiffebundle.New(td2)
+
+	refreshHint1 := spiffebundle.New(td)
+	refreshHint1.SetRefreshHint(time.Second)
+	refreshHint2 := spiffebundle.New(td)
+	refreshHint2.SetRefreshHint(time.Second * 2)
+
+	sequenceNumber1 := spiffebundle.New(td)
+	sequenceNumber1.SetSequenceNumber(1)
+	sequenceNumber2 := spiffebundle.New(td)
+	sequenceNumber2.SetSequenceNumber(2)
+
+	x509Authorities1 := spiffebundle.FromX509Authorities(td, ca1.X509Authorities())
+	x509Authorities2 := spiffebundle.FromX509Authorities(td, ca2.X509Authorities())
+
+	jwtAuthorities1 := spiffebundle.FromJWTAuthorities(td, ca1.JWTAuthorities())
+	jwtAuthorities2 := spiffebundle.FromJWTAuthorities(td, ca2.JWTAuthorities())
+
+	for _, tt := range []struct {
+		name        string
+		a           *spiffebundle.Bundle
+		b           *spiffebundle.Bundle
+		expectEqual bool
+	}{
+		{
+			name:        "empty equal",
+			a:           empty,
+			b:           empty,
+			expectEqual: true,
+		},
+		{
+			name:        "different trust domains",
+			a:           empty,
+			b:           empty2,
+			expectEqual: false,
+		},
+		{
+			name:        "refresh hint equal",
+			a:           refreshHint1,
+			b:           refreshHint1,
+			expectEqual: true,
+		},
+		{
+			name:        "refresh hint nil and non-nil",
+			a:           empty,
+			b:           refreshHint1,
+			expectEqual: false,
+		},
+		{
+			name:        "refresh hint non-nil but not equal",
+			a:           refreshHint1,
+			b:           refreshHint2,
+			expectEqual: false,
+		},
+		{
+			name:        "sequence number equal",
+			a:           sequenceNumber1,
+			b:           sequenceNumber1,
+			expectEqual: true,
+		},
+		{
+			name:        "sequence number nil and non-nil",
+			a:           empty,
+			b:           sequenceNumber1,
+			expectEqual: false,
+		},
+		{
+			name:        "sequence number non-nil but not equal",
+			a:           sequenceNumber1,
+			b:           sequenceNumber2,
+			expectEqual: false,
+		},
+		{
+			name:        "X509 authorities equal",
+			a:           x509Authorities1,
+			b:           x509Authorities1,
+			expectEqual: true,
+		},
+		{
+			name:        "X509 authorities empty and not empty",
+			a:           empty,
+			b:           x509Authorities1,
+			expectEqual: false,
+		},
+		{
+			name:        "X509 authorities not empty but not equal",
+			a:           x509Authorities1,
+			b:           x509Authorities2,
+			expectEqual: false,
+		},
+		{
+			name:        "JWT authorities equal",
+			a:           jwtAuthorities1,
+			b:           jwtAuthorities1,
+			expectEqual: true,
+		},
+		{
+			name:        "JWT authorities empty and not empty",
+			a:           empty,
+			b:           jwtAuthorities1,
+			expectEqual: false,
+		},
+		{
+			name:        "JWT authorities not empty but not equal",
+			a:           jwtAuthorities1,
+			b:           jwtAuthorities2,
+			expectEqual: false,
+		},
+	} {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.expectEqual, tt.a.Equal(tt.b))
+		})
+	}
+}
+
+func TestClone(t *testing.T) {
+	// Load a bundle to clone
+	original, err := spiffebundle.Load(td, "testdata/spiffebundle_valid_2.json")
+	require.NoError(t, err)
+
+	cloned := original.Clone()
+	require.True(t, original.Equal(cloned))
 }
 
 func checkBundleProperties(t *testing.T, err error, tc testCase, b *spiffebundle.Bundle) {

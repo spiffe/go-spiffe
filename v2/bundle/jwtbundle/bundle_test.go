@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/spiffe/go-spiffe/v2/bundle/jwtbundle"
+	"github.com/spiffe/go-spiffe/v2/internal/test"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -256,4 +257,67 @@ func TestGetJWTBundleForTrustDomain(t *testing.T) {
 	b2, err := b.GetJWTBundleForTrustDomain(td2)
 	require.Nil(t, b2)
 	require.EqualError(t, err, `jwtbundle: no JWT bundle for trust domain "example-2.org"`)
+}
+
+func TestEqual(t *testing.T) {
+	ca1 := test.NewCA(t, td)
+	ca2 := test.NewCA(t, td2)
+
+	empty := jwtbundle.New(td)
+	empty2 := jwtbundle.New(td2)
+
+	jwtAuthorities1 := jwtbundle.FromJWTAuthorities(td, ca1.JWTAuthorities())
+	jwtAuthorities2 := jwtbundle.FromJWTAuthorities(td, ca2.JWTAuthorities())
+
+	for _, tt := range []struct {
+		name        string
+		a           *jwtbundle.Bundle
+		b           *jwtbundle.Bundle
+		expectEqual bool
+	}{
+		{
+			name:        "empty equal",
+			a:           empty,
+			b:           empty,
+			expectEqual: true,
+		},
+		{
+			name:        "different trust domains",
+			a:           empty,
+			b:           empty2,
+			expectEqual: false,
+		},
+		{
+			name:        "JWT authorities equal",
+			a:           jwtAuthorities1,
+			b:           jwtAuthorities1,
+			expectEqual: true,
+		},
+		{
+			name:        "JWT authorities empty and not empty",
+			a:           empty,
+			b:           jwtAuthorities1,
+			expectEqual: false,
+		},
+		{
+			name:        "JWT authorities not empty but not equal",
+			a:           jwtAuthorities1,
+			b:           jwtAuthorities2,
+			expectEqual: false,
+		},
+	} {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.expectEqual, tt.a.Equal(tt.b))
+		})
+	}
+}
+
+func TestClone(t *testing.T) {
+	// Load a bundle to clone
+	original, err := jwtbundle.Load(td, "testdata/jwks_valid_2.json")
+	require.NoError(t, err)
+
+	cloned := original.Clone()
+	require.True(t, original.Equal(cloned))
 }

@@ -7,16 +7,22 @@ import (
 	"testing"
 
 	"github.com/spiffe/go-spiffe/v2/bundle/x509bundle"
+	"github.com/spiffe/go-spiffe/v2/internal/test"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
+var (
+	td  = spiffeid.RequireTrustDomainFromString("domain.test")
+	td2 = spiffeid.RequireTrustDomainFromString("domain2.test")
+)
+
 func TestNew(t *testing.T) {
-	bundle := x509bundle.New(spiffeid.RequireTrustDomainFromString("example.org"))
+	bundle := x509bundle.New(td)
 	require.NotNil(t, bundle)
 	assert.Len(t, bundle.X509Authorities(), 0)
-	assert.Equal(t, spiffeid.RequireTrustDomainFromString("example.org"), bundle.TrustDomain())
+	assert.Equal(t, td, bundle.TrustDomain())
 }
 
 func TestFromX509Authorities(t *testing.T) {
@@ -28,20 +34,20 @@ func TestFromX509Authorities(t *testing.T) {
 	}
 
 	x509Authorities := []*x509.Certificate{x509Cert1, x509Cert2}
-	b := x509bundle.FromX509Authorities(spiffeid.RequireTrustDomainFromString("example.org"), x509Authorities)
+	b := x509bundle.FromX509Authorities(td, x509Authorities)
 	require.NotNil(t, b)
 	assert.Equal(t, b.X509Authorities(), x509Authorities)
 }
 
 func TestLoad_Succeeds(t *testing.T) {
-	bundle, err := x509bundle.Load(spiffeid.RequireTrustDomainFromString("example.org"), "testdata/certs.pem")
+	bundle, err := x509bundle.Load(td, "testdata/certs.pem")
 	require.NoError(t, err)
 	require.NotNil(t, bundle)
 	assert.Len(t, bundle.X509Authorities(), 2)
 }
 
 func TestLoad_Fails(t *testing.T) {
-	bundle, err := x509bundle.Load(spiffeid.RequireTrustDomainFromString("example.org"), "testdata/non-existent-file.pem")
+	bundle, err := x509bundle.Load(td, "testdata/non-existent-file.pem")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "x509bundle: unable to load X.509 bundle file")
 	assert.Nil(t, bundle)
@@ -52,7 +58,7 @@ func TestRead_Succeeds(t *testing.T) {
 	require.NoError(t, err)
 	defer file.Close()
 
-	bundle, err := x509bundle.Read(spiffeid.RequireTrustDomainFromString("example.org"), file)
+	bundle, err := x509bundle.Read(td, file)
 	require.NoError(t, err)
 	require.NotNil(t, bundle)
 	assert.Len(t, bundle.X509Authorities(), 2)
@@ -65,7 +71,7 @@ func TestRead_Fails(t *testing.T) {
 	// Close file prematurely to cause an error while reading
 	file.Close()
 
-	bundle, err := x509bundle.Read(spiffeid.RequireTrustDomainFromString("example.org"), file)
+	bundle, err := x509bundle.Read(td, file)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "x509bundle: unable to read")
 	assert.Nil(t, bundle)
@@ -117,7 +123,7 @@ func TestParse(t *testing.T) {
 			fileBytes, err := ioutil.ReadFile(test.path)
 			require.NoError(t, err)
 
-			bundle, err := x509bundle.Parse(spiffeid.RequireTrustDomainFromString("example.org"), fileBytes)
+			bundle, err := x509bundle.Parse(td, fileBytes)
 			if test.expErrContains != "" {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), test.expErrContains)
@@ -132,13 +138,13 @@ func TestParse(t *testing.T) {
 
 func TestX509AuthorityCRUD(t *testing.T) {
 	// Load bundle1, which contains a single certificate
-	bundle1, err := x509bundle.Load(spiffeid.RequireTrustDomainFromString("example-1.org"), "testdata/cert.pem")
+	bundle1, err := x509bundle.Load(td, "testdata/cert.pem")
 	require.NoError(t, err)
 	assert.Len(t, bundle1.X509Authorities(), 1)
 
 	// Load bundle2, which contains 2 certificates
 	// The first certificate is the same than the one used in bundle1
-	bundle2, err := x509bundle.Load(spiffeid.RequireTrustDomainFromString("example-2.org"), "testdata/certs.pem")
+	bundle2, err := x509bundle.Load(td2, "testdata/certs.pem")
 	require.NoError(t, err)
 	assert.Len(t, bundle2.X509Authorities(), 2)
 	assert.True(t, bundle2.HasX509Authority(bundle1.X509Authorities()[0]))
@@ -170,7 +176,7 @@ func TestX509AuthorityCRUD(t *testing.T) {
 
 func TestMarshal(t *testing.T) {
 	// Load a bundle to marshal
-	bundle, err := x509bundle.Load(spiffeid.RequireTrustDomainFromString("example.org"), "testdata/certs.pem")
+	bundle, err := x509bundle.Load(td, "testdata/certs.pem")
 	require.NoError(t, err)
 
 	// Marshal the bundle
@@ -187,21 +193,84 @@ func TestMarshal(t *testing.T) {
 }
 
 func TestGetX509BundleForTrustDomain_Succeeds(t *testing.T) {
-	bundle, err := x509bundle.Load(spiffeid.RequireTrustDomainFromString("example.org"), "testdata/certs.pem")
+	bundle, err := x509bundle.Load(td, "testdata/certs.pem")
 	require.NoError(t, err)
 
-	b, err := bundle.GetX509BundleForTrustDomain(spiffeid.RequireTrustDomainFromString("example.org"))
+	b, err := bundle.GetX509BundleForTrustDomain(td)
 	require.NoError(t, err)
 	require.NotNil(t, b)
 	require.Equal(t, bundle, b)
 }
 
 func TestGetX509BundleForTrustDomain_Fails(t *testing.T) {
-	bundle, err := x509bundle.Load(spiffeid.RequireTrustDomainFromString("example.org"), "testdata/certs.pem")
+	bundle, err := x509bundle.Load(td, "testdata/certs.pem")
 	require.NoError(t, err)
 
-	b, err := bundle.GetX509BundleForTrustDomain(spiffeid.RequireTrustDomainFromString("another-td.org"))
+	b, err := bundle.GetX509BundleForTrustDomain(td2)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), `x509bundle: no X.509 bundle found for trust domain: "another-td.org"`)
+	require.Contains(t, err.Error(), `x509bundle: no X.509 bundle found for trust domain: "domain2.test"`)
 	require.Nil(t, b)
+}
+
+func TestEqual(t *testing.T) {
+	ca1 := test.NewCA(t, td)
+	ca2 := test.NewCA(t, td2)
+
+	empty := x509bundle.New(td)
+	empty2 := x509bundle.New(td2)
+
+	x509Authorities1 := x509bundle.FromX509Authorities(td, ca1.X509Authorities())
+	x509Authorities2 := x509bundle.FromX509Authorities(td, ca2.X509Authorities())
+
+	for _, tt := range []struct {
+		name        string
+		a           *x509bundle.Bundle
+		b           *x509bundle.Bundle
+		expectEqual bool
+	}{
+		{
+			name:        "empty equal",
+			a:           empty,
+			b:           empty,
+			expectEqual: true,
+		},
+		{
+			name:        "different trust domains",
+			a:           empty,
+			b:           empty2,
+			expectEqual: false,
+		},
+		{
+			name:        "X509 authorities equal",
+			a:           x509Authorities1,
+			b:           x509Authorities1,
+			expectEqual: true,
+		},
+		{
+			name:        "X509 authorities empty and not empty",
+			a:           empty,
+			b:           x509Authorities1,
+			expectEqual: false,
+		},
+		{
+			name:        "X509 authorities not empty but not equal",
+			a:           x509Authorities1,
+			b:           x509Authorities2,
+			expectEqual: false,
+		},
+	} {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.expectEqual, tt.a.Equal(tt.b))
+		})
+	}
+}
+
+func TestClone(t *testing.T) {
+	// Load a bundle to clone
+	original, err := x509bundle.Load(td, "testdata/certs.pem")
+	require.NoError(t, err)
+
+	cloned := original.Clone()
+	require.True(t, original.Equal(cloned))
 }

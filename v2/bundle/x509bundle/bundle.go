@@ -153,6 +153,24 @@ func (b *Bundle) Marshal() ([]byte, error) {
 	return pemutil.EncodeCertificates(b.x509Authorities), nil
 }
 
+// Equal compares the bundle for equality against the given bundle.
+func (b *Bundle) Equal(other *Bundle) bool {
+	if b == nil || other == nil {
+		return b == other
+	}
+
+	return b.trustDomain == other.trustDomain &&
+		x509util.CertsEqual(b.x509Authorities, other.x509Authorities)
+}
+
+// Clone clones the bundle.
+func (b *Bundle) Clone() *Bundle {
+	b.mtx.RLock()
+	defer b.mtx.RUnlock()
+
+	return FromX509Authorities(b.trustDomain, b.x509Authorities)
+}
+
 // GetX509BundleForTrustDomain returns the X.509 bundle for the given trust
 // domain. It implements the Source interface. An error will be
 // returned if the trust domain does not match that of the bundle.
