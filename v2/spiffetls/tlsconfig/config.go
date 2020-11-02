@@ -5,6 +5,7 @@ import (
 	"crypto/x509"
 
 	"github.com/spiffe/go-spiffe/v2/bundle/x509bundle"
+	"github.com/spiffe/go-spiffe/v2/internal/traceutil"
 	"github.com/spiffe/go-spiffe/v2/svid/x509svid"
 )
 
@@ -44,6 +45,7 @@ func newOptions(opts []Option) *options {
 	for _, opt := range opts {
 		opt.apply(out)
 	}
+	traceutil.SetNoopIfUnset(&out.trace)
 	return out
 }
 
@@ -205,17 +207,12 @@ func WrapVerifyPeerCertificate(wrapped func([][]byte, [][]*x509.Certificate) err
 }
 
 func getTLSCertificate(svid x509svid.Source, trace Trace) (*tls.Certificate, error) {
-	var traceVal interface{}
-	if trace.GetCertificate != nil {
-		traceVal = trace.GetCertificate()
-	}
-
+	traceCtx := trace.GetCertificate(GetCertificateInfo{})
 	s, err := svid.GetX509SVID()
+
 	if err != nil {
-		if trace.GotCertificate != nil {
-			trace.GotCertificate(traceVal, GotCertificateInfo{Err: err})
-			return nil, err
-		}
+		trace.GotCertificate(GotCertificateInfo{Err: err}, traceCtx)
+		return nil, err
 	}
 
 	cert := &tls.Certificate{
@@ -227,9 +224,7 @@ func getTLSCertificate(svid x509svid.Source, trace Trace) (*tls.Certificate, err
 		cert.Certificate = append(cert.Certificate, svidCert.Raw)
 	}
 
-	if trace.GotCertificate != nil {
-		trace.GotCertificate(traceVal, GotCertificateInfo{Cert: cert})
-	}
+	trace.GotCertificate(GotCertificateInfo{Cert: cert}, traceCtx)
 
 	return cert, nil
 }

@@ -1,7 +1,6 @@
 package workloadapi
 
 import (
-	"github.com/spiffe/go-spiffe/v2/logger"
 	"github.com/spiffe/go-spiffe/v2/svid/x509svid"
 	"google.golang.org/grpc"
 )
@@ -28,10 +27,10 @@ func WithDialOptions(options ...grpc.DialOption) ClientOption {
 	})
 }
 
-// WithLogger provides a logger to the Client.
-func WithLogger(logger logger.Logger) ClientOption {
+// WithTrace provides the Client with trace callbacks
+func WithTrace(trace Trace) ClientOption {
 	return clientOption(func(c *clientConfig) {
-		c.log = logger
+		c.trace = trace
 	})
 }
 
@@ -83,7 +82,7 @@ type BundleSourceOption interface {
 type clientConfig struct {
 	address     string
 	dialOptions []grpc.DialOption
-	log         logger.Logger
+	trace       Trace
 }
 
 type clientOption func(*clientConfig)

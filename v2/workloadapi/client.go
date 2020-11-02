@@ -9,7 +9,7 @@ import (
 
 	"github.com/spiffe/go-spiffe/v2/bundle/jwtbundle"
 	"github.com/spiffe/go-spiffe/v2/bundle/x509bundle"
-	"github.com/spiffe/go-spiffe/v2/logger"
+	"github.com/spiffe/go-spiffe/v2/internal/traceutil"
 	"github.com/spiffe/go-spiffe/v2/proto/spiffe/workload"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/spiffe/go-spiffe/v2/svid/jwtsvid"
@@ -30,12 +30,11 @@ type Client struct {
 
 // New dials the Workload API and returns a client.
 func New(ctx context.Context, options ...ClientOption) (*Client, error) {
-	c := &Client{
-		config: defaultClientConfig(),
-	}
+	c := &Client{}
 	for _, opt := range options {
 		opt.configureClient(&c.config)
 	}
+	traceutil.SetNoopIfUnset(&c.config.trace)
 
 	err := c.setAddress()
 	if err != nil {
@@ -139,11 +138,30 @@ func (c *Client) FetchX509Context(ctx context.Context) (*X509Context, error) {
 func (c *Client) WatchX509Context(ctx context.Context, watcher X509ContextWatcher) error {
 	backoff := newBackoff()
 	for {
+		traceCtx := c.config.trace.WatchX509ContextStart(WatchX509ContextStartInfo{})
 		err := c.watchX509Context(ctx, watcher, backoff)
 		watcher.OnX509ContextWatchError(err)
-		err = c.handleWatchError(ctx, err, backoff)
-		if err != nil {
+
+		var retryAfter time.Duration
+		switch status.Code(err) {
+		case codes.Canceled, codes.InvalidArgument:
+		default:
+			retryAfter = backoff.Duration()
+		}
+
+		c.config.trace.WatchX509ContextDone(WatchX509ContextDoneInfo{
+			RetryAfter: retryAfter,
+			Err:        err,
+		}, traceCtx)
+
+		if retryAfter == 0 {
 			return err
+		}
+
+		select {
+		case <-time.After(retryAfter):
+		case <-ctx.Done():
+			return ctx.Err()
 		}
 	}
 }
@@ -192,11 +210,30 @@ func (c *Client) FetchJWTBundles(ctx context.Context) (*jwtbundle.Set, error) {
 func (c *Client) WatchJWTBundles(ctx context.Context, watcher JWTBundleWatcher) error {
 	backoff := newBackoff()
 	for {
+		traceCtx := c.config.trace.WatchJWTBundlesStart(WatchJWTBundlesStartInfo{})
 		err := c.watchJWTBundles(ctx, watcher, backoff)
 		watcher.OnJWTBundlesWatchError(err)
-		err = c.handleWatchError(ctx, err, backoff)
-		if err != nil {
+
+		var retryAfter time.Duration
+		switch status.Code(err) {
+		case codes.Canceled, codes.InvalidArgument:
+		default:
+			retryAfter = backoff.Duration()
+		}
+
+		c.config.trace.WatchJWTBundlesDone(WatchJWTBundlesDoneInfo{
+			RetryAfter: retryAfter,
+			Err:        err,
+		}, traceCtx)
+
+		if retryAfter == 0 {
 			return err
+		}
+
+		select {
+		case <-time.After(retryAfter):
+		case <-ctx.Done():
+			return ctx.Err()
 		}
 	}
 }
@@ -237,34 +274,10 @@ func (c *Client) newConn(ctx context.Context) (*grpc.ClientConn, error) {
 	return grpc.DialContext(ctx, c.config.address, c.config.dialOptions...)
 }
 
-func (c *Client) handleWatchError(ctx context.Context, err error, backoff *backoff) error {
-	code := status.Code(err)
-	if code == codes.Canceled {
-		return err
-	}
-
-	if code == codes.InvalidArgument {
-		c.config.log.Errorf("Canceling watch: %v", err)
-		return err
-	}
-
-	c.config.log.Errorf("Failed to watch the Workload API: %v", err)
-	retryAfter := backoff.Duration()
-	c.config.log.Debugf("Retrying watch in %s", retryAfter)
-	select {
-	case <-time.After(retryAfter):
-		return nil
-
-	case <-ctx.Done():
-		return ctx.Err()
-	}
-}
-
 func (c *Client) watchX509Context(ctx context.Context, watcher X509ContextWatcher, backoff *backoff) error {
 	ctx, cancel := context.WithCancel(withHeader(ctx))
 	defer cancel()
 
-	c.config.log.Debugf("Watching X.509 contexts")
 	stream, err := c.wlClient.FetchX509SVID(ctx, &workload.X509SVIDRequest{})
 	if err != nil {
 		return err
@@ -279,8 +292,8 @@ func (c *Client) watchX509Context(ctx context.Context, watcher X509ContextWatche
 		backoff.Reset()
 		x509Context, err := parseX509Context(resp)
 		if err != nil {
-			c.config.log.Errorf("Failed to parse X509-SVID response: %v", err)
-			watcher.OnX509ContextWatchError(err)
+			c.config.trace.GotMalformedX509Context(err)
+			watcher.OnX509ContextWatchError(fmt.Errorf("malformed X.509 context: %w", err))
 			continue
 		}
 		watcher.OnX509ContextUpdate(x509Context)
@@ -291,7 +304,6 @@ func (c *Client) watchJWTBundles(ctx context.Context, watcher JWTBundleWatcher, 
 	ctx, cancel := context.WithCancel(withHeader(ctx))
 	defer cancel()
 
-	c.config.log.Debugf("Watching JWT bundles")
 	stream, err := c.wlClient.FetchJWTBundles(ctx, &workload.JWTBundlesRequest{})
 	if err != nil {
 		return err
@@ -306,8 +318,8 @@ func (c *Client) watchJWTBundles(ctx context.Context, watcher JWTBundleWatcher, 
 		backoff.Reset()
 		jwtbundleSet, err := parseJWTSVIDBundles(resp)
 		if err != nil {
-			c.config.log.Errorf("Failed to parse JWT bundle response: %v", err)
-			watcher.OnJWTBundlesWatchError(err)
+			c.config.trace.GotMalformedJWTBundle(err)
+			watcher.OnJWTBundlesWatchError(fmt.Errorf("malformed JWT bundle: %w", err))
 			continue
 		}
 		watcher.OnJWTBundlesUpdate(jwtbundleSet)
@@ -339,12 +351,6 @@ type JWTBundleWatcher interface {
 func withHeader(ctx context.Context) context.Context {
 	header := metadata.Pairs("workload.spiffe.io", "true")
 	return metadata.NewOutgoingContext(ctx, header)
-}
-
-func defaultClientConfig() clientConfig {
-	return clientConfig{
-		log: logger.Null,
-	}
 }
 
 func parseX509Context(resp *workload.X509SVIDResponse) (*X509Context, error) {

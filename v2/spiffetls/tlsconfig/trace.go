@@ -4,7 +4,13 @@ import (
 	"crypto/tls"
 )
 
-// GotCertificateInfo provides err and TLS certificate info to Trace
+// GetCertificateInfo contains trace information when using an X.509 source to
+// obtain a certificate for the TLS handshake.
+type GetCertificateInfo struct {
+}
+
+// GotCertificateInfo contains trace information after using an X.509 source to
+// obtain a certificate for the TLS handshake.
 type GotCertificateInfo struct {
 	Cert *tls.Certificate
 	Err  error
@@ -13,6 +19,6 @@ type GotCertificateInfo struct {
 // Trace is the interface to define what functions are triggered when functions
 // in tlsconfig are called
 type Trace struct {
-	GetCertificate func() interface{}
-	GotCertificate func(interface{}, GotCertificateInfo)
+	GetCertificate func(GetCertificateInfo) interface{}
+	GotCertificate func(GotCertificateInfo, interface{})
 }

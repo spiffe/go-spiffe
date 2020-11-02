@@ -21,11 +21,11 @@ import (
 )
 
 var localTrace = tlsconfig.Trace{
-	GetCertificate: func() interface{} {
+	GetCertificate: func(tlsconfig.GetCertificateInfo) interface{} {
 		fmt.Printf("got start of GetTLSCertificate\n")
 		return nil
 	},
-	GotCertificate: func(interface{}, tlsconfig.GotCertificateInfo) {
+	GotCertificate: func(tlsconfig.GotCertificateInfo, interface{}) {
 		fmt.Printf("got end of GetTLSCertificate\n")
 	},
 }
@@ -263,13 +263,13 @@ func TestHookMTLSWebServerConfig(t *testing.T) {
 
 func hookedTracer(onGetCertificate, onGotCertificate func()) tlsconfig.Trace {
 	return tlsconfig.Trace{
-		GetCertificate: func() interface{} {
+		GetCertificate: func(tlsconfig.GetCertificateInfo) interface{} {
 			if onGetCertificate != nil {
 				onGetCertificate()
 			}
 			return nil
 		},
-		GotCertificate: func(interface{}, tlsconfig.GotCertificateInfo) {
+		GotCertificate: func(tlsconfig.GotCertificateInfo, interface{}) {
 			if onGotCertificate != nil {
 				onGotCertificate()
 			}

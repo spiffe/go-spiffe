@@ -1,7 +1,6 @@
 package federation_test
 
 import (
-	"bytes"
 	"crypto/x509"
 	"errors"
 	"io/ioutil"
@@ -12,7 +11,6 @@ import (
 
 	"github.com/spiffe/go-spiffe/v2/bundle/spiffebundle"
 	"github.com/spiffe/go-spiffe/v2/federation"
-	"github.com/spiffe/go-spiffe/v2/logger"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/stretchr/testify/require"
 )
@@ -47,10 +45,9 @@ func TestHandler(t *testing.T) {
 	bundle, err := spiffebundle.Parse(trustDomain, []byte(jwks))
 	require.NoError(t, err)
 
-	writer := new(bytes.Buffer)
 	source := &fakeSource{}
 
-	handler := federation.Handler(trustDomain, source, logger.Writer(writer))
+	handler := federation.Handler(trustDomain, source)
 	server := httptest.NewServer(handler)
 	defer server.Close()
 
@@ -118,8 +115,6 @@ func TestHandler(t *testing.T) {
 	for _, testCase := range testCases {
 		testCase := testCase
 		t.Run(testCase.name, func(t *testing.T) {
-			writer.Reset()
-
 			res, err := testCase.call(server)
 			require.NoError(t, err)
 			defer res.Body.Close()
@@ -134,10 +129,6 @@ func TestHandler(t *testing.T) {
 			default:
 				require.Equal(t, testCase.statusCode, res.StatusCode)
 				require.Equal(t, testCase.response, string(actual))
-
-				if testCase.log != "" {
-					require.Contains(t, writer.String(), testCase.log)
-				}
 			}
 		})
 	}
