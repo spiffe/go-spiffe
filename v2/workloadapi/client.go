@@ -26,14 +26,12 @@ type Client struct {
 	conn     *grpc.ClientConn
 	wlClient workload.SpiffeWorkloadAPIClient
 	config   clientConfig
-	backoff  *backoff
 }
 
 // New dials the Workload API and returns a client.
 func New(ctx context.Context, options ...ClientOption) (*Client, error) {
 	c := &Client{
-		config:  defaultClientConfig(),
-		backoff: newBackoff(),
+		config: defaultClientConfig(),
 	}
 	for _, opt := range options {
 		opt.configureClient(&c.config)
@@ -139,10 +137,11 @@ func (c *Client) FetchX509Context(ctx context.Context) (*X509Context, error) {
 // WatchX509Context watches for updates to the X.509 context. The watcher
 // receives the updated X.509 context.
 func (c *Client) WatchX509Context(ctx context.Context, watcher X509ContextWatcher) error {
+	backoff := newBackoff()
 	for {
-		err := c.watchX509Context(ctx, watcher)
+		err := c.watchX509Context(ctx, watcher, backoff)
 		watcher.OnX509ContextWatchError(err)
-		err = c.handleWatchError(ctx, err)
+		err = c.handleWatchError(ctx, err, backoff)
 		if err != nil {
 			return err
 		}
@@ -191,10 +190,11 @@ func (c *Client) FetchJWTBundles(ctx context.Context) (*jwtbundle.Set, error) {
 // WatchJWTBundles watches for changes to the JWT bundles. The watcher receives
 // the updated JWT bundles.
 func (c *Client) WatchJWTBundles(ctx context.Context, watcher JWTBundleWatcher) error {
+	backoff := newBackoff()
 	for {
-		err := c.watchJWTBundles(ctx, watcher)
+		err := c.watchJWTBundles(ctx, watcher, backoff)
 		watcher.OnJWTBundlesWatchError(err)
-		err = c.handleWatchError(ctx, err)
+		err = c.handleWatchError(ctx, err, backoff)
 		if err != nil {
 			return err
 		}
@@ -237,7 +237,7 @@ func (c *Client) newConn(ctx context.Context) (*grpc.ClientConn, error) {
 	return grpc.DialContext(ctx, c.config.address, c.config.dialOptions...)
 }
 
-func (c *Client) handleWatchError(ctx context.Context, err error) error {
+func (c *Client) handleWatchError(ctx context.Context, err error, backoff *backoff) error {
 	code := status.Code(err)
 	if code == codes.Canceled {
 		return err
@@ -249,10 +249,10 @@ func (c *Client) handleWatchError(ctx context.Context, err error) error {
 	}
 
 	c.config.log.Errorf("Failed to watch the Workload API: %v", err)
-	backoff := c.backoff.Duration()
-	c.config.log.Debugf("Retrying watch in %s", backoff)
+	retryAfter := backoff.Duration()
+	c.config.log.Debugf("Retrying watch in %s", retryAfter)
 	select {
-	case <-time.After(backoff):
+	case <-time.After(retryAfter):
 		return nil
 
 	case <-ctx.Done():
@@ -260,7 +260,7 @@ func (c *Client) handleWatchError(ctx context.Context, err error) error {
 	}
 }
 
-func (c *Client) watchX509Context(ctx context.Context, watcher X509ContextWatcher) error {
+func (c *Client) watchX509Context(ctx context.Context, watcher X509ContextWatcher, backoff *backoff) error {
 	ctx, cancel := context.WithCancel(withHeader(ctx))
 	defer cancel()
 
@@ -276,7 +276,7 @@ func (c *Client) watchX509Context(ctx context.Context, watcher X509ContextWatche
 			return err
 		}
 
-		c.backoff.Reset()
+		backoff.Reset()
 		x509Context, err := parseX509Context(resp)
 		if err != nil {
 			c.config.log.Errorf("Failed to parse X509-SVID response: %v", err)
@@ -287,7 +287,7 @@ func (c *Client) watchX509Context(ctx context.Context, watcher X509ContextWatche
 	}
 }
 
-func (c *Client) watchJWTBundles(ctx context.Context, watcher JWTBundleWatcher) error {
+func (c *Client) watchJWTBundles(ctx context.Context, watcher JWTBundleWatcher, backoff *backoff) error {
 	ctx, cancel := context.WithCancel(withHeader(ctx))
 	defer cancel()
 
@@ -303,7 +303,7 @@ func (c *Client) watchJWTBundles(ctx context.Context, watcher JWTBundleWatcher) 
 			return err
 		}
 
-		c.backoff.Reset()
+		backoff.Reset()
 		jwtbundleSet, err := parseJWTSVIDBundles(resp)
 		if err != nil {
 			c.config.log.Errorf("Failed to parse JWT bundle response: %v", err)
