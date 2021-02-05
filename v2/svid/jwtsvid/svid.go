@@ -2,6 +2,7 @@ package jwtsvid
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/spiffe/go-spiffe/v2/bundle/jwtbundle"
@@ -93,7 +94,7 @@ func parse(token string, audience []string, getClaims tokenValidator) (*SVID, er
 	}
 
 	// Validates supported token signed algorithm
-	if err := validateTokenAlgorithm(tok); err != nil {
+	if err := validateTokenHeader(tok); err != nil {
 		return nil, err
 	}
 
@@ -146,15 +147,67 @@ func parse(token string, audience []string, getClaims tokenValidator) (*SVID, er
 	}, nil
 }
 
-// validateTokenAlgorithm json web token have only one header, and it is signed for a supported algorithm
-func validateTokenAlgorithm(tok *jwt.JSONWebToken) error {
+// validateTokenHeader check if JWT have only one header, it's signed for a
+// supported algorithm, and it has a valid header type.
+func validateTokenHeader(tok *jwt.JSONWebToken) error {
 	// Only one header is expected
 	if len(tok.Headers) != 1 {
 		return fmt.Errorf("expected a single token header; got %d", len(tok.Headers))
 	}
 
+	hdr := &tok.Headers[0]
+	err := validateTokenHeaderType(hdr)
+	if err != nil {
+		return err
+	}
+
+	err = validateTokenAlgorithm(hdr)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// validateTokenHeaderType check if JWT has a valid header type.
+func validateTokenHeaderType(hdr *jose.Header) error {
+	// The typ header is optional. If set, its value MUST be either JWT or JOSE.
+	hdrType, present := hdr.ExtraHeaders[jose.HeaderType]
+	if !present {
+		return nil
+	}
+
+	// jose.HeaderType it's supposed to be a string, using a noop type
+	// assertion here just to be safe.
+	hdrTypeString, _ := hdrType.(string)
+
+	// RFC7519 says:
+	//   While media type names are not case sensitive, it is RECOMMENDED
+	//   that "JWT" always be spelled using uppercase characters for
+	//   compatibility with legacy implementations.
+	//
+	// And JWT-SVID spec says: If set, its value MUST be either JWT or JOSE.
+	// Not sure if we should be flexible or strict on the verification.
+	hdrTypeString = strings.ToUpper(hdrTypeString)
+	switch hdrTypeString {
+	case "JWT":
+		// All SPIRE issued JWT SVIDs seems to allways have type "JWT" set.
+		// TODO: Waiting for PR discussions
+
+	case "JOSE":
+		// TODO: Waiting for PR discussions
+
+	default:
+		return fmt.Errorf(`unsupported header type %#v, expecting "JWT" or "JOSE"`, hdrType)
+	}
+
+	return nil
+}
+
+// validateTokenAlgorithm json web token is signed for a supported algorithm
+func validateTokenAlgorithm(hdr *jose.Header) error {
 	// Make sure it has an algorithm supported by JWT-SVID
-	alg := tok.Headers[0].Algorithm
+	alg := hdr.Algorithm
 	switch jose.SignatureAlgorithm(alg) {
 	case jose.RS256, jose.RS384, jose.RS512,
 		jose.ES256, jose.ES384, jose.ES512,
