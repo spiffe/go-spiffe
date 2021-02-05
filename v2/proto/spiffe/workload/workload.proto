@@ -40,6 +40,13 @@ message X509SVID {
     bytes bundle = 4;
 }
 
+message X509BundlesRequest { }
+
+message X509BundlesResponse {
+    // x509 certificates, keyed by trust domain URI
+    map<string, bytes> bundles = 1;
+}
+
 message JWTSVID {
     string spiffe_id = 1;
 
@@ -89,4 +96,5 @@ service SpiffeWorkloadAPI {
     // well as related information like trust bundles and CRLs. As
     // this information changes, subsequent messages will be sent.
     rpc FetchX509SVID(X509SVIDRequest) returns (stream X509SVIDResponse);
+    rpc FetchX509Bundles(X509BundlesRequest) returns (stream X509BundlesResponse);
 }

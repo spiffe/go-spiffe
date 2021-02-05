@@ -11,6 +11,7 @@ import (
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the grpc package it is being compiled against.
+// Requires gRPC-Go v1.32.0 or later.
 const _ = grpc.SupportPackageIsVersion7
 
 // SpiffeWorkloadAPIClient is the client API for SpiffeWorkloadAPI service.
@@ -26,6 +27,7 @@ type SpiffeWorkloadAPIClient interface {
 	// well as related information like trust bundles and CRLs. As
 	// this information changes, subsequent messages will be sent.
 	FetchX509SVID(ctx context.Context, in *X509SVIDRequest, opts ...grpc.CallOption) (SpiffeWorkloadAPI_FetchX509SVIDClient, error)
+	FetchX509Bundles(ctx context.Context, in *X509BundlesRequest, opts ...grpc.CallOption) (SpiffeWorkloadAPI_FetchX509BundlesClient, error)
 }
 
 type spiffeWorkloadAPIClient struct {
@@ -46,7 +48,7 @@ func (c *spiffeWorkloadAPIClient) FetchJWTSVID(ctx context.Context, in *JWTSVIDR
 }
 
 func (c *spiffeWorkloadAPIClient) FetchJWTBundles(ctx context.Context, in *JWTBundlesRequest, opts ...grpc.CallOption) (SpiffeWorkloadAPI_FetchJWTBundlesClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_SpiffeWorkloadAPI_serviceDesc.Streams[0], "/SpiffeWorkloadAPI/FetchJWTBundles", opts...)
+	stream, err := c.cc.NewStream(ctx, &SpiffeWorkloadAPI_ServiceDesc.Streams[0], "/SpiffeWorkloadAPI/FetchJWTBundles", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +89,7 @@ func (c *spiffeWorkloadAPIClient) ValidateJWTSVID(ctx context.Context, in *Valid
 }
 
 func (c *spiffeWorkloadAPIClient) FetchX509SVID(ctx context.Context, in *X509SVIDRequest, opts ...grpc.CallOption) (SpiffeWorkloadAPI_FetchX509SVIDClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_SpiffeWorkloadAPI_serviceDesc.Streams[1], "/SpiffeWorkloadAPI/FetchX509SVID", opts...)
+	stream, err := c.cc.NewStream(ctx, &SpiffeWorkloadAPI_ServiceDesc.Streams[1], "/SpiffeWorkloadAPI/FetchX509SVID", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -118,6 +120,38 @@ func (x *spiffeWorkloadAPIFetchX509SVIDClient) Recv() (*X509SVIDResponse, error)
 	return m, nil
 }
 
+func (c *spiffeWorkloadAPIClient) FetchX509Bundles(ctx context.Context, in *X509BundlesRequest, opts ...grpc.CallOption) (SpiffeWorkloadAPI_FetchX509BundlesClient, error) {
+	stream, err := c.cc.NewStream(ctx, &SpiffeWorkloadAPI_ServiceDesc.Streams[2], "/SpiffeWorkloadAPI/FetchX509Bundles", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &spiffeWorkloadAPIFetchX509BundlesClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type SpiffeWorkloadAPI_FetchX509BundlesClient interface {
+	Recv() (*X509BundlesResponse, error)
+	grpc.ClientStream
+}
+
+type spiffeWorkloadAPIFetchX509BundlesClient struct {
+	grpc.ClientStream
+}
+
+func (x *spiffeWorkloadAPIFetchX509BundlesClient) Recv() (*X509BundlesResponse, error) {
+	m := new(X509BundlesResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // SpiffeWorkloadAPIServer is the server API for SpiffeWorkloadAPI service.
 // All implementations must embed UnimplementedSpiffeWorkloadAPIServer
 // for forward compatibility
@@ -131,6 +165,7 @@ type SpiffeWorkloadAPIServer interface {
 	// well as related information like trust bundles and CRLs. As
 	// this information changes, subsequent messages will be sent.
 	FetchX509SVID(*X509SVIDRequest, SpiffeWorkloadAPI_FetchX509SVIDServer) error
+	FetchX509Bundles(*X509BundlesRequest, SpiffeWorkloadAPI_FetchX509BundlesServer) error
 	mustEmbedUnimplementedSpiffeWorkloadAPIServer()
 }
 
@@ -150,6 +185,9 @@ func (UnimplementedSpiffeWorkloadAPIServer) ValidateJWTSVID(context.Context, *Va
 func (UnimplementedSpiffeWorkloadAPIServer) FetchX509SVID(*X509SVIDRequest, SpiffeWorkloadAPI_FetchX509SVIDServer) error {
 	return status.Errorf(codes.Unimplemented, "method FetchX509SVID not implemented")
 }
+func (UnimplementedSpiffeWorkloadAPIServer) FetchX509Bundles(*X509BundlesRequest, SpiffeWorkloadAPI_FetchX509BundlesServer) error {
+	return status.Errorf(codes.Unimplemented, "method FetchX509Bundles not implemented")
+}
 func (UnimplementedSpiffeWorkloadAPIServer) mustEmbedUnimplementedSpiffeWorkloadAPIServer() {}
 
 // UnsafeSpiffeWorkloadAPIServer may be embedded to opt out of forward compatibility for this service.
@@ -160,7 +198,7 @@ type UnsafeSpiffeWorkloadAPIServer interface {
 }
 
 func RegisterSpiffeWorkloadAPIServer(s grpc.ServiceRegistrar, srv SpiffeWorkloadAPIServer) {
-	s.RegisterService(&_SpiffeWorkloadAPI_serviceDesc, srv)
+	s.RegisterService(&SpiffeWorkloadAPI_ServiceDesc, srv)
 }
 
 func _SpiffeWorkloadAPI_FetchJWTSVID_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -241,7 +279,31 @@ func (x *spiffeWorkloadAPIFetchX509SVIDServer) Send(m *X509SVIDResponse) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-var _SpiffeWorkloadAPI_serviceDesc = grpc.ServiceDesc{
+func _SpiffeWorkloadAPI_FetchX509Bundles_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(X509BundlesRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(SpiffeWorkloadAPIServer).FetchX509Bundles(m, &spiffeWorkloadAPIFetchX509BundlesServer{stream})
+}
+
+type SpiffeWorkloadAPI_FetchX509BundlesServer interface {
+	Send(*X509BundlesResponse) error
+	grpc.ServerStream
+}
+
+type spiffeWorkloadAPIFetchX509BundlesServer struct {
+	grpc.ServerStream
+}
+
+func (x *spiffeWorkloadAPIFetchX509BundlesServer) Send(m *X509BundlesResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+// SpiffeWorkloadAPI_ServiceDesc is the grpc.ServiceDesc for SpiffeWorkloadAPI service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var SpiffeWorkloadAPI_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "SpiffeWorkloadAPI",
 	HandlerType: (*SpiffeWorkloadAPIServer)(nil),
 	Methods: []grpc.MethodDesc{
@@ -263,6 +325,11 @@ var _SpiffeWorkloadAPI_serviceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "FetchX509SVID",
 			Handler:       _SpiffeWorkloadAPI_FetchX509SVID_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "FetchX509Bundles",
+			Handler:       _SpiffeWorkloadAPI_FetchX509Bundles_Handler,
 			ServerStreams: true,
 		},
 	},
