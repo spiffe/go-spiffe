@@ -19,39 +19,63 @@ func TestMust(t *testing.T) {
 		expectedPanic string
 	}{
 		{
-			name:       "happy_path",
+			name:       "happy path",
 			td:         "domain.test",
 			segments:   []string{"path", "element"},
 			expectedID: "spiffe://domain.test/path/element",
 		},
 		{
-			name:       "empty_segments",
+			name:       "empty segments",
 			td:         "domain.test",
 			expectedID: "spiffe://domain.test",
 		},
 		{
-			name:       "trust_domain_with_scheme",
+			name:       "trust domain with scheme",
 			td:         "spiffe://domain.test",
 			segments:   []string{"path", "element"},
 			expectedID: "spiffe://domain.test/path/element",
 		},
 		{
-			name:          "trust_domain_empty",
+			name:          "trust domain empty",
 			td:            "spiffe://",
 			segments:      []string{"path", "element"},
 			expectedPanic: "spiffeid: trust domain is empty",
 		},
 		{
-			name:       "path_with_colon_and_@",
+			name:       "path with colon and @",
 			td:         "spiffe://domain.test",
 			segments:   []string{"pa:th", "elem@ent"},
 			expectedID: "spiffe://domain.test/pa:th/elem@ent",
 		},
 		{
-			name:       "segments_starting_with_slash",
+			name:       "preserve trailing slash",
+			td:         "spiffe://domain.test",
+			segments:   []string{"path", "trailing/"},
+			expectedID: "spiffe://domain.test/path/trailing/",
+		},
+		{
+			name:       "preserve empty segments",
+			td:         "spiffe://domain.test",
+			segments:   []string{"foo", "", "bar"},
+			expectedID: "spiffe://domain.test/foo//bar",
+		},
+		{
+			name:       "preserve slashes in segments",
 			td:         "spiffe://domain.test",
 			segments:   []string{"/path", "/element"},
-			expectedID: "spiffe://domain.test/path/element",
+			expectedID: "spiffe://domain.test//path//element",
+		},
+		{
+			name:       "preserve double dot segments",
+			td:         "spiffe://domain.test",
+			segments:   []string{"foo", "..", "bar"},
+			expectedID: "spiffe://domain.test/foo/../bar",
+		},
+		{
+			name:       "preserve single dot segments",
+			td:         "spiffe://domain.test",
+			segments:   []string{"foo", ".", "bar"},
+			expectedID: "spiffe://domain.test/foo/./bar",
 		},
 	}
 
@@ -398,19 +422,19 @@ func TestIDPath(t *testing.T) {
 
 	// A single empty segment
 	id = spiffeid.Must("domain.test", "")
-	assert.Equal(t, "", id.Path())
+	assert.Equal(t, "/", id.Path())
 
 	// Couple of empty segment
 	id = spiffeid.Must("domain.test", "", "")
-	assert.Equal(t, "", id.Path())
+	assert.Equal(t, "//", id.Path())
 
 	// First segment empty
 	id = spiffeid.Must("domain.test", "", "path", "element")
-	assert.Equal(t, "/path/element", id.Path())
+	assert.Equal(t, "//path/element", id.Path())
 
 	// Last segment empty
 	id = spiffeid.Must("domain.test", "path", "element", "")
-	assert.Equal(t, "/path/element", id.Path())
+	assert.Equal(t, "/path/element/", id.Path())
 }
 
 func TestIDString(t *testing.T) {
@@ -424,11 +448,11 @@ func TestIDString(t *testing.T) {
 
 	// A single empty segment
 	id = spiffeid.Must("domain.test", "")
-	assert.Equal(t, "spiffe://domain.test", id.String())
+	assert.Equal(t, "spiffe://domain.test/", id.String())
 
 	// Couple of empty segment
 	id = spiffeid.Must("domain.test", "", "")
-	assert.Equal(t, "spiffe://domain.test", id.String())
+	assert.Equal(t, "spiffe://domain.test//", id.String())
 
 	// Segment with sub-delims
 	id = spiffeid.Must("domain.test", "!p$a&t'h", "(e)l*e+m,e;n=t")

@@ -2,7 +2,6 @@ package spiffeid
 
 import (
 	"net/url"
-	"path"
 	"strings"
 
 	"github.com/zeebo/errs"
@@ -28,7 +27,7 @@ func New(trustDomain string, segments ...string) (ID, error) {
 
 	return ID{
 		td:   td,
-		path: normalizePath(path.Join(segments...)),
+		path: joinPathSegments(segments...),
 	}, nil
 }
 
@@ -175,10 +174,17 @@ func normalizeTrustDomain(td string) string {
 	return strings.ToLower(td)
 }
 
-func normalizePath(path string) string {
+func joinPathSegments(segments ...string) string {
+	if len(segments) == 0 {
+		return ""
+	}
+	return "/" + strings.Join(segments, "/")
+}
+
+func ensureLeadingSlash(path string) string {
+	// Ensure leading slash
 	if len(path) > 0 && path[0] != '/' {
 		return "/" + path
 	}
-
 	return path
 }
