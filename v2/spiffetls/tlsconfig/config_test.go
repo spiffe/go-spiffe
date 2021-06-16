@@ -31,7 +31,7 @@ var localTrace = tlsconfig.Trace{
 }
 
 func TestTLSClientConfig(t *testing.T) {
-	trustDomain := spiffeid.RequireTrustDomainFromString("test.domain")
+	trustDomain := spiffeid.RequireTrustDomainFromString("trustdomain")
 	bundle := x509bundle.New(trustDomain)
 
 	config := tlsconfig.TLSClientConfig(bundle, tlsconfig.AuthorizeAny())
@@ -47,7 +47,7 @@ func TestTLSClientConfig(t *testing.T) {
 }
 
 func TestHookTLSClientConfig(t *testing.T) {
-	trustDomain := spiffeid.RequireTrustDomainFromString("test.domain")
+	trustDomain := spiffeid.RequireTrustDomainFromString("trustdomain")
 	bundle := x509bundle.New(trustDomain)
 	base := createBaseTLSConfig()
 	config := createTestTLSConfig(base)
@@ -66,7 +66,7 @@ func TestHookTLSClientConfig(t *testing.T) {
 }
 
 func TestMTLSClientConfig(t *testing.T) {
-	trustDomain := spiffeid.RequireTrustDomainFromString("test.domain")
+	trustDomain := spiffeid.RequireTrustDomainFromString("trustdomain")
 	bundle := x509bundle.New(trustDomain)
 	svid := &x509svid.SVID{}
 
@@ -85,7 +85,7 @@ func TestMTLSClientConfig(t *testing.T) {
 }
 
 func TestHookMTLSClientConfig(t *testing.T) {
-	trustDomain := spiffeid.RequireTrustDomainFromString("test.domain")
+	trustDomain := spiffeid.RequireTrustDomainFromString("trustdomain")
 	bundle := x509bundle.New(trustDomain)
 	svid := &x509svid.SVID{}
 	base := createBaseTLSConfig()
@@ -184,7 +184,7 @@ func TestHookTLSServerConfig(t *testing.T) {
 }
 
 func TestMTLSServerConfig(t *testing.T) {
-	trustDomain := spiffeid.RequireTrustDomainFromString("test.domain")
+	trustDomain := spiffeid.RequireTrustDomainFromString("trustdomain")
 	bundle := x509bundle.New(trustDomain)
 	svid := &x509svid.SVID{}
 
@@ -203,7 +203,7 @@ func TestMTLSServerConfig(t *testing.T) {
 }
 
 func TestHookMTLSServerConfig(t *testing.T) {
-	trustDomain := spiffeid.RequireTrustDomainFromString("test.domain")
+	trustDomain := spiffeid.RequireTrustDomainFromString("trustdomain")
 	bundle := x509bundle.New(trustDomain)
 	svid := &x509svid.SVID{}
 	base := createBaseTLSConfig()
@@ -225,7 +225,7 @@ func TestHookMTLSServerConfig(t *testing.T) {
 }
 
 func TestMTLSWebServerConfig(t *testing.T) {
-	trustDomain := spiffeid.RequireTrustDomainFromString("test.domain")
+	trustDomain := spiffeid.RequireTrustDomainFromString("trustdomain")
 	bundle := x509bundle.New(trustDomain)
 	tlsCert := &tls.Certificate{Certificate: [][]byte{[]byte("body")}}
 
@@ -242,7 +242,7 @@ func TestMTLSWebServerConfig(t *testing.T) {
 }
 
 func TestHookMTLSWebServerConfig(t *testing.T) {
-	trustDomain := spiffeid.RequireTrustDomainFromString("test.domain")
+	trustDomain := spiffeid.RequireTrustDomainFromString("trustdomain")
 	bundle := x509bundle.New(trustDomain)
 	tlsCert := &tls.Certificate{Certificate: [][]byte{[]byte("body")}}
 	base := createBaseTLSConfig()
@@ -289,7 +289,7 @@ func TestGetCertificate(t *testing.T) {
 			source: &fakeSource{
 				err: nil,
 				svid: &x509svid.SVID{
-					ID: spiffeid.Must("test.domain", "host"),
+					ID: spiffeid.RequireFromString("spiffe://trustdomain/host"),
 					Certificates: []*x509.Certificate{
 						{Raw: []byte("body")},
 					},
@@ -343,7 +343,7 @@ func TestGetClientCertificate(t *testing.T) {
 			source: &fakeSource{
 				err: nil,
 				svid: &x509svid.SVID{
-					ID: spiffeid.Must("test.domain", "host"),
+					ID: spiffeid.RequireFromString("spiffe://trustdomain/host"),
 					Certificates: []*x509.Certificate{
 						{Raw: []byte("body")},
 					},
@@ -390,7 +390,7 @@ func TestVerifyPeerCertificate(t *testing.T) {
 	ca1 := test.NewCA(t, td)
 	bundle1 := ca1.X509Bundle()
 
-	svid1 := ca1.CreateX509SVID(td.NewID("host"))
+	svid1 := ca1.CreateX509SVID(spiffeid.RequireFromPath(td, "/host"))
 	svid1Raw := x509util.RawCertsFromCerts(svid1.Certificates)
 
 	td2 := spiffeid.RequireTrustDomainFromString("domain2.test")
@@ -448,7 +448,7 @@ func TestWrapVerifyPeerCertificate(t *testing.T) {
 	ca1 := test.NewCA(t, td)
 	bundle1 := ca1.X509Bundle()
 
-	svid1 := ca1.CreateX509SVID(td.NewID("host"))
+	svid1 := ca1.CreateX509SVID(spiffeid.RequireFromPath(td, "/host"))
 	svid1Raw := x509util.RawCertsFromCerts(svid1.Certificates)
 
 	td2 := spiffeid.RequireTrustDomainFromString("domain2.test")
@@ -521,7 +521,7 @@ func TestTLSHandshake(t *testing.T) {
 	ca1 := test.NewCA(t, td)
 	bundle1 := ca1.X509Bundle()
 
-	svid1ID := td.NewID("server")
+	svid1ID := spiffeid.RequireFromPath(td, "/server")
 	serverSVID := ca1.CreateX509SVID(svid1ID)
 
 	td2 := spiffeid.RequireTrustDomainFromString("domain2.test")
@@ -579,10 +579,10 @@ func TestMTLSHandshake(t *testing.T) {
 	ca1 := test.NewCA(t, td)
 	bundle1 := ca1.X509Bundle()
 
-	svid1ID := td.NewID("server")
+	svid1ID := spiffeid.RequireFromPath(td, "/server")
 	serverSVID := ca1.CreateX509SVID(svid1ID)
 
-	svid2ID := td.NewID("client")
+	svid2ID := spiffeid.RequireFromPath(td, "/client")
 	clientSVID := ca1.CreateX509SVID(svid2ID)
 
 	td2 := spiffeid.RequireTrustDomainFromString("domain2.test")
@@ -594,7 +594,7 @@ func TestMTLSHandshake(t *testing.T) {
 	ca3 := test.NewCA(t, td)
 	bundle3 := ca3.Bundle()
 
-	svid3ID := td.NewID("client")
+	svid3ID := spiffeid.RequireFromPath(td, "/client")
 	client3SVID := ca3.CreateX509SVID(svid3ID)
 
 	testCases := []struct {
@@ -659,14 +659,14 @@ func TestMTLSWebHandshake(t *testing.T) {
 	ca1 := test.NewCA(t, td)
 	bundle1 := ca1.X509Bundle()
 
-	serverID := td.NewID("server")
+	serverID := spiffeid.RequireFromPath(td, "/server")
 	serverSVID := ca1.CreateX509SVID(serverID)
 
 	roots, tlsCert := test.CreateWebCredentials(t)
 	roots2 := x509.NewCertPool()
 	roots2.AddCert(serverSVID.Certificates[0])
 
-	clientID := td.NewID("client")
+	clientID := spiffeid.RequireFromPath(td, "/client")
 	clientSVID := ca1.CreateX509SVID(clientID)
 
 	td2 := spiffeid.RequireTrustDomainFromString("domain2.test")
@@ -676,7 +676,7 @@ func TestMTLSWebHandshake(t *testing.T) {
 	// Create a new bundle with same TD and SVID in order to verify that
 	// presented certificates fails on handshake.
 	ca3 := test.NewCA(t, td)
-	svid3ID := td.NewID("client")
+	svid3ID := spiffeid.RequireFromPath(td, "/client")
 	client3SVID := ca3.CreateX509SVID(svid3ID)
 
 	testCases := []struct {

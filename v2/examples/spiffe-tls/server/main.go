@@ -23,7 +23,7 @@ func main() {
 	defer cancel()
 
 	// Allowed SPIFFE ID
-	clientID := spiffeid.Must("example.org", "client")
+	clientID := spiffeid.RequireFromString("spiffe://example.org/client")
 
 	// Creates a TLS listener
 	// The server expects the client to present an SVID with the spiffeID: 'spiffe://example.org/client'

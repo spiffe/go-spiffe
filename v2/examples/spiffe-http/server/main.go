@@ -33,7 +33,7 @@ func main() {
 	defer source.Close()
 
 	// Allowed SPIFFE ID
-	clientID := spiffeid.Must("example.org", "client")
+	clientID := spiffeid.RequireFromString("spiffe://example.org/client")
 
 	// Create a `tls.Config` to allow mTLS connections, and verify that presented certificate has SPIFFE ID `spiffe://example.org/client`
 	tlsConfig := tlsconfig.MTLSServerConfig(source, source, tlsconfig.AuthorizeID(clientID))

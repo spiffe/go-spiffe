@@ -34,7 +34,7 @@ func main() {
 	}
 	defer x509Source.Close()
 
-	serverID := spiffeid.Must("example.org", "server")
+	serverID := spiffeid.RequireFromString("spiffe://example.org/server")
 
 	// By default, this example uses the server's SPIFFE ID as the audience.
 	// It doesn't have to be a SPIFFE ID as long as it follows the JWT-SVID guidelines (https://github.com/spiffe/spiffe/blob/master/standards/JWT-SVID.md#32-audience)

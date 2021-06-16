@@ -7,77 +7,106 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+var (
+	zero = spiffeid.ID{}
+	foo  = spiffeid.RequireFromString("spiffe://foo.test")
+	fooA = spiffeid.RequireFromString("spiffe://foo.test/A")
+	fooB = spiffeid.RequireFromString("spiffe://foo.test/B")
+	fooC = spiffeid.RequireFromString("spiffe://foo.test/sub/C")
+	barA = spiffeid.RequireFromString("spiffe://bar.test/A")
+)
+
 func TestMatchAny(t *testing.T) {
-	matcher := spiffeid.MatchAny()
-	assert.NoError(t, matcher(spiffeid.ID{}))
-	assert.NoError(t, matcher(spiffeid.Must("domain.test", "path", "element")))
-	assert.NoError(t, matcher(spiffeid.Must("domain.test")))
+	testMatch(t, spiffeid.MatchAny(),
+		"",
+		"",
+		"",
+		"",
+		"",
+		"",
+	)
 }
 
 func TestMatchID_AgainstIDWithPath(t *testing.T) {
-	matcher := spiffeid.MatchID(spiffeid.Must("domain.test", "path", "element"))
-
-	// Common case
-	err := matcher(spiffeid.Must("domain.test", "path", "element"))
-	assert.NoError(t, err)
-
-	// Different paths
-	err = matcher(spiffeid.Must("domain.test", "path"))
-	assert.EqualError(t, err, "unexpected ID \"spiffe://domain.test/path\"")
-
-	// ID has empty path
-	err = matcher(spiffeid.Must("domain.test"))
-	assert.EqualError(t, err, "unexpected ID \"spiffe://domain.test\"")
-
-	// Empty ID
-	err = matcher(spiffeid.ID{})
-	assert.EqualError(t, err, "unexpected ID \"\"")
+	testMatch(t, spiffeid.MatchID(fooA),
+		`unexpected ID ""`,
+		`unexpected ID "spiffe://foo.test"`,
+		``,
+		`unexpected ID "spiffe://foo.test/B"`,
+		`unexpected ID "spiffe://foo.test/sub/C"`,
+		`unexpected ID "spiffe://bar.test/A"`,
+	)
 }
 
 func TestMatchID_AgainstIDWithoutPath(t *testing.T) {
-	matcher := spiffeid.MatchID(spiffeid.Must("domain.test"))
-
-	// With path
-	err := matcher(spiffeid.Must("domain.test", "path", "element"))
-	assert.EqualError(t, err, "unexpected ID \"spiffe://domain.test/path/element\"")
-
-	// Without path
-	err = matcher(spiffeid.Must("domain.test"))
-	assert.NoError(t, err)
+	testMatch(t, spiffeid.MatchID(foo),
+		`unexpected ID ""`,
+		``,
+		`unexpected ID "spiffe://foo.test/A"`,
+		`unexpected ID "spiffe://foo.test/B"`,
+		`unexpected ID "spiffe://foo.test/sub/C"`,
+		`unexpected ID "spiffe://bar.test/A"`,
+	)
 }
 
 func TestMatchOneOf_OnAListOfIDs(t *testing.T) {
-	matcher := spiffeid.MatchOneOf(
-		spiffeid.Must("domain.test"),
-		spiffeid.Must("domain.test", "path"),
-		spiffeid.Must("domain.test", "path", "element"),
-		spiffeid.Must("example.org"),
+	testMatch(t, spiffeid.MatchOneOf(foo, fooB, fooC, barA),
+		`unexpected ID ""`,
+		``,
+		`unexpected ID "spiffe://foo.test/A"`,
+		``,
+		``,
+		``,
 	)
-	assert.NoError(t, matcher(spiffeid.Must("domain.test")))
-	assert.NoError(t, matcher(spiffeid.Must("example.org")))
-	assert.NoError(t, matcher(spiffeid.Must("domain.test", "path")))
-	assert.NoError(t, matcher(spiffeid.Must("domain.test", "path", "element")))
-	assert.EqualError(t, matcher(spiffeid.Must("domain.test", "element")), "unexpected ID \"spiffe://domain.test/element\"")
 }
 
 func TestMatchOneOf_OnAnEmptyListOfIDs(t *testing.T) {
-	matcher := spiffeid.MatchOneOf()
-	assert.EqualError(t, matcher(spiffeid.Must("domain.test")), "unexpected ID \"spiffe://domain.test\"")
-	assert.EqualError(t, matcher(spiffeid.ID{}), "unexpected ID \"\"")
+	testMatch(t, spiffeid.MatchOneOf(),
+		`unexpected ID ""`,
+		`unexpected ID "spiffe://foo.test"`,
+		`unexpected ID "spiffe://foo.test/A"`,
+		`unexpected ID "spiffe://foo.test/B"`,
+		`unexpected ID "spiffe://foo.test/sub/C"`,
+		`unexpected ID "spiffe://bar.test/A"`,
+	)
 }
 
 func TestMatchMemberOf_AgainstNonEmptyTrustDomain(t *testing.T) {
-	matcher := spiffeid.MatchMemberOf(spiffeid.RequireTrustDomainFromString("domain.test"))
-	assert.NoError(t, matcher(spiffeid.Must("domain.test")))
-	assert.NoError(t, matcher(spiffeid.Must("domain.test", "path", "element")))
-	assert.EqualError(t, matcher(spiffeid.Must("example.org")), "unexpected trust domain \"example.org\"")
-	assert.EqualError(t, matcher(spiffeid.ID{}), "unexpected trust domain \"\"")
+	testMatch(t, spiffeid.MatchMemberOf(foo.TrustDomain()),
+		`unexpected trust domain ""`,
+		``,
+		``,
+		``,
+		``,
+		`unexpected trust domain "bar.test"`,
+	)
 }
 
 func TestMatchMemberOf_AgainstEmptyTrustDomain(t *testing.T) {
-	matcher := spiffeid.MatchMemberOf(spiffeid.TrustDomain{})
-	assert.EqualError(t, matcher(spiffeid.Must("domain.test")), "unexpected trust domain \"domain.test\"")
-	assert.EqualError(t, matcher(spiffeid.Must("domain.test", "path", "element")), "unexpected trust domain \"domain.test\"")
-	assert.EqualError(t, matcher(spiffeid.Must("example.org")), "unexpected trust domain \"example.org\"")
-	assert.NoError(t, matcher(spiffeid.ID{}))
+	testMatch(t, spiffeid.MatchMemberOf(spiffeid.TrustDomain{}),
+		``,
+		`unexpected trust domain "foo.test"`,
+		`unexpected trust domain "foo.test"`,
+		`unexpected trust domain "foo.test"`,
+		`unexpected trust domain "foo.test"`,
+		`unexpected trust domain "bar.test"`,
+	)
+}
+
+func testMatch(t *testing.T, matcher spiffeid.Matcher, zeroErr, fooErr, fooAErr, fooBErr, fooCErr, barAErr string) {
+	test := func(id spiffeid.ID, expectErr string, msgAndArgs ...interface{}) {
+		err := matcher(id)
+		if expectErr != "" {
+			assert.EqualError(t, err, expectErr, msgAndArgs...)
+		} else {
+			assert.NoError(t, err, msgAndArgs...)
+		}
+	}
+
+	test(zero, zeroErr, "unexpected result for zero ID")
+	test(foo, fooErr, "unexpected result for foo ID")
+	test(fooA, fooAErr, "unexpected result for fooA ID")
+	test(fooB, fooBErr, "unexpected result for fooB ID")
+	test(fooC, fooCErr, "unexpected result for fooC ID")
+	test(barA, barAErr, "unexpected result for fooD ID")
 }

@@ -28,7 +28,7 @@ func main() {
 	defer source.Close()
 
 	// Allowed SPIFFE ID
-	serverID := spiffeid.Must("example.org", "server")
+	serverID := spiffeid.RequireFromString("spiffe://example.org/server")
 
 	// Dial the server with credentials that do mTLS and verify that presented certificate has SPIFFE ID `spiffe://example.org/server`
 	conn, err := grpc.DialContext(ctx, "localhost:50051", grpc.WithTransportCredentials(

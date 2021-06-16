@@ -25,7 +25,7 @@ func main() {
 	defer cancel()
 
 	// Allowed SPIFFE ID
-	spiffeID := spiffeid.Must("example.org", "server")
+	serverID := spiffeid.RequireFromString("spiffe://example.org/server")
 
 	// Create a TLS connection.
 	// The client expects the server to present an SVID with the spiffeID: 'spiffe://example.org/server'
@@ -33,7 +33,7 @@ func main() {
 	// An alternative when creating Dial is using `spiffetls.Dial` that uses environment variable `SPIFFE_ENDPOINT_SOCKET`
 	conn, err := spiffetls.DialWithMode(ctx, "tcp", serverAddress,
 		spiffetls.MTLSClientWithSourceOptions(
-			tlsconfig.AuthorizeID(spiffeID),
+			tlsconfig.AuthorizeID(serverID),
 			workloadapi.WithClientOptions(workloadapi.WithAddr(socketPath)),
 		))
 	if err != nil {

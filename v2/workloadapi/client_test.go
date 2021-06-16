@@ -22,9 +22,9 @@ import (
 var (
 	td          = spiffeid.RequireTrustDomainFromString("example.org")
 	federatedTD = spiffeid.RequireTrustDomainFromString("federated.test")
-	fooID       = td.NewID("foo")
-	barID       = td.NewID("bar")
-	bazID       = td.NewID("baz")
+	fooID       = spiffeid.RequireFromPath(td, "/foo")
+	barID       = spiffeid.RequireFromPath(td, "/bar")
+	bazID       = spiffeid.RequireFromPath(td, "/baz")
 )
 
 func TestFetchX509SVID(t *testing.T) {
@@ -229,9 +229,9 @@ func TestFetchJWTSVID(t *testing.T) {
 	c, _ := New(context.Background(), WithAddr(wl.Addr()))
 	defer c.Close()
 
-	subjectID := td.NewID("subject")
-	audienceID := td.NewID("audience")
-	extraAudienceID := td.NewID("extra_audience")
+	subjectID := spiffeid.RequireFromPath(td, "/subject")
+	audienceID := spiffeid.RequireFromPath(td, "/audience")
+	extraAudienceID := spiffeid.RequireFromPath(td, "/extra_audience")
 	token := ca.CreateJWTSVID(subjectID, []string{audienceID.String(), extraAudienceID.String()})
 	respJWT := makeJWTSVIDResponse(subjectID.String(), token)
 	wl.SetJWTSVIDResponse(respJWT)
@@ -323,7 +323,7 @@ func TestValidateJWTSVID(t *testing.T) {
 	require.NoError(t, err)
 	defer c.Close()
 
-	workloadID := td.NewID("/workload")
+	workloadID := spiffeid.RequireFromPath(td, "/workload")
 	audience := []string{"spiffe://example.org/me", "spiffe://example.org/me_too"}
 	token := ca.CreateJWTSVID(workloadID, audience)
 

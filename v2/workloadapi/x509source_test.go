@@ -44,7 +44,7 @@ func TestX509SourceFailsCallsIfClosed(t *testing.T) {
 
 	// Set the initial X509SVIDResponse with the X509-SVID and key
 	api.SetX509SVIDResponse(&fakeworkloadapi.X509SVIDResponse{
-		SVIDs:  []*x509svid.SVID{ca.CreateX509SVID(td.NewID("/workload"))},
+		SVIDs:  []*x509svid.SVID{ca.CreateX509SVID(spiffeid.RequireFromPath(td, "/workload"))},
 		Bundle: ca.X509Bundle(),
 	})
 
@@ -79,7 +79,7 @@ func TestX509SourceGetsUpdates(t *testing.T) {
 	domain2CA := test.NewCA(t, domain2TD)
 	domain2Bundle := domain2CA.X509Bundle()
 
-	svid1 := domain1CA.CreateX509SVID(domain1TD.NewID("/initial"))
+	svid1 := domain1CA.CreateX509SVID(spiffeid.RequireFromPath(domain1TD, "/initial"))
 
 	// Set the initial X509SVIDResponse with the X509-SVID and key
 	api.SetX509SVIDResponse(&fakeworkloadapi.X509SVIDResponse{
@@ -102,7 +102,7 @@ func TestX509SourceGetsUpdates(t *testing.T) {
 	requireNoX509Bundle(t, source, domain2TD, `x509bundle: no X.509 bundle for trust domain "domain2.test"`)
 
 	// Swap out a new SVID and send a federated bundle with the next response.
-	svid2 := domain1CA.CreateX509SVID(domain1TD.NewID("/update"))
+	svid2 := domain1CA.CreateX509SVID(spiffeid.RequireFromPath(domain1TD, "/update"))
 	api.SetX509SVIDResponse(&fakeworkloadapi.X509SVIDResponse{
 		SVIDs:            []*x509svid.SVID{svid2},
 		Bundle:           domain1Bundle,
@@ -132,9 +132,9 @@ func TestX509SourceX509SVIDPicker(t *testing.T) {
 	td := spiffeid.RequireTrustDomainFromString("domain.test")
 	ca := test.NewCA(t, td)
 
-	svid1 := ca.CreateX509SVID(td.NewID("workload1"))
-	svid2 := ca.CreateX509SVID(td.NewID("workload2"))
-	svid3 := ca.CreateX509SVID(td.NewID("workload3"))
+	svid1 := ca.CreateX509SVID(spiffeid.RequireFromPath(td, "/workload1"))
+	svid2 := ca.CreateX509SVID(spiffeid.RequireFromPath(td, "/workload2"))
+	svid3 := ca.CreateX509SVID(spiffeid.RequireFromPath(td, "/workload3"))
 
 	api.SetX509SVIDResponse(&fakeworkloadapi.X509SVIDResponse{
 		SVIDs: []*x509svid.SVID{

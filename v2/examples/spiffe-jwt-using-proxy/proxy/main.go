@@ -43,7 +43,7 @@ func main() {
 	proxy := httputil.NewSingleHostReverseProxy(remote)
 	transport := *(http.DefaultTransport.(*http.Transport)) //nolint
 	transport.TLSClientConfig = tlsconfig.TLSClientConfig(
-		x509Source, tlsconfig.AuthorizeID(spiffeid.Must("example.org", "server")),
+		x509Source, tlsconfig.AuthorizeID(spiffeid.RequireFromString("spiffe://example.org/server")),
 	)
 	proxy.Transport = &transport
 
