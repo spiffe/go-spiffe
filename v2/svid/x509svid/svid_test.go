@@ -28,9 +28,11 @@ var (
 	keyECDSA     = "testdata/key-pkcs8-ecdsa.pem"
 	certMultiple = "testdata/good-leaf-and-intermediate.pem"
 
-	certAndKey = "testdata/good-cert-and-key.pem"
-	keyAndCert = "testdata/good-key-and-cert.pem"
-	corrupted  = "testdata/corrupted"
+	certAndKey  = "testdata/good-cert-and-key.pem"
+	keyAndCert  = "testdata/good-key-and-cert.pem"
+	notPEM      = "testdata/not-pem"
+	corruptCert = "testdata/corrupt-cert.pem"
+	corruptKey  = "testdata/corrupt-key.pem"
 )
 
 func TestLoad_Succeeds(t *testing.T) {
@@ -106,16 +108,28 @@ func TestParse(t *testing.T) {
 			expErrContains: "x509svid: private key validation failed: no private key found",
 		},
 		{
-			name:           "Corrupted private key",
-			keyPath:        corrupted,
+			name:           "Private key not PEM",
+			keyPath:        notPEM,
 			certsPath:      certSingle,
-			expErrContains: "x509svid: cannot parse PEM encoded private key: no PEM data found while decoding block",
+			expErrContains: "x509svid: cannot parse PEM encoded private key: no PEM blocks found",
 		},
 		{
-			name:           "Corrupted certificate",
+			name:           "Certificate not PEM",
 			keyPath:        keyRSA,
-			certsPath:      corrupted,
-			expErrContains: "x509svid: cannot parse PEM encoded certificate: no PEM data found while decoding block",
+			certsPath:      notPEM,
+			expErrContains: "x509svid: cannot parse PEM encoded certificate: no PEM blocks found",
+		},
+		{
+			name:           "Corrupt private key",
+			keyPath:        corruptKey,
+			certsPath:      certSingle,
+			expErrContains: "x509svid: cannot parse PEM encoded private key: asn1: structure error:",
+		},
+		{
+			name:           "Corrupt certificate",
+			keyPath:        keyRSA,
+			certsPath:      corruptCert,
+			expErrContains: "x509svid: cannot parse PEM encoded certificate: asn1: structure error:",
 		},
 		{
 			name:           "Certificate does not match private key",
