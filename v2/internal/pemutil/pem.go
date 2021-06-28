@@ -13,8 +13,6 @@ const (
 	keyType  string = "PRIVATE KEY"
 )
 
-var ErrUnexpectedBlockType = errors.New("block does not contain expected type")
-
 func ParseCertificates(certsBytes []byte) ([]*x509.Certificate, error) {
 	objects, err := parseBlocks(certsBytes, certType)
 	if err != nil {
@@ -73,36 +71,37 @@ func EncodeCertificates(certificates []*x509.Certificate) []byte {
 }
 
 func parseBlocks(blocksBytes []byte, expectedType string) ([]interface{}, error) {
-	blocks := []interface{}{}
+	objects := []interface{}{}
+	var foundBlocks = false
 	for {
 		if len(blocksBytes) == 0 {
-			break
+			if len(objects) == 0 && !foundBlocks {
+				return nil, errors.New("no PEM blocks found")
+			}
+			return objects, nil
 		}
-		block, rest, err := parseBlock(blocksBytes, expectedType)
+		object, rest, foundBlock, err := parseBlock(blocksBytes, expectedType)
 		blocksBytes = rest
-		if errors.Is(err, ErrUnexpectedBlockType) {
-			continue
+		if foundBlock {
+			foundBlocks = true
 		}
-		if err != nil {
+		switch {
+		case err != nil:
 			return nil, err
+		case object != nil:
+			objects = append(objects, object)
 		}
-
-		blocks = append(blocks, block)
 	}
-	return blocks, nil
 }
 
-func parseBlock(pemBytes []byte, pemType string) (interface{}, []byte, error) {
-	if len(pemBytes) == 0 {
-		return nil, nil, nil
-	}
+func parseBlock(pemBytes []byte, pemType string) (interface{}, []byte, bool, error) {
 	pemBlock, rest := pem.Decode(pemBytes)
 	if pemBlock == nil {
-		return nil, rest, errors.New("no PEM data found while decoding block")
+		return nil, nil, false, nil
 	}
 
 	if pemBlock.Type != pemType {
-		return nil, rest, fmt.Errorf("%w, expected %q but found %q", ErrUnexpectedBlockType, pemType, pemBlock.Type)
+		return nil, rest, true, nil
 	}
 
 	var object interface{}
@@ -117,8 +116,8 @@ func parseBlock(pemBytes []byte, pemType string) (interface{}, []byte, error) {
 	}
 
 	if err != nil {
-		return nil, rest, err
+		return nil, nil, false, err
 	}
 
-	return object, rest, nil
+	return object, rest, true, nil
 }
