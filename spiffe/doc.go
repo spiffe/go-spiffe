@@ -8,6 +8,6 @@ and use the SVIDs for mTLS connections. If more control over the connections is
 needed, use the TLSPeer type instead.
 
 A full example is available at:
-https://github.com/spiffe/go-spiffe/tree/master/examples/svid-mTLS
+https://github.com/spiffe/go-spiffe/tree/main/examples/svid-mTLS
 */
 package spiffe
