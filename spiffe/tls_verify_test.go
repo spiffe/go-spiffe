@@ -64,7 +64,7 @@ func TestVerifyPeerCertificate(t *testing.T) {
 			chain:  peer1,
 			roots:  roots1,
 			expect: ExpectPeer("spiffe://domain2.test/workload"),
-			err:    `unexpected peer ID "spiffe://domain1.test/workload"`,
+			err:    `unexpected peer ID "spiffe://domain1.test/workload": expected "spiffe://domain2.test/workload"`,
 		},
 		{
 			name:   "bad peer id",

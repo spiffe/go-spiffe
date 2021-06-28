@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -18,6 +19,16 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+var localTrace = tlsconfig.Trace{
+	GetCertificate: func() interface{} {
+		fmt.Printf("got start of GetTLSCertificate\n")
+		return nil
+	},
+	GotCertificate: func(interface{}, tlsconfig.GotCertificateInfo) {
+		fmt.Printf("got end of GetTLSCertificate\n")
+	},
+}
 
 func TestTLSClientConfig(t *testing.T) {
 	trustDomain := spiffeid.RequireTrustDomainFromString("test.domain")
@@ -59,7 +70,9 @@ func TestMTLSClientConfig(t *testing.T) {
 	bundle := x509bundle.New(trustDomain)
 	svid := &x509svid.SVID{}
 
-	config := tlsconfig.MTLSClientConfig(svid, bundle, tlsconfig.AuthorizeAny())
+	config := tlsconfig.MTLSClientConfig(svid, bundle, tlsconfig.AuthorizeAny(),
+		tlsconfig.WithTrace(localTrace),
+	)
 
 	assert.Nil(t, config.Certificates)
 	assert.Equal(t, tls.NoClientCert, config.ClientAuth)
@@ -78,7 +91,9 @@ func TestHookMTLSClientConfig(t *testing.T) {
 	base := createBaseTLSConfig()
 	config := createTestTLSConfig(base)
 
-	tlsconfig.HookMTLSClientConfig(config, svid, bundle, tlsconfig.AuthorizeAny())
+	tlsconfig.HookMTLSClientConfig(config, svid, bundle, tlsconfig.AuthorizeAny(),
+		tlsconfig.WithTrace(localTrace),
+	)
 
 	assert.Nil(t, config.Certificates)
 	assert.Equal(t, tls.NoClientCert, config.ClientAuth)
@@ -95,7 +110,9 @@ func TestMTLSWebClientConfig(t *testing.T) {
 	svid := &x509svid.SVID{}
 	roots := x509.NewCertPool()
 
-	config := tlsconfig.MTLSWebClientConfig(svid, roots)
+	config := tlsconfig.MTLSWebClientConfig(svid, roots,
+		tlsconfig.WithTrace(localTrace),
+	)
 
 	assert.Nil(t, config.Certificates)
 	assert.Equal(t, tls.NoClientCert, config.ClientAuth)
@@ -113,7 +130,9 @@ func TestHookMTLSWebClientConfig(t *testing.T) {
 	config := createTestTLSConfig(base)
 	roots := x509.NewCertPool()
 
-	tlsconfig.HookMTLSWebClientConfig(config, svid, roots)
+	tlsconfig.HookMTLSWebClientConfig(config, svid, roots,
+		tlsconfig.WithTrace(localTrace),
+	)
 
 	// Expected AuthFields
 	assert.Nil(t, config.Certificates)
@@ -130,7 +149,9 @@ func TestHookMTLSWebClientConfig(t *testing.T) {
 func TestTLSServerConfig(t *testing.T) {
 	svid := &x509svid.SVID{}
 
-	config := tlsconfig.TLSServerConfig(svid)
+	config := tlsconfig.TLSServerConfig(svid,
+		tlsconfig.WithTrace(localTrace),
+	)
 
 	assert.Nil(t, config.Certificates)
 	assert.Equal(t, tls.NoClientCert, config.ClientAuth)
@@ -147,7 +168,9 @@ func TestHookTLSServerConfig(t *testing.T) {
 	base := createBaseTLSConfig()
 	config := createTestTLSConfig(base)
 
-	tlsconfig.HookTLSServerConfig(config, svid)
+	tlsconfig.HookTLSServerConfig(config, svid,
+		tlsconfig.WithTrace(localTrace),
+	)
 
 	assert.Nil(t, config.Certificates)
 	assert.Equal(t, tls.NoClientCert, config.ClientAuth)
@@ -165,7 +188,9 @@ func TestMTLSServerConfig(t *testing.T) {
 	bundle := x509bundle.New(trustDomain)
 	svid := &x509svid.SVID{}
 
-	config := tlsconfig.MTLSServerConfig(svid, bundle, tlsconfig.AuthorizeAny())
+	config := tlsconfig.MTLSServerConfig(svid, bundle, tlsconfig.AuthorizeAny(),
+		tlsconfig.WithTrace(localTrace),
+	)
 
 	assert.Nil(t, config.Certificates)
 	assert.Equal(t, tls.RequireAnyClientCert, config.ClientAuth)
@@ -184,7 +209,9 @@ func TestHookMTLSServerConfig(t *testing.T) {
 	base := createBaseTLSConfig()
 	config := createTestTLSConfig(base)
 
-	tlsconfig.HookMTLSServerConfig(config, svid, bundle, tlsconfig.AuthorizeAny())
+	tlsconfig.HookMTLSServerConfig(config, svid, bundle, tlsconfig.AuthorizeAny(),
+		tlsconfig.WithTrace(localTrace),
+	)
 
 	assert.Nil(t, config.Certificates)
 	assert.Equal(t, tls.RequireAnyClientCert, config.ClientAuth)
@@ -234,6 +261,22 @@ func TestHookMTLSWebServerConfig(t *testing.T) {
 	assertUnrelatedFieldsUntouched(t, base, config)
 }
 
+func hookedTracer(onGetCertificate, onGotCertificate func()) tlsconfig.Trace {
+	return tlsconfig.Trace{
+		GetCertificate: func() interface{} {
+			if onGetCertificate != nil {
+				onGetCertificate()
+			}
+			return nil
+		},
+		GotCertificate: func(interface{}, tlsconfig.GotCertificateInfo) {
+			if onGotCertificate != nil {
+				onGotCertificate()
+			}
+		},
+	}
+}
+
 func TestGetCertificate(t *testing.T) {
 	testCases := []struct {
 		name          string
@@ -266,7 +309,12 @@ func TestGetCertificate(t *testing.T) {
 	for _, testCase := range testCases {
 		testCase := testCase
 		t.Run(testCase.name, func(t *testing.T) {
-			getCertificate := tlsconfig.GetCertificate(testCase.source)
+			getCertificateCalls := 0
+			tracer := hookedTracer(
+				func() { getCertificateCalls++ },
+				nil,
+			)
+			getCertificate := tlsconfig.GetCertificate(testCase.source, tlsconfig.WithTrace(tracer))
 			require.NotNil(t, getCertificate)
 
 			tlsCert, err := getCertificate(&tls.ClientHelloInfo{})
@@ -278,6 +326,7 @@ func TestGetCertificate(t *testing.T) {
 
 			require.NoError(t, err)
 			require.Equal(t, testCase.expectedCerts, tlsCert.Certificate)
+			require.Equal(t, 1, getCertificateCalls)
 		})
 	}
 }
@@ -314,7 +363,12 @@ func TestGetClientCertificate(t *testing.T) {
 	for _, testCase := range testCases {
 		testCase := testCase
 		t.Run(testCase.name, func(t *testing.T) {
-			getClientCertificate := tlsconfig.GetClientCertificate(testCase.source)
+			getCertificateCalls := 0
+			tracer := hookedTracer(
+				func() { getCertificateCalls++ },
+				nil,
+			)
+			getClientCertificate := tlsconfig.GetClientCertificate(testCase.source, tlsconfig.WithTrace(tracer))
 			require.NotNil(t, getClientCertificate)
 
 			tlsCert, err := getClientCertificate(&tls.CertificateRequestInfo{})
@@ -326,6 +380,7 @@ func TestGetClientCertificate(t *testing.T) {
 
 			require.NoError(t, err)
 			require.Equal(t, testCase.expectedCerts, tlsCert.Certificate)
+			require.Equal(t, 1, getCertificateCalls)
 		})
 	}
 }

@@ -1,7 +1,6 @@
 package fakeworkloadapi
 
 import (
-	"bytes"
 	"context"
 	"crypto/x509"
 	"encoding/json"
@@ -11,8 +10,6 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/golang/protobuf/jsonpb"
-	structpb "github.com/golang/protobuf/ptypes/struct"
 	"github.com/spiffe/go-spiffe/v2/bundle/jwtbundle"
 	"github.com/spiffe/go-spiffe/v2/bundle/x509bundle"
 	"github.com/spiffe/go-spiffe/v2/internal/x509util"
@@ -25,6 +22,8 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 var noIdentityError = status.Error(codes.PermissionDenied, "no identity issued")
@@ -128,6 +127,7 @@ func (w *WorkloadAPI) SetJWTBundles(jwtBundles ...*jwtbundle.Bundle) {
 }
 
 type workloadAPIWrapper struct {
+	workload.UnimplementedSpiffeWorkloadAPIServer
 	w *WorkloadAPI
 }
 
@@ -322,7 +322,7 @@ func structFromValues(values map[string]interface{}) (*structpb.Struct, error) {
 	}
 
 	s := new(structpb.Struct)
-	if err := jsonpb.Unmarshal(bytes.NewReader(valuesJSON), s); err != nil {
+	if err := protojson.Unmarshal(valuesJSON, s); err != nil {
 		return nil, err
 	}
 

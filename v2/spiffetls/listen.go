@@ -89,9 +89,9 @@ func NewListenerWithMode(ctx context.Context, inner net.Listener, mode ListenMod
 
 	switch m.mode {
 	case tlsServerMode:
-		tlsconfig.HookTLSServerConfig(tlsConfig, m.svid)
+		tlsconfig.HookTLSServerConfig(tlsConfig, m.svid, opt.tlsoptions...)
 	case mtlsServerMode:
-		tlsconfig.HookMTLSServerConfig(tlsConfig, m.svid, m.bundle, m.authorizer)
+		tlsconfig.HookMTLSServerConfig(tlsConfig, m.svid, m.bundle, m.authorizer, opt.tlsoptions...)
 	case mtlsWebServerMode:
 		tlsconfig.HookMTLSWebServerConfig(tlsConfig, m.cert, m.bundle, m.authorizer)
 	default:

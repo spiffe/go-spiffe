@@ -168,6 +168,24 @@ func (b *Bundle) Marshal() ([]byte, error) {
 	return json.Marshal(jwks)
 }
 
+// Clone clones the bundle.
+func (b *Bundle) Clone() *Bundle {
+	b.mtx.RLock()
+	defer b.mtx.RUnlock()
+
+	return FromJWTAuthorities(b.trustDomain, b.jwtAuthorities)
+}
+
+// Equal compares the bundle for equality against the given bundle.
+func (b *Bundle) Equal(other *Bundle) bool {
+	if b == nil || other == nil {
+		return b == other
+	}
+
+	return b.trustDomain == other.trustDomain &&
+		jwtutil.JWTAuthoritiesEqual(b.jwtAuthorities, other.jwtAuthorities)
+}
+
 // GetJWTBundleForTrustDomain returns the JWT bundle for the given trust
 // domain. It implements the Source interface. An error will be returned if
 // the trust domain does not match that of the bundle.

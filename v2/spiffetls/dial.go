@@ -59,9 +59,9 @@ func DialWithMode(ctx context.Context, network, addr string, mode DialMode, opti
 	case tlsClientMode:
 		tlsconfig.HookTLSClientConfig(tlsConfig, m.bundle, m.authorizer)
 	case mtlsClientMode:
-		tlsconfig.HookMTLSClientConfig(tlsConfig, m.svid, m.bundle, m.authorizer)
+		tlsconfig.HookMTLSClientConfig(tlsConfig, m.svid, m.bundle, m.authorizer, opt.tlsoptions...)
 	case mtlsWebClientMode:
-		tlsconfig.HookMTLSWebClientConfig(tlsConfig, m.svid, m.roots)
+		tlsconfig.HookMTLSWebClientConfig(tlsConfig, m.svid, m.roots, opt.tlsoptions...)
 	default:
 		return nil, spiffetlsErr.New("unknown client mode: %v", m.mode)
 	}

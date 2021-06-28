@@ -19,9 +19,8 @@ func TestProtoToX509SVIDs(t *testing.T) {
 	require.Len(t, svidChain, 2)
 	svids := []spiffetest.X509SVID{
 		{
-			CertChain:     svidChain,
-			Key:           svidKey,
-			FederatesWith: []string{"spiffe://domain2.test"},
+			CertChain: svidChain,
+			Key:       svidKey,
 		},
 	}
 
@@ -115,14 +114,6 @@ func TestProtoToX509SVIDs(t *testing.T) {
 			err: `failed to parse svid entry 0 for spiffe id "spiffe://domain1.test/workload": failed to parse trust bundle: asn1: syntax error: truncated tag or length`,
 		},
 		{
-			name: "missing federated trust bundle",
-			resp: &spiffetest.X509SVIDResponse{
-				Bundle: domain1Bundle,
-				SVIDs:  svids,
-			},
-			err: `failed to parse svid entry 0 for spiffe id "spiffe://domain1.test/workload": missing bundle for federated domain "spiffe://domain2.test"`,
-		},
-		{
 			name: "success",
 			resp: &spiffetest.X509SVIDResponse{
 				Bundle: domain1Bundle,
@@ -154,11 +145,8 @@ func TestProtoToX509SVIDs(t *testing.T) {
 				require.Equal(t, svidIn.CertChain, svidOut.Certificates)
 				require.Equal(t, testCase.resp.Bundle, svidOut.TrustBundle)
 				require.Equal(t, svidIn.CertChain[0].URIs[0].String(), svidOut.SPIFFEID)
-
-				require.Len(t, svidOut.FederatedTrustBundles, len(svidIn.FederatesWith))
-				for _, trustDomain := range svidIn.FederatesWith {
-					require.Equal(t, testCase.resp.FederatedBundles[trustDomain], svidOut.FederatedTrustBundles[trustDomain])
-				}
+				require.Equal(t, testCase.resp.FederatedBundles, svidOut.FederatedTrustBundles)
+				require.Len(t, svidOut.FederatedTrustBundlePools, len(testCase.resp.FederatedBundles))
 			}
 		})
 	}

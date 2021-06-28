@@ -8,13 +8,11 @@ import (
 	"github.com/spiffe/go-spiffe/v2/bundle/jwtbundle"
 	"github.com/spiffe/go-spiffe/v2/bundle/spiffebundle"
 	"github.com/spiffe/go-spiffe/v2/bundle/x509bundle"
-	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/stretchr/testify/require"
 )
 
 var (
-	b1  = spiffebundle.New(td)
-	td2 = spiffeid.RequireTrustDomainFromString("example-2.org")
+	b1 = spiffebundle.New(td)
 )
 
 func TestNewSet(t *testing.T) {
@@ -51,7 +49,7 @@ func TestHas(t *testing.T) {
 func TestSetGetBundleForTrustDomain(t *testing.T) {
 	s := spiffebundle.NewSet(b1)
 	_, err := s.GetBundleForTrustDomain(td2)
-	require.EqualError(t, err, `spiffebundle: no SPIFFE bundle for trust domain "example-2.org"`)
+	require.EqualError(t, err, `spiffebundle: no SPIFFE bundle for trust domain "domain2.test"`)
 
 	b, err := s.GetBundleForTrustDomain(td)
 	require.NoError(t, err)
@@ -63,7 +61,7 @@ func TestSetGetX509BundleForTrustDomain(t *testing.T) {
 	b := spiffebundle.FromX509Bundle(xb1)
 	s := spiffebundle.NewSet(b)
 	_, err := s.GetX509BundleForTrustDomain(td2)
-	require.EqualError(t, err, `spiffebundle: no X.509 bundle for trust domain "example-2.org"`)
+	require.EqualError(t, err, `spiffebundle: no X.509 bundle for trust domain "domain2.test"`)
 
 	xb2, err := s.GetX509BundleForTrustDomain(td)
 	require.NoError(t, err)
@@ -79,7 +77,7 @@ func TestSetGetJWTBundleForTrustDomain(t *testing.T) {
 	b := spiffebundle.FromJWTBundle(jb1)
 	s := spiffebundle.NewSet(b)
 	_, err := s.GetJWTBundleForTrustDomain(td2)
-	require.EqualError(t, err, `spiffebundle: no JWT bundle for trust domain "example-2.org"`)
+	require.EqualError(t, err, `spiffebundle: no JWT bundle for trust domain "domain2.test"`)
 
 	jb2, err := s.GetJWTBundleForTrustDomain(td)
 	require.NoError(t, err)
