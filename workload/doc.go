@@ -6,6 +6,6 @@ The watcher interface must be implemented to get notifications about SVIDs
 rotation and errors.
 
 A full example is available at:
-https://github.com/spiffe/go-spiffe/tree/master/examples/svid-watcher
+https://github.com/spiffe/go-spiffe/tree/main/examples/svid-watcher
 */
 package workload
