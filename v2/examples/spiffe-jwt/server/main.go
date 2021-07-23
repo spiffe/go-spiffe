@@ -15,7 +15,7 @@ import (
 const socketPath = "unix:///tmp/agent.sock"
 
 func index(w http.ResponseWriter, r *http.Request) {
-	log.Println("Request received")
+	log.Println("Request received", svidClaims(r.Context()))
 	_, _ = io.WriteString(w, "Success!!!")
 }
 
@@ -46,9 +46,20 @@ func (a *authenticator) authenticateClient(next http.Handler) http.Handler {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
-		req = req.WithContext(context.WithValue(req.Context(), "claims", svid.Claims)) //nolint:lint // setting to be string
+		req = req.WithContext(withSVIDClaims(req.Context(), svid.Claims))
 		next.ServeHTTP(w, req)
 	})
+}
+
+type svidClaimsKey struct{}
+
+func withSVIDClaims(ctx context.Context, claims map[string]interface{}) context.Context {
+	return context.WithValue(ctx, svidClaimsKey{}, claims)
+}
+
+func svidClaims(ctx context.Context) map[string]interface{} {
+	claims, _ := ctx.Value(svidClaimsKey{}).(map[string]interface{})
+	return claims
 }
 
 func main() {

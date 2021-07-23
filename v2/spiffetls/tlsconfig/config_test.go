@@ -804,7 +804,7 @@ func createTestTLSConfig(base *tls.Config) *tls.Config {
 		CipherSuites:                base.CipherSuites,
 		PreferServerCipherSuites:    base.PreferServerCipherSuites, //nolint:gosec // setting to true is OK, for this test
 		SessionTicketsDisabled:      base.SessionTicketsDisabled,
-		SessionTicketKey:            base.SessionTicketKey,
+		SessionTicketKey:            base.SessionTicketKey, //nolint:staticcheck // need to ensure this value is copied from the base
 		ClientSessionCache:          base.ClientSessionCache,
 		MinVersion:                  base.MinVersion,
 		MaxVersion:                  base.MaxVersion,
@@ -864,7 +864,7 @@ func assertUnrelatedFieldsUntouched(t testing.TB, base, wrapped *tls.Config) {
 	assert.Equal(t, base.CipherSuites, wrapped.CipherSuites)
 	assert.Equal(t, base.PreferServerCipherSuites, wrapped.PreferServerCipherSuites)
 	assert.Equal(t, base.SessionTicketsDisabled, wrapped.SessionTicketsDisabled)
-	assert.Equal(t, base.SessionTicketKey, wrapped.SessionTicketKey)
+	assert.Equal(t, base.SessionTicketKey, wrapped.SessionTicketKey) //nolint:staticcheck // need to assert this field is not inadvertently mutated
 	assert.Equal(t, base.ClientSessionCache, wrapped.ClientSessionCache)
 	assert.Equal(t, base.MinVersion, wrapped.MinVersion)
 	assert.Equal(t, base.MaxVersion, wrapped.MaxVersion)
