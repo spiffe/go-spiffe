@@ -1,8 +1,104 @@
-DIR := ${CURDIR}
-build_dir := $(DIR)/.build
+.PHONY: default all help
+
+default: all
+
+all: lint test
+
+help:
+	@echo "Usage: make <target>"
+	@echo
+	@echo "  all              - lints and tests the code"
+	@echo "  lint             - lints the code"
+	@echo "  test             - tests the code"
+	@echo "  generate         - generate protocol buffer and gRPC stub code (default)"
+	@echo "  generate-check   - ensure generated code is up to date"
+
+# Used to force some rules to run every time
+FORCE: ;
+
+############################################################################
+# OS/ARCH detection
+############################################################################
+os1=$(shell uname -s)
+os2=
+ifeq ($(os1),Darwin)
+os1=darwin
+os2=osx
+else ifeq ($(os1),Linux)
+os1=linux
+os2=linux
+else
+$(error unsupported OS: $(os1))
+endif
+
+arch1=$(shell uname -m)
+ifeq ($(arch1),x86_64)
+arch2=amd64
+else ifeq ($(arch1),aarch64)
+arch2=arm64
+else
+$(error unsupported ARCH: $(arch1))
+endif
+
+#############################################################################
+# Vars
+#############################################################################
+
+build_dir := ${CURDIR}/.build/$(os1)-$(arch1)
+
+protoc_version = 3.14.0
+ifeq ($(arch1),aarch64)
+protoc_url = https://github.com/protocolbuffers/protobuf/releases/download/v$(protoc_version)/protoc-$(protoc_version)-$(os2)-aarch_64.zip
+else
+protoc_url = https://github.com/protocolbuffers/protobuf/releases/download/v$(protoc_version)/protoc-$(protoc_version)-$(os2)-$(arch1).zip
+endif
+protoc_dir = $(build_dir)/protoc/$(protoc_version)
+protoc_bin = $(protoc_dir)/bin/protoc
+
+protoc_gen_go_version := $(shell grep google.golang.org/protobuf v2/go.mod | awk '{print $$2}')
+protoc_gen_go_base_dir := $(build_dir)/protoc-gen-go
+protoc_gen_go_dir := $(protoc_gen_go_base_dir)/$(protoc_gen_go_version)-go$(go_version)
+protoc_gen_go_bin := $(protoc_gen_go_dir)/protoc-gen-go
+
+protoc_gen_go_grpc_version := v1.0.1
+protoc_gen_go_grpc_base_dir := $(build_dir)/protoc-gen-go-grpc
+protoc_gen_go_grpc_dir := $(protoc_gen_go_grpc_base_dir)/$(protoc_gen_go_grpc_version)-go$(go_version)
+protoc_gen_go_grpc_bin := $(protoc_gen_go_grpc_dir)/protoc-gen-go-grpc
+
 golangci_lint_version = v1.24.0
 golangci_lint_dir = $(build_dir)/golangci_lint/$(golangci_lint_version)
 golangci_lint_bin = $(golangci_lint_dir)/golangci-lint
+
+apiprotos := \
+	v2/proto/spiffe/workload/workload.proto \
+
+#############################################################################
+# Toolchain
+#############################################################################
+
+go_version_full := 1.13.15
+go_version := $(go_version_full:.0=)
+go_dir := $(build_dir)/go/$(go_version)
+go_bin_dir := $(go_dir)/bin
+go_url = https://storage.googleapis.com/golang/go$(go_version).$(os1)-$(arch2).tar.gz
+go_path := PATH="$(go_bin_dir):$(PATH)"
+
+go-check:
+ifneq (go$(go_version), $(shell $(go_path) go version 2>/dev/null | cut -f3 -d' '))
+	@echo "Installing go$(go_version)..."
+	$(E)rm -rf $(dir $(go_dir))
+	$(E)mkdir -p $(go_dir)
+	$(E)curl -sSfL $(go_url) | tar xz -C $(go_dir) --strip-components=1
+endif
+
+
+#############################################################################
+# Linting
+#############################################################################
+
+.PHONY: lint
+lint: $(golangci_lint_bin)
+	@cd ./v2; $(golangci_lint_bin) run ./...
 
 $(golangci_lint_bin):
 	@echo "Installing golangci-lint $(golangci_lint_version)..."
@@ -10,13 +106,75 @@ $(golangci_lint_bin):
 	@mkdir -p $(golangci_lint_dir)
 	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(golangci_lint_dir) $(golangci_lint_version)
 
-lint: lint-code
+#############################################################################
+# Testing
+#############################################################################
 
-lint-code: $(golangci_lint_bin)
-	@cd ./v2; $(golangci_lint_bin) run ./...
-
+.PHONY: test
 test:
-	go test ./...
-	@cd ./v2; go test ./...
+	@$(go_path) go test ./...
+	@cd ./v2; $(go_path) go test ./...
 
-all: lint test
+#############################################################################
+# Code Generation
+#############################################################################
+
+.PHONY: generate
+generate: $(apiprotos:.proto=.pb.go) $(apiprotos:.proto=_grpc.pb.go)
+
+%_grpc.pb.go: %.proto $(protoc_bin) $(protoc_gen_go_grpc_bin) FORCE
+	@echo "compiling proto $<..."
+	@cd "$(dir $<)" && PATH="$(protoc_gen_go_grpc_dir):$(PATH)" \
+		$(protoc_bin) \
+		--go-grpc_out=. --go-grpc_opt=paths=source_relative \
+		$(notdir $<)
+
+%.pb.go: %.proto $(protoc_bin) $(protoc_gen_go_bin) FORCE
+	@echo "compiling gRPC $<..."
+	@cd "$(dir $<)" && PATH="$(protoc_gen_go_dir):$(PATH)" \
+		$(protoc_bin) \
+		--go_out=. --go_opt=paths=source_relative \
+		$(notdir $<)
+
+$(protoc_bin):
+	@echo "Installing protoc $(protoc_version)..."
+	@rm -rf $(dir $(protoc_dir))
+	@mkdir -p $(protoc_dir)
+	@curl -sSfL $(protoc_url) -o $(build_dir)/tmp.zip; unzip -q -d $(protoc_dir) $(build_dir)/tmp.zip; rm $(build_dir)/tmp.zip
+
+$(protoc_gen_go_bin): | go-check
+	@echo "Installing protoc-gen-go $(protoc_gen_go_version)..."
+	@rm -rf $(protoc_gen_go_base_dir)
+	@mkdir -p $(protoc_gen_go_dir)
+	@$(go_path) go build -o $(protoc_gen_go_bin) google.golang.org/protobuf/cmd/protoc-gen-go
+
+$(protoc_gen_go_grpc_bin): | go-check
+	@echo "Installing protoc-gen-go-grpc $(protoc_gen_go_grpc_version)..."
+	@rm -rf $(protoc_gen_go_grpc_base_dir)
+	@mkdir -p $(protoc_gen_go_grpc_dir)
+	@echo "module tools" > $(protoc_gen_go_grpc_dir)/go.mod
+	@cd $(protoc_gen_go_grpc_dir) && GOBIN=$(protoc_gen_go_grpc_dir) $(go_path) go get google.golang.org/grpc/cmd/protoc-gen-go-grpc@$(protoc_gen_go_grpc_version)
+
+#############################################################################
+# Code Generation Checks
+#############################################################################
+
+git_dirty := $(shell git status -s)
+
+.PHONY: generate-check
+generate-check:
+ifneq ($(git_dirty),)
+	$(error generate-check must be invoked on a clean repository)
+endif
+	@$(MAKE) generate
+	@$(MAKE) git-clean-check
+
+.PHONY: git-clean-check
+git-clean-check:
+ifneq ($(git_dirty),)
+	git diff
+	@echo "Git repository is dirty!"
+	@false
+else
+	@echo "Git repository is clean."
+endif
