@@ -159,7 +159,9 @@ func testCredentials(t *testing.T, clientCreds, serverCreds credentials.Transpor
 	}
 
 	st := status.Convert(err)
-	serverID, _ := grpccredentials.PeerIDFromPeer(clientPeer)
+	serverID, serverIDOK := grpccredentials.PeerIDFromPeer(clientPeer)
+
+	assert.Equal(t, expect.ServerID != "", serverIDOK)
 
 	assert.Equal(t, expect, expectResult{
 		Code:     st.Code(),

@@ -126,5 +126,5 @@ type authInfoWrapper struct {
 }
 
 func (w authInfoWrapper) PeerID() (spiffeid.ID, bool) {
-	return w.peerID, w.peerID.IsZero()
+	return w.peerID, !w.peerID.IsZero()
 }
