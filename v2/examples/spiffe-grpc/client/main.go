@@ -4,11 +4,11 @@ import (
 	"context"
 	"log"
 
+	"github.com/spiffe/go-spiffe/v2/spiffegrpc/grpccredentials"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 	pb "google.golang.org/grpc/examples/helloworld/helloworld"
 )
 
@@ -30,9 +30,10 @@ func main() {
 	// Allowed SPIFFE ID
 	serverID := spiffeid.Must("example.org", "server")
 
-	// Create a `tls.Config` to allow mTLS connections, and verify that presented certificate has SPIFFE ID `spiffe://example.org/server`
-	tlsConfig := tlsconfig.MTLSClientConfig(source, source, tlsconfig.AuthorizeID(serverID))
-	conn, err := grpc.DialContext(ctx, "localhost:50051", grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
+	// Dial the server with credentials that do mTLS and verify that presented certificate has SPIFFE ID `spiffe://example.org/server`
+	conn, err := grpc.DialContext(ctx, "localhost:50051", grpc.WithTransportCredentials(
+		grpccredentials.MTLSClientCredentials(source, source, tlsconfig.AuthorizeID(serverID)),
+	))
 	if err != nil {
 		log.Fatalf("Error creating dial: %v", err)
 	}

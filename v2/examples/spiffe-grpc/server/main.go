@@ -5,11 +5,11 @@ import (
 	"log"
 	"net"
 
+	"github.com/spiffe/go-spiffe/v2/spiffegrpc/grpccredentials"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 	pb "google.golang.org/grpc/examples/helloworld/helloworld"
 )
 
@@ -41,9 +41,10 @@ func main() {
 	// Allowed SPIFFE ID
 	clientID := spiffeid.Must("example.org", "client")
 
-	// Create a `tls.Config` to allow mTLS connections, and verify that presented certificate has SPIFFE ID `spiffe://example.org/client`
-	tlsConfig := tlsconfig.MTLSServerConfig(source, source, tlsconfig.AuthorizeID(clientID))
-	s := grpc.NewServer(grpc.Creds(credentials.NewTLS(tlsConfig)))
+	// Create a server with credentials that do mTLS and verify that the presented certificate has SPIFFE ID `spiffe://example.org/client`
+	s := grpc.NewServer(grpc.Creds(
+		grpccredentials.MTLSServerCredentials(source, source, tlsconfig.AuthorizeID(clientID)),
+	))
 
 	lis, err := net.Listen("tcp", "127.0.0.1:50051")
 	if err != nil {
