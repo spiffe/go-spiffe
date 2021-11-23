@@ -214,8 +214,8 @@ func getTLSCertificate(svid x509svid.Source, trace Trace) (*tls.Certificate, err
 	if err != nil {
 		if trace.GotCertificate != nil {
 			trace.GotCertificate(traceVal, GotCertificateInfo{Err: err})
-			return nil, err
 		}
+		return nil, err
 	}
 
 	cert := &tls.Certificate{
