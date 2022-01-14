@@ -72,7 +72,7 @@ func TestVerify(t *testing.T) {
 			name:   "bad leaf cert id",
 			chain:  leafBad,
 			bundle: bundle1,
-			err:    `x509svid: could not get leaf SPIFFE ID: invalid SPIFFE ID "sparfe://domain1.test/workload": scheme is missing or invalid`,
+			err:    `x509svid: could not get leaf SPIFFE ID: scheme is missing or invalid`,
 		},
 		{
 			name:   "verification fails",

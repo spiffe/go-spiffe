@@ -166,7 +166,7 @@ func TestParseAndValidate(t *testing.T) {
 
 				return generateToken(tb, claims, key1, "authority1")
 			},
-			err: `jwtsvid: token has an invalid subject claim: invalid SPIFFE ID "invalid subject": scheme is missing or invalid`,
+			err: `jwtsvid: token has an invalid subject claim: scheme is missing or invalid`,
 		},
 		{
 			name:     "missing key",
@@ -388,7 +388,7 @@ func TestParseInsecure(t *testing.T) {
 
 				return generateToken(tb, claims, key1, "key1")
 			},
-			err: `jwtsvid: token has an invalid subject claim: invalid SPIFFE ID "invalid subject": scheme is missing or invalid`,
+			err: `jwtsvid: token has an invalid subject claim: scheme is missing or invalid`,
 		},
 	}
 
