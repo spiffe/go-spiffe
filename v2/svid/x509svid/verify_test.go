@@ -16,7 +16,7 @@ import (
 func TestVerify(t *testing.T) {
 	td1 := spiffeid.RequireTrustDomainFromString("domain1.test")
 	ca1 := test.NewCA(t, td1)
-	leaf1 := ca1.CreateX509SVID(td1.NewID("/workload")).Certificates
+	leaf1 := ca1.CreateX509SVID(spiffeid.RequireFromPath(td1, "/workload")).Certificates
 	leaf1NoURI := removeURIs(leaf1[0])
 	leaf1DupUris := dupURIs(leaf1[0])
 	leaf1IsCA := setIsCA(leaf1[0])
@@ -72,7 +72,7 @@ func TestVerify(t *testing.T) {
 			name:   "bad leaf cert id",
 			chain:  leafBad,
 			bundle: bundle1,
-			err:    "x509svid: could not get leaf SPIFFE ID: spiffeid: invalid scheme",
+			err:    `x509svid: could not get leaf SPIFFE ID: scheme is missing or invalid`,
 		},
 		{
 			name:   "verification fails",
@@ -134,7 +134,7 @@ func TestVerify(t *testing.T) {
 func TestParseAndVerify(t *testing.T) {
 	td1 := spiffeid.RequireTrustDomainFromString("domain1.test")
 	ca1 := test.NewCA(t, td1)
-	leaf1 := ca1.CreateX509SVID(td1.NewID("/workload")).Certificates
+	leaf1 := ca1.CreateX509SVID(spiffeid.RequireFromPath(td1, "/workload")).Certificates
 	bundle1 := ca1.X509Bundle()
 
 	rawLeaf := leaf1[0].Raw

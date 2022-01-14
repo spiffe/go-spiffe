@@ -15,7 +15,7 @@ func ExampleParseAndValidate() {
 	}
 
 	token := "TODO"
-	audience := []string{td.NewID("server").String()}
+	audience := []string{spiffeid.RequireFromPath(td, "/server").String()}
 
 	jwtSource, err := workloadapi.NewJWTSource(context.TODO())
 	if err != nil {

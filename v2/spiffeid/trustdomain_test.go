@@ -1,6 +1,7 @@
 package spiffeid_test
 
 import (
+	"fmt"
 	"net/url"
 	"testing"
 
@@ -10,201 +11,123 @@ import (
 )
 
 func TestTrustDomainFromString(t *testing.T) {
-	tests := []struct {
-		name          string
-		input         string
-		expectedTd    string
-		expectedError string
-	}{
-		{
-			name:       "has_uppercase_chars",
-			input:      "DomAin.TesT",
-			expectedTd: "domain.test",
-		},
-		{
-			name:       "has_valid_scheme",
-			input:      "spiffe://domain.test",
-			expectedTd: "domain.test",
-		},
-		{
-			name:       "is_valid_spiffe_id",
-			input:      "spiffe://domain.test/path/element",
-			expectedTd: "domain.test",
-		},
-		{
-			name:       "is_valid_spiffe_id_with_spiffe_id_as_path",
-			input:      "spiffe://domain.test/spiffe://domain.test/path/element",
-			expectedTd: "domain.test",
-		},
-		{
-			name:       "is_valid_spiffe_id_with_invalid_spiffe_id_as_path",
-			input:      "spiffe://domain.test/spiffe://domain.test:80/path/element",
-			expectedTd: "domain.test",
-		},
-		{
-			name:          "has_invalid_scheme",
-			input:         "http://domain.test",
-			expectedError: "spiffeid: invalid scheme",
-		},
-		{
-			name:          "missing_scheme",
-			input:         "://domain.test",
-			expectedError: "missing protocol scheme",
-		},
-		{
-			name:          "has_port",
-			input:         "spiffe://domain.test:80",
-			expectedError: "spiffeid: port is not allowed",
-		},
-		{
-			name:          "has_colon",
-			input:         "spiffe://domain.test:",
-			expectedError: "spiffeid: colon is not allowed in trust domain",
-		},
-	}
-
-	for _, test := range tests {
-		test := test
-		t.Run(test.name, func(t *testing.T) {
-			td, err := spiffeid.TrustDomainFromString(test.input)
-			if test.expectedError != "" {
-				require.Error(t, err)
-				assert.Contains(t, err.Error(), test.expectedError)
-				assert.Empty(t, td)
-				return
-			}
-
-			assert.NoError(t, err)
-			assert.Equal(t, test.expectedTd, td.String())
+	assertOK := func(t *testing.T, in string, expected spiffeid.TrustDomain) {
+		actual, err := spiffeid.TrustDomainFromString(in)
+		if assert.NoError(t, err) {
+			assert.Equal(t, expected, actual)
+		}
+		assert.NotPanics(t, func() {
+			actual = spiffeid.RequireTrustDomainFromString(in)
+			assert.Equal(t, expected, actual)
 		})
 	}
-}
 
-func TestRequireTrustDomainFromString(t *testing.T) {
-	// Just test the panic, the non panicing cases are already handled by TestTrustDomainFromString.
-	assert.PanicsWithError(t, "spiffeid: colon is not allowed in trust domain", func() {
-		spiffeid.RequireTrustDomainFromString("spiffe://domain.test:")
+	assertFail := func(t *testing.T, in string, expectErr string) {
+		td, err := spiffeid.TrustDomainFromString(in)
+		assertErrorContains(t, err, expectErr)
+		assert.Zero(t, td)
+		assert.Panics(t, func() {
+			spiffeid.RequireTrustDomainFromString(in)
+		})
+	}
+
+	t.Run("reject empty", func(t *testing.T) {
+		assertFail(t, "", `trust domain is missing`)
 	})
+	t.Run("allow id without path", func(t *testing.T) {
+		assertOK(t, "spiffe://trustdomain", td)
+	})
+	t.Run("allow id with path", func(t *testing.T) {
+		assertOK(t, "spiffe://trustdomain/path", td)
+	})
+
+	t.Run("reject bad ids", func(t *testing.T) {
+		// We don't need to test all shapes of bad IDs, just a decent
+		// representation across scheme, trust domain, and path.
+		assertFail(t, "spiffe:/trustdomain/path", "scheme is missing or invalid")
+		assertFail(t, "spiffe://", "trust domain is missing")
+		assertFail(t, "spiffe:///path", "trust domain is missing")
+		assertFail(t, "spiffe://trustdomain/", "path cannot have a trailing slash")
+		assertFail(t, "spiffe://trustdomain/path/", "path cannot have a trailing slash")
+		assertFail(t, "spiffe://%F0%9F%A4%AF/path", "trust domain characters are limited to lowercase letters, numbers, dots, dashes, and underscores")
+		assertFail(t, "spiffe://trustdomain/%F0%9F%A4%AF", "path segment characters are limited to letters, numbers, dots, dashes, and underscores")
+	})
+
+	// Go all the way through 255, which ensures we reject UTF-8 appropriately
+	for i := 0; i < 256; i++ {
+		s := string(rune(i))
+		suffix := fmt.Sprintf("%X", i)
+		if _, ok := tdChars[s]; ok {
+			t.Run("allow good trustdomain char "+suffix, func(t *testing.T) {
+				expected := spiffeid.RequireTrustDomainFromString("trustdomain" + s)
+				assertOK(t, "trustdomain"+s, expected)
+				assertOK(t, "spiffe://trustdomain"+s, expected)
+			})
+		} else {
+			t.Run("reject bad trustdomain char "+suffix, func(t *testing.T) {
+				assertFail(t, "trustdomain"+s, "trust domain characters are limited to lowercase letters, numbers, dots, dashes, and underscores")
+			})
+		}
+	}
 }
 
 func TestTrustDomainFromURI(t *testing.T) {
-	tests := []struct {
-		name          string
-		input         *url.URL
-		expectedTd    string
-		expectedError string
-	}{
-		{
-			name:       "happy_path",
-			input:      parseURI(t, "spiffe://domain.test/path/element"),
-			expectedTd: "domain.test",
-		},
-		{
-			name:       "has_valid_scheme",
-			input:      parseURI(t, "spiffe://domain.test"),
-			expectedTd: "domain.test",
-		},
-		{
-			name:       "is_valid_spiffe_id_with_spiffe_id_as_path",
-			input:      parseURI(t, "spiffe://domain.test/spiffe://example.test/path/element"),
-			expectedTd: "domain.test",
-		},
-		{
-			name:       "is_valid_spiffe_id_with_invalid_spiffe_id_as_path",
-			input:      parseURI(t, "spiffe://domain.test/spiffe://example.test:80/path/element"),
-			expectedTd: "domain.test",
-		},
-		{
-			name:       "has_uppercase_chars",
-			input:      parseURI(t, "spiffe://DomAin.TesT"),
-			expectedTd: "domain.test",
-		},
-		{
-			name:          "has_invalid_scheme",
-			input:         parseURI(t, "http://domain.test"),
-			expectedError: "spiffeid: invalid scheme",
-		},
-		{
-			name:          "missing_scheme",
-			input:         &url.URL{Host: "domain.test"},
-			expectedError: "spiffeid: invalid scheme",
-		},
-		{
-			name:          "has_port",
-			input:         parseURI(t, "spiffe://domain.test:80"),
-			expectedError: "spiffeid: port is not allowed",
-		},
-		{
-			name:          "has_colon",
-			input:         parseURI(t, "spiffe://domain.test:"),
-			expectedError: "spiffeid: colon is not allowed in trust domain",
-		},
+	parseURI := func(s string) *url.URL {
+		u, err := url.Parse(s)
+		require.NoError(t, err)
+		return u
+	}
+	assertOK := func(s string) {
+		u := parseURI(s)
+		td, err := spiffeid.TrustDomainFromURI(u)
+		assert.NoError(t, err)
+		assert.Equal(t, spiffeid.RequireTrustDomainFromString(u.Host), td)
+	}
+	assertFail := func(u *url.URL, expectErr string) {
+		_, err := spiffeid.TrustDomainFromURI(u)
+		assertErrorContains(t, err, expectErr)
 	}
 
-	for _, test := range tests {
-		test := test
-		t.Run(test.name, func(t *testing.T) {
-			td, err := spiffeid.TrustDomainFromURI(test.input)
-			if test.expectedError == "" {
-				assert.NoError(t, err)
-			} else {
-				assert.EqualError(t, err, test.expectedError)
-			}
+	assertOK("spiffe://trustdomain")
+	assertOK("spiffe://trustdomain/path")
 
-			assert.Equal(t, test.expectedTd, td.String())
-		})
-	}
-}
-
-func TestRequireTrustDomainFromURI(t *testing.T) {
-	// Just test the panic, the non panicing cases are already handled by TestTrustDomainFromURI.
-	assert.PanicsWithError(t, "spiffeid: colon is not allowed in trust domain", func() {
-		spiffeid.RequireTrustDomainFromURI(parseURI(t, "spiffe://domain.test:"))
-	})
+	assertFail(&url.URL{}, `cannot be empty`)
+	assertFail(&url.URL{Scheme: "SPIFFE", Host: "trustdomain"}, `scheme is missing or invalid`)
+	assertFail(parseURI("spiffe://trust$domain"), `trust domain characters are limited to lowercase letters, numbers, dots, dashes, and underscores`)
+	assertFail(parseURI("spiffe://trustdomain/path$"), `path segment characters are limited to letters, numbers, dots, dashes, and underscores`)
 }
 
 func TestTrustDomainID(t *testing.T) {
-	id := spiffeid.Must("domain.test")
+	assert.Zero(t, (spiffeid.TrustDomain{}).ID())
 
-	// Common case
-	td := spiffeid.RequireTrustDomainFromString("spiffe://domain.test/path/element")
-	assert.Equal(t, id, td.ID())
+	expected := spiffeid.RequireFromString("spiffe://trustdomain")
 
-	// Empty path
-	td = spiffeid.RequireTrustDomainFromString("domain.test")
-	assert.Equal(t, id, td.ID())
+	for _, s := range []string{"trustdomain", "spiffe://trustdomain", "spiffe://trustdomain/path"} {
+		td = spiffeid.RequireTrustDomainFromString(s)
+		assert.Equal(t, expected, td.ID())
+	}
 }
 
 func TestTrustDomainIDString(t *testing.T) {
-	// Common case
-	td := spiffeid.RequireTrustDomainFromString("spiffe://domain.test/path/element")
-	assert.Equal(t, "spiffe://domain.test", td.IDString())
+	assert.Empty(t, (spiffeid.TrustDomain{}).IDString())
 
-	// Empty path
-	td = spiffeid.RequireTrustDomainFromString("domain.test")
-	assert.Equal(t, "spiffe://domain.test", td.IDString())
+	const expected = "spiffe://trustdomain"
 
-	// With uppercase letters
-	td = spiffeid.RequireTrustDomainFromString("DoMain.TesT")
-	assert.Equal(t, "spiffe://domain.test", td.IDString())
-}
-
-func TestTrustDomainNewID(t *testing.T) {
-	td := spiffeid.RequireTrustDomainFromString("domain.test")
-
-	// Common case
-	id := spiffeid.Must("domain.test", "path", "element")
-	assert.Equal(t, id, td.NewID("/path/element"))
-
-	// Without starting with a slash
-	id = spiffeid.Must("domain.test", "path", "element")
-	assert.Equal(t, id, td.NewID("path/element"))
-
-	// Empty path
-	id = spiffeid.Must("domain.test")
-	assert.Equal(t, id, td.NewID(""))
+	for _, s := range []string{"trustdomain", "spiffe://trustdomain", "spiffe://trustdomain/path"} {
+		td = spiffeid.RequireTrustDomainFromString(s)
+		assert.Equal(t, expected, td.IDString())
+	}
 }
 
 func TestTrustDomainIsZero(t *testing.T) {
 	assert.True(t, spiffeid.TrustDomain{}.IsZero())
+	assert.False(t, spiffeid.RequireTrustDomainFromString("trustdomain").IsZero())
+}
+
+func TestTrustDomainCompare(t *testing.T) {
+	a := spiffeid.RequireTrustDomainFromString("a")
+	b := spiffeid.RequireTrustDomainFromString("b")
+	assert.Equal(t, -1, a.Compare(b))
+	assert.Equal(t, 0, a.Compare(a))
+	assert.Equal(t, 1, b.Compare(a))
 }

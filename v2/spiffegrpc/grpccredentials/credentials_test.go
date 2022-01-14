@@ -26,8 +26,8 @@ func TestCredentials(t *testing.T) {
 	td := spiffeid.RequireTrustDomainFromString("domain.test")
 	ca := test.NewCA(t, td)
 	bundle := ca.Bundle()
-	serverSVID := ca.CreateX509SVID(td.NewID("/server"))
-	clientSVID := ca.CreateX509SVID(td.NewID("/client"))
+	serverSVID := ca.CreateX509SVID(spiffeid.RequireFromPath(td, "/server"))
+	clientSVID := ca.CreateX509SVID(spiffeid.RequireFromPath(td, "/client"))
 	serverID := serverSVID.ID.String()
 	clientID := clientSVID.ID.String()
 

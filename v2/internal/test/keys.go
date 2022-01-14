@@ -1,10 +1,10 @@
 package test
 
 import (
-	"bytes"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -30,9 +30,9 @@ func NewKeyID(tb testing.TB) string {
 
 func keyIDFromBytes(choices []byte) string {
 	const alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	buf := new(bytes.Buffer)
+	var builder strings.Builder
 	for _, choice := range choices {
-		buf.WriteByte(alphabet[int(choice)%len(alphabet)])
+		builder.WriteByte(alphabet[int(choice)%len(alphabet)])
 	}
-	return buf.String()
+	return builder.String()
 }
