@@ -39,9 +39,9 @@ func FromSegments(td TrustDomain, segments ...string) (ID, error) {
 func FromString(id string) (ID, error) {
 	switch {
 	case id == "":
-		return ID{}, idErr{id: id, reason: empty}
+		return ID{}, errEmpty
 	case !strings.HasPrefix(id, schemePrefix):
-		return ID{}, idErr{id: id, reason: wrongScheme}
+		return ID{}, errWrongScheme
 	}
 
 	rest := id[len(schemePrefix):]
@@ -53,19 +53,19 @@ func FromString(id string) (ID, error) {
 			break
 		}
 		if !isValidTrustDomainChar(c) {
-			return ID{}, idErr{id: id, reason: badTrustDomainChar}
+			return ID{}, errBadTrustDomainChar
 		}
 	}
 
 	if i == 0 {
-		return ID{}, idErr{id: id, reason: missingTrustDomain}
+		return ID{}, errMissingTrustDomain
 	}
 
 	td := rest[:i]
 	path := rest[i:]
 
-	if reason := validatePath(path); reason != noReason {
-		return ID{}, idErr{id: id, reason: reason}
+	if err := ValidatePath(path); err != nil {
+		return ID{}, err
 	}
 
 	return ID{

@@ -36,18 +36,11 @@ func JoinPathSegments(segments ...string) (string, error) {
 // ID.
 // See https://github.com/spiffe/spiffe/blob/main/standards/SPIFFE-ID.md#22-path
 func ValidatePath(path string) error {
-	if reason := validatePath(path); reason != noReason {
-		return pathErr{path: path, reason: reason}
-	}
-	return nil
-}
-
-func validatePath(path string) errReason {
 	switch {
 	case path == "":
-		return noReason
+		return nil
 	case path[0] != '/':
-		return noLeadingSlash
+		return errNoLeadingSlash
 	}
 
 	segmentStart := 0
@@ -57,34 +50,34 @@ func validatePath(path string) errReason {
 		if c == '/' {
 			switch path[segmentStart:segmentEnd] {
 			case "/":
-				return emptySegment
+				return errEmptySegment
 			case "/.", "/..":
-				return dotSegment
+				return errDotSegment
 			}
 			segmentStart = segmentEnd
 			continue
 		}
 		if !isValidPathSegmentChar(c) {
-			return badPathSegmentChar
+			return errBadPathSegmentChar
 		}
 	}
 
 	switch path[segmentStart:segmentEnd] {
 	case "/":
-		return trailingSlash
+		return errTrailingSlash
 	case "/.", "/..":
-		return dotSegment
+		return errDotSegment
 	}
-	return noReason
+	return nil
 }
 
 func validatePathSegment(segment string) error {
 	if segment == "" {
-		return segmentErr{segment: segment, reason: empty}
+		return errEmptySegment
 	}
 	for i := 0; i < len(segment); i++ {
 		if !isValidPathSegmentChar(segment[i]) {
-			return segmentErr{segment: segment, reason: badPathSegmentChar}
+			return errBadPathSegmentChar
 		}
 	}
 	return nil

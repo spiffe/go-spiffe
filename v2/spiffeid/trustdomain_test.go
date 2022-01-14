@@ -32,7 +32,7 @@ func TestTrustDomainFromString(t *testing.T) {
 	}
 
 	t.Run("reject empty", func(t *testing.T) {
-		assertFail(t, "", `invalid trust domain "": cannot be empty`)
+		assertFail(t, "", `trust domain is missing`)
 	})
 	t.Run("allow id without path", func(t *testing.T) {
 		assertOK(t, "spiffe://trustdomain", td)
@@ -91,10 +91,10 @@ func TestTrustDomainFromURI(t *testing.T) {
 	assertOK("spiffe://trustdomain")
 	assertOK("spiffe://trustdomain/path")
 
-	assertFail(&url.URL{}, `invalid SPIFFE ID "": cannot be empty`)
-	assertFail(&url.URL{Scheme: "SPIFFE", Host: "trustdomain"}, `invalid SPIFFE ID "SPIFFE://trustdomain": scheme is missing or invalid`)
-	assertFail(parseURI("spiffe://trust$domain"), `invalid SPIFFE ID "spiffe://trust$domain": trust domain characters are limited to lowercase letters, numbers, dots, dashes, and underscores`)
-	assertFail(parseURI("spiffe://trustdomain/path$"), `invalid SPIFFE ID "spiffe://trustdomain/path$": path segment characters are limited to letters, numbers, dots, dashes, and underscores`)
+	assertFail(&url.URL{}, `cannot be empty`)
+	assertFail(&url.URL{Scheme: "SPIFFE", Host: "trustdomain"}, `scheme is missing or invalid`)
+	assertFail(parseURI("spiffe://trust$domain"), `trust domain characters are limited to lowercase letters, numbers, dots, dashes, and underscores`)
+	assertFail(parseURI("spiffe://trustdomain/path$"), `path segment characters are limited to letters, numbers, dots, dashes, and underscores`)
 }
 
 func TestTrustDomainID(t *testing.T) {

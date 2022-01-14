@@ -70,7 +70,7 @@ func TestFromString(t *testing.T) {
 	}
 
 	t.Run("reject empty", func(t *testing.T) {
-		assertFail(t, "", `invalid SPIFFE ID "": cannot be empty`)
+		assertFail(t, "", `cannot be empty`)
 	})
 	t.Run("path is optional", func(t *testing.T) {
 		assertOK(t, "spiffe://trustdomain", td, "")
@@ -131,11 +131,20 @@ func TestFromString(t *testing.T) {
 		assertFail(t, "spiffe://trustdomain/..", "path cannot contain dot segments")
 		assertFail(t, "spiffe://trustdomain/../path", "path cannot contain dot segments")
 		assertFail(t, "spiffe://trustdomain/path/../other", "path cannot contain dot segments")
+		// The following are ok since the the segments, while containing dots
+		// are not all dots (or are more than two dots)
+		assertOK(t, "spiffe://trustdomain/.path", td, "/.path")
+		assertOK(t, "spiffe://trustdomain/..path", td, "/..path")
+		assertOK(t, "spiffe://trustdomain/...", td, "/...")
 	})
 
 	t.Run("reject percent encoding", func(t *testing.T) {
+		// percent-encoded unicode
 		assertFail(t, "spiffe://%F0%9F%A4%AF/path", "trust domain characters are limited to lowercase letters, numbers, dots, dashes, and underscores")
 		assertFail(t, "spiffe://trustdomain/%F0%9F%A4%AF", "path segment characters are limited to letters, numbers, dots, dashes, and underscores")
+		// percent-encoded ascii
+		assertFail(t, "spiffe://%62%61%64/path", "trust domain characters are limited to lowercase letters, numbers, dots, dashes, and underscores")
+		assertFail(t, "spiffe://trustdomain/%62%61%64", "path segment characters are limited to letters, numbers, dots, dashes, and underscores")
 	})
 }
 
@@ -159,10 +168,10 @@ func TestFromURI(t *testing.T) {
 	assertOK("spiffe://trustdomain")
 	assertOK("spiffe://trustdomain/path")
 
-	assertFail(&url.URL{}, `invalid SPIFFE ID "": cannot be empty`)
-	assertFail(&url.URL{Scheme: "SPIFFE", Host: "trustdomain"}, `invalid SPIFFE ID "SPIFFE://trustdomain": scheme is missing or invalid`)
-	assertFail(parseURI("spiffe://trust$domain"), `invalid SPIFFE ID "spiffe://trust$domain": trust domain characters are limited to lowercase letters, numbers, dots, dashes, and underscores`)
-	assertFail(parseURI("spiffe://trustdomain/path$"), `invalid SPIFFE ID "spiffe://trustdomain/path$": path segment characters are limited to letters, numbers, dots, dashes, and underscores`)
+	assertFail(&url.URL{}, `cannot be empty`)
+	assertFail(&url.URL{Scheme: "SPIFFE", Host: "trustdomain"}, `scheme is missing or invalid`)
+	assertFail(parseURI("spiffe://trust$domain"), `trust domain characters are limited to lowercase letters, numbers, dots, dashes, and underscores`)
+	assertFail(parseURI("spiffe://trustdomain/path$"), `path segment characters are limited to letters, numbers, dots, dashes, and underscores`)
 }
 
 func TestFromSegments(t *testing.T) {
@@ -182,10 +191,10 @@ func TestFromSegments(t *testing.T) {
 	assertOK([]string{"foo"}, "/foo")
 	assertOK([]string{"foo", "bar"}, "/foo/bar")
 
-	assertFail([]string{""}, ": cannot be empty")
-	assertFail([]string{"/"}, ": path segment characters are limited to letters, numbers, dots, dashes, and underscores")
-	assertFail([]string{"/foo"}, ": path segment characters are limited to letters, numbers, dots, dashes, and underscores")
-	assertFail([]string{"$"}, ": path segment characters are limited to letters, numbers, dots, dashes, and underscores")
+	assertFail([]string{""}, "path cannot contain empty segments")
+	assertFail([]string{"/"}, "path segment characters are limited to letters, numbers, dots, dashes, and underscores")
+	assertFail([]string{"/foo"}, "path segment characters are limited to letters, numbers, dots, dashes, and underscores")
+	assertFail([]string{"$"}, "path segment characters are limited to letters, numbers, dots, dashes, and underscores")
 }
 
 func TestFromPathf(t *testing.T) {
@@ -200,12 +209,12 @@ func TestFromPathf(t *testing.T) {
 	}
 
 	id, err = spiffeid.FromPathf(td, "%s", "foo")
-	if assert.EqualError(t, err, `invalid path "foo": path must have a leading slash`) {
+	if assert.EqualError(t, err, `path must have a leading slash`) {
 		assert.Zero(t, id)
 	}
 
 	id, err = spiffeid.FromPathf(td, "/")
-	if assert.EqualError(t, err, `invalid path "/": path cannot have a trailing slash`) {
+	if assert.EqualError(t, err, `path cannot have a trailing slash`) {
 		assert.Zero(t, id)
 	}
 }
@@ -275,9 +284,9 @@ func TestIDReplacePath(t *testing.T) {
 	assertOK("", "/foo", "/foo")
 	assertOK("/path", "/foo", "/foo")
 
-	assertFail("", "foo", `invalid path "foo": path must have a leading slash`)
-	assertFail("/path", "/", `invalid path "/": path cannot have a trailing slash`)
-	assertFail("/path", "foo", `invalid path "foo": path must have a leading slash`)
+	assertFail("", "foo", `path must have a leading slash`)
+	assertFail("/path", "/", `path cannot have a trailing slash`)
+	assertFail("/path", "foo", `path must have a leading slash`)
 
 	id, err := (spiffeid.ID{}).ReplacePath("/")
 	assert.EqualError(t, err, "cannot replace path on a zero ID value")
@@ -301,9 +310,9 @@ func TestIDReplacePathf(t *testing.T) {
 	assertOK("", "/foo", "/foo")
 	assertOK("/path", "/foo", "/foo")
 
-	assertFail("", "foo", `invalid path "foo": path must have a leading slash`)
-	assertFail("/path", "/", `invalid path "/": path cannot have a trailing slash`)
-	assertFail("/path", "foo", `invalid path "foo": path must have a leading slash`)
+	assertFail("", "foo", `path must have a leading slash`)
+	assertFail("/path", "/", `path cannot have a trailing slash`)
+	assertFail("/path", "foo", `path must have a leading slash`)
 
 	id, err := (spiffeid.ID{}).ReplacePathf("%s", "/")
 	assert.EqualError(t, err, "cannot replace path on a zero ID value")
@@ -327,8 +336,8 @@ func TestIDReplaceSegments(t *testing.T) {
 	assertOK("", []string{"foo"}, "/foo")
 	assertOK("/path", []string{"foo"}, "/foo")
 
-	assertFail("", []string{""}, `invalid path segment "": cannot be empty`)
-	assertFail("", []string{"/foo"}, `invalid path segment "/foo": path segment characters are limited to letters, numbers, dots, dashes, and underscores`)
+	assertFail("", []string{""}, `path cannot contain empty segments`)
+	assertFail("", []string{"/foo"}, `path segment characters are limited to letters, numbers, dots, dashes, and underscores`)
 
 	id, err := (spiffeid.ID{}).ReplaceSegments("/")
 	assert.EqualError(t, err, "cannot replace path segments on a zero ID value")
@@ -352,9 +361,9 @@ func TestIDAppendPath(t *testing.T) {
 	assertOK("", "/foo", "/foo")
 	assertOK("/path", "/foo", "/path/foo")
 
-	assertFail("", "foo", `invalid path "foo": path must have a leading slash`)
-	assertFail("/path", "/", `invalid path "/": path cannot have a trailing slash`)
-	assertFail("/path", "foo", `invalid path "foo": path must have a leading slash`)
+	assertFail("", "foo", `path must have a leading slash`)
+	assertFail("/path", "/", `path cannot have a trailing slash`)
+	assertFail("/path", "foo", `path must have a leading slash`)
 
 	id, err := (spiffeid.ID{}).AppendPath("/")
 	assert.EqualError(t, err, "cannot append path on a zero ID value")
@@ -378,9 +387,9 @@ func TestIDAppendPathf(t *testing.T) {
 	assertOK("", "/foo", "/foo")
 	assertOK("/path", "/foo", "/path/foo")
 
-	assertFail("", "foo", `invalid path "foo": path must have a leading slash`)
-	assertFail("/path", "/", `invalid path "/": path cannot have a trailing slash`)
-	assertFail("/path", "foo", `invalid path "foo": path must have a leading slash`)
+	assertFail("", "foo", `path must have a leading slash`)
+	assertFail("/path", "/", `path cannot have a trailing slash`)
+	assertFail("/path", "foo", `path must have a leading slash`)
 
 	id, err := (spiffeid.ID{}).AppendPathf("%s", "/")
 	assert.EqualError(t, err, "cannot append path on a zero ID value")
@@ -404,8 +413,8 @@ func TestIDAppendSegments(t *testing.T) {
 	assertOK("", []string{"foo"}, "/foo")
 	assertOK("/path", []string{"foo"}, "/path/foo")
 
-	assertFail("", []string{""}, `invalid path segment "": cannot be empty`)
-	assertFail("", []string{"/foo"}, `invalid path segment "/foo": path segment characters are limited to letters, numbers, dots, dashes, and underscores`)
+	assertFail("", []string{""}, `path cannot contain empty segments`)
+	assertFail("", []string{"/foo"}, `path segment characters are limited to letters, numbers, dots, dashes, and underscores`)
 
 	id, err := (spiffeid.ID{}).AppendSegments("/")
 	assert.EqualError(t, err, "cannot append path segments on a zero ID value")

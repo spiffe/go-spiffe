@@ -18,7 +18,7 @@ type TrustDomain struct {
 func TrustDomainFromString(idOrName string) (TrustDomain, error) {
 	switch {
 	case idOrName == "":
-		return TrustDomain{}, tdErr{td: idOrName, reason: empty}
+		return TrustDomain{}, errMissingTrustDomain
 	case strings.Contains(idOrName, ":/"):
 		// The ID looks like it has something like a scheme separator, let's
 		// try to parse as an ID. We use :/ instead of :// since the
@@ -31,7 +31,7 @@ func TrustDomainFromString(idOrName string) (TrustDomain, error) {
 	default:
 		for i := 0; i < len(idOrName); i++ {
 			if !isValidTrustDomainChar(idOrName[i]) {
-				return TrustDomain{}, tdErr{td: idOrName, reason: badTrustDomainChar}
+				return TrustDomain{}, errBadTrustDomainChar
 			}
 		}
 		return TrustDomain{name: idOrName}, nil
