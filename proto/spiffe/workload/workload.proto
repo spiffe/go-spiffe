@@ -38,6 +38,12 @@ message X509SVID {
     // CA certificates belonging to the Trust Domain
     // ASN.1 DER encoded
     bytes bundle = 4;
+
+    // Optional. An operator-specified string used to provide guidance on how this
+    // identity should be used by a workload when more than one SVID is returned.
+    // For example, `internal` and `external` to indicate an SVID for internal or
+    // external use, respectively.
+    string hint = 5;
 }
 
 message JWTSVID {
@@ -45,6 +51,12 @@ message JWTSVID {
 
     // Encoded using JWS Compact Serialization
     string svid = 2;
+
+    // Optional. An operator-specified string used to provide guidance on how this
+    // identity should be used by a workload when more than one SVID is returned.
+    // For example, `internal` and `external` to indicate an SVID for internal or
+    // external use, respectively.
+    string hint = 3;
 }
 
 message JWTSVIDRequest {
