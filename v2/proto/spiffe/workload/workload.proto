@@ -74,6 +74,9 @@ message X509SVID {
 
     // Required. ASN.1 DER encoded X.509 bundle for the trust domain.
     bytes bundle = 4;
+
+    // Optional. Hint string that helps the workload decide which SVID to use.
+    string hint = 5;
 }
 
 // The X509BundlesRequest message conveys parameters for requesting X.509
@@ -115,6 +118,9 @@ message JWTSVID {
 
     // Required. Encoded JWT using JWS Compact Serialization.
     string svid = 2;
+
+    // Optional. Hint string that helps the workload decide which SVID to use.
+    string hint = 3;
 }
 
 // The JWTBundlesRequest message conveys parameters for requesting JWT bundles.
