@@ -31,7 +31,7 @@ func TestFetchBundle_WebPKIRoots(t *testing.T) {
 }
 
 func TestFetchBundle_SPIFFEAuth(t *testing.T) {
-	id := td.NewID("control-plane/test-bundle-endpoint")
+	id := spiffeid.RequireFromPath(td, "/control-plane/test-bundle-endpoint")
 	ca := test.NewCA(t, td)
 	svid := ca.CreateX509SVID(id, test.WithIPAddresses(localhostIPs...))
 	bundle := ca.Bundle()
@@ -48,7 +48,7 @@ func TestFetchBundle_SPIFFEAuth(t *testing.T) {
 }
 
 func TestFetchBundle_SPIFFEAuth_UnexpectedID(t *testing.T) {
-	id := td.NewID("control-plane/test-bundle-endpoint")
+	id := spiffeid.RequireFromPath(td, "/control-plane/test-bundle-endpoint")
 	ca := test.NewCA(t, td)
 	svid := ca.CreateX509SVID(id, test.WithIPAddresses(localhostIPs...))
 	bundle := ca.Bundle()
@@ -59,7 +59,7 @@ func TestFetchBundle_SPIFFEAuth_UnexpectedID(t *testing.T) {
 	defer be.Shutdown()
 
 	fetchedBundle, err := federation.FetchBundle(context.Background(), td, be.FetchBundleURL(),
-		federation.WithSPIFFEAuth(bundle, td.NewID("other/id")))
+		federation.WithSPIFFEAuth(bundle, spiffeid.RequireFromPath(td, "/other/id")))
 	assert.Regexp(t, `federation: could not GET bundle: Get "?`+be.FetchBundleURL()+`"?: unexpected ID "spiffe://domain.test/control-plane/test-bundle-endpoint"`, err.Error())
 	assert.Nil(t, fetchedBundle)
 }

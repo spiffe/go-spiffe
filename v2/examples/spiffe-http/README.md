@@ -19,7 +19,7 @@ The **HTTP server** uses the [workloadapi.X509Source](https://pkg.go.dev/github.
 The `tls.Config` is used when creating the HTTP server.
 
 ```go
-clientID := spiffeid.Must("example.org", "client")
+clientID := spiffeid.RequireFromString("spiffe://example.org/client")
 tlsConfig := tlsconfig.MTLSServerConfig(source, source, tlsconfig.AuthorizeID(clientID))
 
 server := &http.Server{
@@ -31,7 +31,7 @@ server := &http.Server{
 On the other side, the **HTTP client** uses the [workloadapi.X509Source](https://pkg.go.dev/github.com/spiffe/go-spiffe/v2/workloadapi?tab=doc#X509Source) to create a `tls.Config` for mTLS that authenticates the server certificate and verifies that it has the SPIFFE ID `spiffe://examples.org/server`. 
 
 ```go
-serverID := spiffeid.Must("example.org", "server")
+serverID := spiffeid.RequireFromString("spiffe://example.org/server")
 tlsConfig := tlsconfig.MTLSClientConfig(source, source, tlsconfig.AuthorizeID(serverID))
 
 client := &http.Client{

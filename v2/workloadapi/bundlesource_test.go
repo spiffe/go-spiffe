@@ -44,7 +44,7 @@ func TestBundleSourceFailsCallsIfClosed(t *testing.T) {
 	ca := test.NewCA(t, td)
 
 	// Set the initial response, containing both X.509 and JWT materials.
-	svid := ca.CreateX509SVID(td.NewID("workload"))
+	svid := ca.CreateX509SVID(spiffeid.RequireFromPath(td, "/workload"))
 	api.SetX509SVIDResponse(&fakeworkloadapi.X509SVIDResponse{
 		SVIDs:  []*x509svid.SVID{svid},
 		Bundle: ca.X509Bundle(),
@@ -90,7 +90,7 @@ func TestBundleSourceGetsUpdates(t *testing.T) {
 	domain2JWTBundle := domain2CA.JWTBundle()
 
 	svids := []*x509svid.SVID{
-		domain1CA.CreateX509SVID(domain1TD.NewID("/workload")),
+		domain1CA.CreateX509SVID(spiffeid.RequireFromPath(domain1TD, "/workload")),
 	}
 
 	// Set the initial response
@@ -156,7 +156,7 @@ func TestBundleSourceDoesNotReturnX509BundleIfMissingFromX509Response(t *testing
 	// two trust domains for the test and just not set an X.509 bundle
 	// for the domain2.test domain.
 	api.SetX509SVIDResponse(&fakeworkloadapi.X509SVIDResponse{
-		SVIDs:  []*x509svid.SVID{domain1CA.CreateX509SVID(domain1TD.NewID("/workload"))},
+		SVIDs:  []*x509svid.SVID{domain1CA.CreateX509SVID(spiffeid.RequireFromPath(domain1TD, "/workload"))},
 		Bundle: domain1X509Bundle,
 	})
 	api.SetJWTBundles(domain2JWTBundle)
@@ -188,7 +188,7 @@ func TestBundleSourceDoesNotReturnJWTBundleIfMissingFromJWTBundlesResponse(t *te
 
 	// Set the initial X509SVID  response
 	api.SetX509SVIDResponse(&fakeworkloadapi.X509SVIDResponse{
-		SVIDs:  []*x509svid.SVID{ca.CreateX509SVID(td.NewID("/workload"))},
+		SVIDs:  []*x509svid.SVID{ca.CreateX509SVID(spiffeid.RequireFromPath(td, "/workload"))},
 		Bundle: x509Bundle,
 	})
 	api.SetJWTBundles()

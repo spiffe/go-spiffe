@@ -50,7 +50,7 @@ This enables the server to present an X.509-SVID to the other end of the connect
 
 The **client workload** uses the `X509Source` to create the [TLSClientConfig](https://pkg.go.dev/github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig?tab=doc#TLSClientConfig) for the `Transport` of the HTTP client used:
 ```go
-    serverID := spiffeid.Must("example.org", "server")
+    serverID := spiffeid.RequireFromString("spiffe://example.org/server")
     .
     .
     .
@@ -72,7 +72,7 @@ The **proxy workload** uses the `X509Source` to create the [TLSClientConfig](htt
 	proxy := httputil.NewSingleHostReverseProxy(remote)
 	transport := *(http.DefaultTransport.(*http.Transport)) // copy of http.DefaultTransport.
 	transport.TLSClientConfig = tlsconfig.TLSClientConfig(
-		x509Source, tlsconfig.AuthorizeID(spiffeid.Must("example.org", "server")),
+		x509Source, tlsconfig.AuthorizeID(spiffeid.RequireFromString("spiffe://example.org/server")),
 	)
 	proxy.Transport = &transport
 ```

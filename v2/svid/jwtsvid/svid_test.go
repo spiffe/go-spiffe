@@ -34,7 +34,7 @@ func TestParseAndValidate(t *testing.T) {
 	expires := jwt.NewNumericDate(expiresTime)
 
 	// Create trust domain
-	trustDomain1 := spiffeid.RequireTrustDomainFromString("test.domain")
+	trustDomain1 := spiffeid.RequireTrustDomainFromString("trustdomain")
 
 	// Create a bundle and add keys
 	bundle1 := jwtbundle.New(trustDomain1)
@@ -56,7 +56,7 @@ func TestParseAndValidate(t *testing.T) {
 			bundle: bundle1,
 			generateToken: func(tb testing.TB) string {
 				claims := jwt.Claims{
-					Subject:  trustDomain1.NewID("host").String(),
+					Subject:  spiffeid.RequireFromPath(trustDomain1, "/host").String(),
 					Issuer:   "issuer",
 					Expiry:   expires,
 					Audience: []string{"audience"},
@@ -66,7 +66,7 @@ func TestParseAndValidate(t *testing.T) {
 				return generateToken(tb, claims, key1, "authority1")
 			},
 			svid: &jwtsvid.SVID{
-				ID:       trustDomain1.NewID("/host"),
+				ID:       spiffeid.RequireFromPath(trustDomain1, "/host"),
 				Audience: []string{"audience"},
 				Expiry:   expiresTime,
 			},
@@ -107,7 +107,7 @@ func TestParseAndValidate(t *testing.T) {
 			bundle: bundle1,
 			generateToken: func(tb testing.TB) string {
 				claims := jwt.Claims{
-					Subject:  trustDomain1.NewID("host").String(),
+					Subject:  spiffeid.RequireFromPath(trustDomain1, "/host").String(),
 					Issuer:   "issuer",
 					Audience: []string{"audience"},
 					IssuedAt: issuedAt,
@@ -123,7 +123,7 @@ func TestParseAndValidate(t *testing.T) {
 			audience: []string{"audience"},
 			generateToken: func(tb testing.TB) string {
 				claims := jwt.Claims{
-					Subject:  trustDomain1.NewID("host").String(),
+					Subject:  spiffeid.RequireFromPath(trustDomain1, "/host").String(),
 					Issuer:   "issuer",
 					Expiry:   jwt.NewNumericDate(time.Now().Add(-1 * time.Minute)),
 					Audience: []string{"audience"},
@@ -140,7 +140,7 @@ func TestParseAndValidate(t *testing.T) {
 			audience: []string{"another"},
 			generateToken: func(tb testing.TB) string {
 				claims := jwt.Claims{
-					Subject:  trustDomain1.NewID("host").String(),
+					Subject:  spiffeid.RequireFromPath(trustDomain1, "/host").String(),
 					Issuer:   "issuer",
 					Expiry:   expires,
 					Audience: []string{"audience"},
@@ -166,7 +166,7 @@ func TestParseAndValidate(t *testing.T) {
 
 				return generateToken(tb, claims, key1, "authority1")
 			},
-			err: "jwtsvid: token has an invalid subject claim: spiffeid: invalid scheme",
+			err: `jwtsvid: token has an invalid subject claim: scheme is missing or invalid`,
 		},
 		{
 			name:     "missing key",
@@ -174,7 +174,7 @@ func TestParseAndValidate(t *testing.T) {
 			audience: []string{"audience"},
 			generateToken: func(tb testing.TB) string {
 				claims := jwt.Claims{
-					Subject:  trustDomain1.NewID("host").String(),
+					Subject:  spiffeid.RequireFromPath(trustDomain1, "/host").String(),
 					Issuer:   "issuer",
 					Expiry:   expires,
 					Audience: []string{"audience"},
@@ -191,7 +191,7 @@ func TestParseAndValidate(t *testing.T) {
 			audience: []string{"audience"},
 			generateToken: func(tb testing.TB) string {
 				claims := jwt.Claims{
-					Subject:  spiffeid.MustJoin("another.domain", "host"),
+					Subject:  "spiffe://another.domain/host",
 					Issuer:   "issuer",
 					Expiry:   expires,
 					Audience: []string{"audience"},
@@ -208,7 +208,7 @@ func TestParseAndValidate(t *testing.T) {
 			audience: []string{"audience"},
 			generateToken: func(tb testing.TB) string {
 				claims := jwt.Claims{
-					Subject:  trustDomain1.NewID("host").String(),
+					Subject:  spiffeid.RequireFromPath(trustDomain1, "/host").String(),
 					Issuer:   "issuer",
 					Expiry:   expires,
 					Audience: []string{"audience"},
@@ -217,7 +217,7 @@ func TestParseAndValidate(t *testing.T) {
 
 				return generateToken(tb, claims, key1, "noKey")
 			},
-			err: `jwtsvid: no JWT authority "noKey" found for trust domain "test.domain"`,
+			err: `jwtsvid: no JWT authority "noKey" found for trust domain "trustdomain"`,
 		},
 		{
 			name:     "mismatched JWT authority",
@@ -225,7 +225,7 @@ func TestParseAndValidate(t *testing.T) {
 			audience: []string{"audience"},
 			generateToken: func(tb testing.TB) string {
 				claims := jwt.Claims{
-					Subject:  trustDomain1.NewID("host").String(),
+					Subject:  spiffeid.RequireFromPath(trustDomain1, "/host").String(),
 					Issuer:   "issuer",
 					Expiry:   expires,
 					Audience: []string{"audience"},
@@ -272,7 +272,7 @@ func TestParseInsecure(t *testing.T) {
 	expires := jwt.NewNumericDate(expiresTime)
 
 	// Create trust domain
-	trustDomain1 := spiffeid.RequireTrustDomainFromString("test.domain")
+	trustDomain1 := spiffeid.RequireTrustDomainFromString("trustdomain")
 
 	testCases := []struct {
 		name          string
@@ -285,7 +285,7 @@ func TestParseInsecure(t *testing.T) {
 			name: "success",
 			generateToken: func(tb testing.TB) string {
 				claims := jwt.Claims{
-					Subject:  trustDomain1.NewID("host").String(),
+					Subject:  spiffeid.RequireFromPath(trustDomain1, "/host").String(),
 					Issuer:   "issuer",
 					Expiry:   expires,
 					Audience: []string{"audience"},
@@ -295,7 +295,7 @@ func TestParseInsecure(t *testing.T) {
 				return generateToken(tb, claims, key1, "key1")
 			},
 			svid: &jwtsvid.SVID{
-				ID:       trustDomain1.NewID("/host"),
+				ID:       spiffeid.RequireFromPath(trustDomain1, "/host"),
 				Audience: []string{"audience"},
 				Expiry:   expiresTime,
 			},
@@ -332,7 +332,7 @@ func TestParseInsecure(t *testing.T) {
 			name: "missing expiration claim",
 			generateToken: func(tb testing.TB) string {
 				claims := jwt.Claims{
-					Subject:  trustDomain1.NewID("host").String(),
+					Subject:  spiffeid.RequireFromPath(trustDomain1, "/host").String(),
 					Issuer:   "issuer",
 					Audience: []string{"audience"},
 					IssuedAt: issuedAt,
@@ -347,7 +347,7 @@ func TestParseInsecure(t *testing.T) {
 			audience: []string{"audience"},
 			generateToken: func(tb testing.TB) string {
 				claims := jwt.Claims{
-					Subject:  trustDomain1.NewID("host").String(),
+					Subject:  spiffeid.RequireFromPath(trustDomain1, "/host").String(),
 					Issuer:   "issuer",
 					Expiry:   jwt.NewNumericDate(time.Now().Add(-1 * time.Minute)),
 					Audience: []string{"audience"},
@@ -363,7 +363,7 @@ func TestParseInsecure(t *testing.T) {
 			audience: []string{"another"},
 			generateToken: func(tb testing.TB) string {
 				claims := jwt.Claims{
-					Subject:  trustDomain1.NewID("host").String(),
+					Subject:  spiffeid.RequireFromPath(trustDomain1, "/host").String(),
 					Issuer:   "issuer",
 					Expiry:   expires,
 					Audience: []string{"audience"},
@@ -388,7 +388,7 @@ func TestParseInsecure(t *testing.T) {
 
 				return generateToken(tb, claims, key1, "key1")
 			},
-			err: `jwtsvid: token has an invalid subject claim: spiffeid: invalid scheme`,
+			err: `jwtsvid: token has an invalid subject claim: scheme is missing or invalid`,
 		},
 	}
 
@@ -421,11 +421,11 @@ func TestParseInsecure(t *testing.T) {
 
 func TestMarshal(t *testing.T) {
 	// Generate trust domain
-	trustDomain1 := spiffeid.RequireTrustDomainFromString("test.domain")
+	trustDomain1 := spiffeid.RequireTrustDomainFromString("trustdomain")
 
 	// Generate Token
 	claims := jwt.Claims{
-		Subject:  trustDomain1.NewID("host").String(),
+		Subject:  spiffeid.RequireFromPath(trustDomain1, "/host").String(),
 		Issuer:   "issuer",
 		Expiry:   jwt.NewNumericDate(time.Now()),
 		Audience: []string{"audience"},
@@ -440,7 +440,7 @@ func TestMarshal(t *testing.T) {
 	require.Equal(t, token, svid.Marshal())
 
 	// Update SVID does not affect token
-	svid.ID = trustDomain1.NewID("host2")
+	svid.ID = spiffeid.RequireFromPath(trustDomain1, "/host2")
 	require.Equal(t, token, svid.Marshal())
 
 	// Empty Marshall when no token

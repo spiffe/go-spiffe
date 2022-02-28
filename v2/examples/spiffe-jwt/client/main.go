@@ -37,7 +37,7 @@ func main() {
 	defer x509Source.Close()
 
 	// Create a `tls.Config` with configuration to allow TLS communication, and verify that presented certificate from server has SPIFFE ID `spiffe://example.org/server`
-	serverID := spiffeid.Must("example.org", "server")
+	serverID := spiffeid.RequireFromString("spiffe://example.org/server")
 	tlsConfig := tlsconfig.TLSClientConfig(x509Source, tlsconfig.AuthorizeID(serverID))
 
 	client := &http.Client{

@@ -19,7 +19,7 @@ The **gRPC server** uses the [workloadapi.X509Source](https://pkg.go.dev/github.
 The `tls.Config` is used to create TLS transport credentials for the gRPC server.
 
 ```go
-clientID := spiffeid.Must("example.org", "client")
+clientID := spiffeid.RequireFromString("spiffe://example.org/client")
 tlsConfig := tlsconfig.MTLSServerConfig(source, source, tlsconfig.AuthorizeID(clientID))
 
 s := grpc.NewServer(grpc.Creds(credentials.NewTLS(tlsConfig)))
@@ -28,7 +28,7 @@ s := grpc.NewServer(grpc.Creds(credentials.NewTLS(tlsConfig)))
 On the other side, the **gRPC client** uses the [workloadapi.X509Source](https://pkg.go.dev/github.com/spiffe/go-spiffe/v2/workloadapi?tab=doc#X509Source) to create a `tls.Config` for mTLS that authenticates the server certificate and verifies that it has the SPIFFE ID `spiffe://examples.org/server`.
 
 ```go
-serverID := spiffeid.Must("example.org", "server")
+serverID := spiffeid.RequireFromString("spiffe://example.org/server")
 tlsConfig := tlsconfig.MTLSClientConfig(source, source, tlsconfig.AuthorizeID(serverID))
 
 conn, err := grpc.DialContext(ctx, "localhost:50051", grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))

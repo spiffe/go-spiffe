@@ -37,7 +37,7 @@ func ExampleFetchBundle_sPIFFEAuth() {
 	if err != nil {
 		// TODO: handle error
 	}
-	serverID := trustDomain.NewID("bundle-server")
+	serverID := spiffeid.RequireFromPath(trustDomain, "/bundle-server")
 
 	bundle, err := spiffebundle.Load(trustDomain, "bundle.json")
 	if err != nil {
@@ -81,7 +81,7 @@ func ExampleWatchBundle_sPIFFEAuth() {
 	if err != nil {
 		// TODO: handle error
 	}
-	serverID := trustDomain.NewID("bundle-server")
+	serverID := spiffeid.RequireFromPath(trustDomain, "/bundle-server")
 
 	bundle, err := spiffebundle.Load(trustDomain, "bundle.json")
 	if err != nil {

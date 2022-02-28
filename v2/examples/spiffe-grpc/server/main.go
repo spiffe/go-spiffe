@@ -39,7 +39,7 @@ func main() {
 	defer source.Close()
 
 	// Allowed SPIFFE ID
-	clientID := spiffeid.Must("example.org", "client")
+	clientID := spiffeid.RequireFromString("spiffe://example.org/client")
 
 	// Create a server with credentials that do mTLS and verify that the presented certificate has SPIFFE ID `spiffe://example.org/client`
 	s := grpc.NewServer(grpc.Creds(
