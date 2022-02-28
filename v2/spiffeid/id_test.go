@@ -1,6 +1,7 @@
 package spiffeid_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"testing"
@@ -424,6 +425,40 @@ func TestIDAppendSegments(t *testing.T) {
 func TestIDIsZero(t *testing.T) {
 	assert.True(t, spiffeid.ID{}.IsZero())
 	assert.False(t, td.ID().IsZero())
+}
+
+func TestIDTextMarshaler(t *testing.T) {
+	var s struct {
+		ID spiffeid.ID `json:"id"`
+	}
+
+	marshaled, err := json.Marshal(s)
+	require.NoError(t, err)
+	require.JSONEq(t, `{"id": ""}`, string(marshaled))
+
+	s.ID = spiffeid.RequireFromString("spiffe://trustdomain/path")
+
+	marshaled, err = json.Marshal(s)
+	require.NoError(t, err)
+	require.JSONEq(t, `{"id": "spiffe://trustdomain/path"}`, string(marshaled))
+}
+
+func TestIDTextUnmarshaler(t *testing.T) {
+	var s struct {
+		ID spiffeid.ID `json:"id"`
+	}
+
+	err := json.Unmarshal([]byte(`{"id": ""}`), &s)
+	require.NoError(t, err)
+	require.Zero(t, s.ID)
+
+	err = json.Unmarshal([]byte(`{"id": "BAD"}`), &s)
+	require.EqualError(t, err, "scheme is missing or invalid")
+	require.Zero(t, s.ID)
+
+	err = json.Unmarshal([]byte(`{"id": "spiffe://trustdomain/path"}`), &s)
+	require.NoError(t, err)
+	require.Equal(t, "spiffe://trustdomain/path", s.ID.String())
 }
 
 func assertIDEqual(t *testing.T, id spiffeid.ID, expectTD spiffeid.TrustDomain, expectPath string) {
