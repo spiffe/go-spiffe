@@ -1,6 +1,7 @@
 package spiffeid_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"testing"
@@ -130,4 +131,38 @@ func TestTrustDomainCompare(t *testing.T) {
 	assert.Equal(t, -1, a.Compare(b))
 	assert.Equal(t, 0, a.Compare(a))
 	assert.Equal(t, 1, b.Compare(a))
+}
+
+func TestTrustDomainTextMarshaler(t *testing.T) {
+	var s struct {
+		TrustDomain spiffeid.TrustDomain `json:"trustDomain"`
+	}
+
+	marshaled, err := json.Marshal(s)
+	require.NoError(t, err)
+	require.JSONEq(t, `{"trustDomain": ""}`, string(marshaled))
+
+	s.TrustDomain = spiffeid.RequireTrustDomainFromString("trustdomain")
+
+	marshaled, err = json.Marshal(s)
+	require.NoError(t, err)
+	require.JSONEq(t, `{"trustDomain": "trustdomain"}`, string(marshaled))
+}
+
+func TestTrustDomainTextUnmarshaler(t *testing.T) {
+	var s struct {
+		TrustDomain spiffeid.TrustDomain `json:"trustDomain"`
+	}
+
+	err := json.Unmarshal([]byte(`{"trustDomain": ""}`), &s)
+	require.NoError(t, err)
+	require.Zero(t, s.TrustDomain)
+
+	err = json.Unmarshal([]byte(`{"trustDomain": "BAD"}`), &s)
+	require.EqualError(t, err, "trust domain characters are limited to lowercase letters, numbers, dots, dashes, and underscores")
+	require.Zero(t, s.TrustDomain)
+
+	err = json.Unmarshal([]byte(`{"trustDomain": "trustdomain"}`), &s)
+	require.NoError(t, err)
+	require.Equal(t, "trustdomain", s.TrustDomain.String())
 }
