@@ -50,7 +50,9 @@ func TestHandler(t *testing.T) {
 	writer := new(bytes.Buffer)
 	source := &fakeSource{}
 
-	handler := federation.Handler(trustDomain, source, logger.Writer(writer))
+	handler, err := federation.NewHandler(trustDomain, source, federation.WithLogger(logger.Writer(writer)))
+	require.NoError(t, err)
+
 	server := httptest.NewServer(handler)
 	defer server.Close()
 
