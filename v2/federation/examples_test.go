@@ -6,7 +6,6 @@ import (
 
 	"github.com/spiffe/go-spiffe/v2/bundle/spiffebundle"
 	"github.com/spiffe/go-spiffe/v2/federation"
-	"github.com/spiffe/go-spiffe/v2/logger"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
@@ -115,7 +114,10 @@ func ExampleHandler_webPKI() {
 	}
 	defer bundleSource.Close()
 
-	handler := federation.Handler(trustDomain, bundleSource, logger.Null)
+	handler, err := federation.NewHandler(trustDomain, bundleSource)
+	if err != nil {
+		// TODO: handle error
+	}
 
 	if err := http.ListenAndServeTLS(":8443", "cert.pem", "key.pem", handler); err != nil {
 		// TODO: handle error
@@ -142,9 +144,14 @@ func ExampleHandler_sPIFFEAuth() {
 	}
 	defer bundleSource.Close()
 
+	handler, err := federation.NewHandler(trustDomain, bundleSource)
+	if err != nil {
+		// TODO: handle error
+	}
+
 	server := http.Server{
 		Addr:      ":8443",
-		Handler:   federation.Handler(trustDomain, bundleSource, logger.Null),
+		Handler:   handler,
 		TLSConfig: tlsconfig.TLSServerConfig(x509Source),
 	}
 	if err := server.ListenAndServeTLS("", ""); err != nil {
