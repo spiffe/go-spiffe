@@ -1,40 +1,46 @@
-# Deprecation Warning
+#  go-spiffe (v2)
 
-__NOTE:__ This version of the library will be deprecated soon.
+This library is a convenient Go library for working with [SPIFFE](https://spiffe.io/).
 
-The [v2](./v2) module is in **beta** and published under
-`github.com/spiffe/go-spiffe/v2`, following go module guidelines.
+It leverages the [SPIFFE Workload API](https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE_Workload_API.md), providing high level functionality that includes:
+* Establishing mutually authenticated TLS (__mTLS__) between workloads powered by SPIFFE.
+* Obtaining and validating [X509-SVIDs](https://github.com/spiffe/spiffe/blob/master/standards/X509-SVID.md) and [JWT-SVIDs](https://github.com/spiffe/spiffe/blob/master/standards/JWT-SVID.md).
+* Federating trust between trust domains using [SPIFFE bundles](https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE_Trust_Domain_and_Bundle.md#3-spiffe-bundles).
+* Bundle management.
 
-**New code should strongly consider using the `v2` module.**
+## Documentation
 
-See the [v2 README](./v2) for more details.
+See the [Go Package](https://pkg.go.dev/github.com/spiffe/go-spiffe/v2) documentation.
 
-# go-spiffe (v1) library [![GoDoc](https://godoc.org/github.com/spiffe/go-spiffe?status.svg)](https://godoc.org/github.com/spiffe/go-spiffe)
+## Quick Start
 
-## Overview
+Prerequisites:
+1. Running [SPIRE](https://spiffe.io/spire/) or another SPIFFE Workload API
+   implementation.
+2. `SPIFFE_ENDPOINT_SOCKET` environment variable set to address of the Workload
+   API (e.g. `unix:///tmp/agent.sock`). Alternatively the socket address can be
+   provided programatically.
 
-The go-spiffe project provides two components:
-- a command-line utility to parse and verify SPIFFE
-identities encoded in X.509 certificates as described in the
-[SPIFFE Standards](https://github.com/spiffe/spiffe/tree/master/standards).
-- a client library that provides an interface to the SPIFFE Workload API.
+To create an mTLS server:
 
-## Installing it
-```shell
-go get -u -v github.com/spiffe/go-spiffe
+```go
+listener, err := spiffetls.Listen(ctx, "tcp", "127.0.0.1:8443", tlsconfig.AuthorizeAny())
 ```
 
-## Importing it in your Go code
+To dial an mTLS server:
 
-See the [examples](./examples) or visit the [documentation](https://pkg.go.dev/github.com/spiffe/go-spiffe) for more information.
-
-## Installing the command line interface
-The command line interface can be used to retrieve and view URIs stored
-in the SAN extension of certificates
-
-```shell
-go get -u -v github.com/spiffe/go-spiffe/cmd/spiffe
-spiffe testdata/leaf.cert.pem $HOME/certs/proj.pem
-Path:: #1: "testdata/leaf.cert.pem"
-  URI #1: "spiffe://dev.acme.com/path/service"
+```go
+conn, err := spiffetls.Dial(ctx, "tcp", "127.0.0.1:8443", tlsconfig.AuthorizeAny())
 ```
+
+The client and server obtain
+[X509-SVIDs](https://github.com/spiffe/spiffe/blob/master/standards/X509-SVID.md)
+and X.509 bundles from the [SPIFFE Workload
+API](https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE_Workload_API.md).
+The X509-SVIDs are presented by each peer and authenticated against the X.509
+bundles. Both sides continue to be updated with X509-SVIDs and X.509 bundles
+streamed from the Workload API (e.g. secret rotation).
+
+## Examples
+
+The [examples](./v2/examples) directory contains rich examples for a variety of circumstances.

@@ -112,7 +112,6 @@ $(golangci_lint_bin):
 
 .PHONY: test
 test:
-	@$(go_path) go test ./...
 	@cd ./v2; $(go_path) go test ./...
 
 #############################################################################
