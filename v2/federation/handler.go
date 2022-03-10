@@ -20,11 +20,11 @@ func WithLogger(log logger.Logger) HandlerOption {
 	})
 }
 
-// NewHandler returns an HTTP handler that returns the JSON encoded bundle for
-// the given trust domain the SPIFFE Trust Domain and Bundle specification. The
-// bundle source is used to obtain the bundle on each request. Source
-// implementations should consider a caching strategy if retrieval is
-// expensive.
+// NewHandler returns an HTTP handler that provides the trust domain bundle for
+// the given trust domain. The bundle is encoded according to the format
+// outlined in the SPIFFE Trust Domain and Bundle specification. The bundle
+// source is used to obtain the bundle on each request. Source implementations
+// should consider a caching strategy if retrieval is expensive.
 // See the specification for more details:
 // https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE_Trust_Domain_and_Bundle.md
 func NewHandler(trustDomain spiffeid.TrustDomain, source spiffebundle.Source, opts ...HandlerOption) (http.Handler, error) {
