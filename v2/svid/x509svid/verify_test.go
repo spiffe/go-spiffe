@@ -4,6 +4,7 @@ import (
 	"crypto/x509"
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/spiffe/go-spiffe/v2/bundle/spiffebundle"
 	"github.com/spiffe/go-spiffe/v2/bundle/x509bundle"
@@ -37,6 +38,7 @@ func TestVerify(t *testing.T) {
 		name       string
 		chain      []*x509.Certificate
 		bundle     x509bundle.Source
+		opts       []x509svid.VerifyOption
 		expectedID spiffeid.ID
 		err        string
 	}{
@@ -111,6 +113,13 @@ func TestVerify(t *testing.T) {
 			err:    "x509svid: leaf certificate with KeyCrlSign key usage",
 		},
 		{
+			name:   "with time",
+			chain:  leaf1,
+			bundle: bundle1,
+			opts:   []x509svid.VerifyOption{x509svid.WithTime(leaf1[0].NotAfter.Add(time.Second))},
+			err:    "x509svid: could not verify leaf certificate: x509: certificate has expired",
+		},
+		{
 			name:   "success",
 			chain:  leaf1,
 			bundle: bundle1,
@@ -120,9 +129,10 @@ func TestVerify(t *testing.T) {
 	for _, testCase := range testCases {
 		testCase := testCase // alias loop var as it is used in the closure
 		t.Run(testCase.name, func(t *testing.T) {
-			_, verifiedChains, err := x509svid.Verify(testCase.chain, testCase.bundle)
+			_, verifiedChains, err := x509svid.Verify(testCase.chain, testCase.bundle, testCase.opts...)
 			if testCase.err != "" {
-				require.EqualError(t, err, testCase.err)
+				require.Error(t, err)
+				require.Contains(t, err.Error(), testCase.err)
 				return
 			}
 			require.NoError(t, err)
