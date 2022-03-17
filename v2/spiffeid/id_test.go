@@ -461,6 +461,31 @@ func TestIDTextUnmarshaler(t *testing.T) {
 	require.Equal(t, "spiffe://trustdomain/path", s.ID.String())
 }
 
+func BenchmarkIDFromString(b *testing.B) {
+	s := "spiffe://trustdomain/path"
+	for n := 0; n < b.N; n++ {
+		escapes(spiffeid.RequireFromString(s).String())
+	}
+}
+
+func BenchmarkIDFromPath(b *testing.B) {
+	for n := 0; n < b.N; n++ {
+		escapes(spiffeid.RequireFromPath(td, "/path").String())
+	}
+}
+
+func BenchmarkIDFromPathf(b *testing.B) {
+	for n := 0; n < b.N; n++ {
+		escapes(spiffeid.RequireFromPathf(td, "%s", "/path").String())
+	}
+}
+
+func BenchmarkIDFromSegments(b *testing.B) {
+	for n := 0; n < b.N; n++ {
+		escapes(spiffeid.RequireFromSegments(td, "path").String())
+	}
+}
+
 func assertIDEqual(t *testing.T, id spiffeid.ID, expectTD spiffeid.TrustDomain, expectPath string) {
 	assert.Equal(t, expectTD, id.TrustDomain(), "unexpected trust domain")
 	assert.Equal(t, expectPath, id.Path(), "unexpected path")
@@ -489,5 +514,17 @@ func mergeSets(sets ...map[string]struct{}) map[string]struct{} {
 func assertErrorContains(t *testing.T, err error, contains string) {
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), contains)
+	}
+}
+
+var dummy struct {
+	b bool
+	x string
+}
+
+// escapes prevents a string from being stack allocated due to escape analysis
+func escapes(s string) {
+	if dummy.b {
+		dummy.x = s
 	}
 }
