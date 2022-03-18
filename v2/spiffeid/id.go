@@ -93,7 +93,10 @@ func FromURI(uri *url.URL) (ID, error) {
 
 // ID is a SPIFFE ID
 type ID struct {
-	id      string
+	id string
+
+	// pathidx tracks the index to the beginning of the path inside of id. This
+	// is used when extracting the trust domain or path portions of the id.
 	pathidx int
 }
 
