@@ -232,8 +232,8 @@ func TestFetchJWTSVID(t *testing.T) {
 	subjectID := spiffeid.RequireFromPath(td, "/subject")
 	audienceID := spiffeid.RequireFromPath(td, "/audience")
 	extraAudienceID := spiffeid.RequireFromPath(td, "/extra_audience")
-	token := ca.CreateJWTSVID(subjectID, []string{audienceID.String(), extraAudienceID.String()})
-	respJWT := makeJWTSVIDResponse(subjectID.String(), token)
+	token := ca.CreateJWTSVID(subjectID, []string{audienceID.String(), extraAudienceID.String()}).Marshal()
+	respJWT := makeJWTSVIDResponse(ca, []string{token}, subjectID)
 	wl.SetJWTSVIDResponse(respJWT)
 
 	params := jwtsvid.Params{
@@ -245,7 +245,36 @@ func TestFetchJWTSVID(t *testing.T) {
 	jwtSvid, err := c.FetchJWTSVID(context.Background(), params)
 
 	require.NoError(t, err)
-	assertJWTSVID(t, jwtSvid, subjectID, token.Marshal(), audienceID.String(), extraAudienceID.String())
+	assertJWTSVID(t, jwtSvid, subjectID, token, audienceID.String(), extraAudienceID.String())
+}
+
+func TestFetchJWTSVIDs(t *testing.T) {
+	ca := test.NewCA(t, td)
+	wl := fakeworkloadapi.New(t)
+	defer wl.Stop()
+	c, _ := New(context.Background(), WithAddr(wl.Addr()))
+	defer c.Close()
+
+	subjectID := spiffeid.RequireFromPath(td, "/subject")
+	extraSubjectID := spiffeid.RequireFromPath(td, "/extra_subject")
+	audienceID := spiffeid.RequireFromPath(td, "/audience")
+	extraAudienceID := spiffeid.RequireFromPath(td, "/extra_audience")
+	subjectIDToken := ca.CreateJWTSVID(subjectID, []string{audienceID.String(), extraAudienceID.String()}).Marshal()
+	extraSubjectIDToken := ca.CreateJWTSVID(extraSubjectID, []string{audienceID.String(), extraAudienceID.String()}).Marshal()
+	respJWT := makeJWTSVIDResponse(ca, []string{subjectIDToken, extraSubjectIDToken}, subjectID, extraSubjectID)
+	wl.SetJWTSVIDResponse(respJWT)
+
+	params := jwtsvid.Params{
+		Subject:        subjectID,
+		Audience:       audienceID.String(),
+		ExtraAudiences: []string{extraAudienceID.String()},
+	}
+
+	jwtSvid, err := c.FetchJWTSVIDs(context.Background(), params)
+
+	require.NoError(t, err)
+	assertJWTSVID(t, jwtSvid[0], subjectID, subjectIDToken, audienceID.String(), extraAudienceID.String())
+	assertJWTSVID(t, jwtSvid[1], extraSubjectID, extraSubjectIDToken, audienceID.String(), extraAudienceID.String())
 }
 
 func TestFetchJWTBundles(t *testing.T) {
@@ -357,12 +386,14 @@ func makeX509SVIDs(ca *test.CA, ids ...spiffeid.ID) []*x509svid.SVID {
 	return svids
 }
 
-func makeJWTSVIDResponse(spiffeID string, token *jwtsvid.SVID) *workload.JWTSVIDResponse {
-	svids := []*workload.JWTSVID{
-		{
-			SpiffeId: spiffeID,
-			Svid:     token.Marshal(),
-		},
+func makeJWTSVIDResponse(ca *test.CA, token []string, ids ...spiffeid.ID) *workload.JWTSVIDResponse {
+	svids := []*workload.JWTSVID{}
+	for i, id := range ids {
+		svid := &workload.JWTSVID{
+			SpiffeId: id.String(),
+			Svid:     token[i],
+		}
+		svids = append(svids, svid)
 	}
 	return &workload.JWTSVIDResponse{
 		Svids: svids,
