@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net"
 	"sync"
 	"testing"
 
@@ -47,7 +46,7 @@ func New(tb testing.TB) *WorkloadAPI {
 		jwtBundlesChans: make(map[chan *workload.JWTBundlesResponse]struct{}),
 	}
 
-	listener, err := net.Listen("tcp", "localhost:0")
+	listener, err := newListener()
 	require.NoError(tb, err)
 
 	server := grpc.NewServer()

@@ -228,12 +228,13 @@ func (c *Client) setAddress() error {
 	}
 
 	var err error
-	c.config.address, err = parseTargetFromAddr(c.config.address)
+	c.config.address, err = parseTargetFromStringAddr(c.config.address)
 	return err
 }
 
 func (c *Client) newConn(ctx context.Context) (*grpc.ClientConn, error) {
 	c.config.dialOptions = append(c.config.dialOptions, grpc.WithInsecure())
+	c.appendDialOptionsOS()
 	return grpc.DialContext(ctx, c.config.address, c.config.dialOptions...)
 }
 
