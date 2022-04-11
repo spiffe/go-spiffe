@@ -6,35 +6,35 @@ package workloadapi
 func validateAddressCasesOS() []validateAddressCase {
 	return []validateAddressCase{
 		{
-			addr: "pipe:opaque",
+			addr: "npipe:opaque",
 			err:  "workload endpoint named pipe URI must not be opaque",
 		},
 		{
-			addr: "pipe://",
+			addr: "npipe://",
 			err:  "workload endpoint named pipe URI must include a path",
 		},
 		{
-			addr: "pipe:////./pipe/foo?whatever",
+			addr: "npipe:////./pipe/foo?whatever",
 			err:  "workload endpoint named pipe URI must not include query values",
 		},
 		{
-			addr: "pipe:////./pipe/foo#whatever",
+			addr: "npipe:////./pipe/foo#whatever",
 			err:  "workload endpoint named pipe URI must not include a fragment",
 		},
 		{
-			addr: "pipe://john:doe@//./pipe/path",
+			addr: "npipe://john:doe@//./pipe/path",
 			err:  "workload endpoint named pipe URI must not include user info",
 		},
 		{
-			addr: "pipe:////computer/pipe/path",
+			addr: "npipe:////computer/pipe/path",
 			err:  "workload endpoint named pipe URI has an invalid path",
 		},
 		{
-			addr: "pipe://host/pipe/path",
+			addr: "npipe://host/pipe/path",
 			err:  "workload endpoint named pipe URI must not include a host",
 		},
 		{
-			addr: "pipe:////./pipe/path",
+			addr: "npipe:////./pipe/path",
 			err:  "",
 		},
 	}

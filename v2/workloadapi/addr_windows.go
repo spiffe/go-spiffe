@@ -11,12 +11,12 @@ import (
 )
 
 var (
-	errInvalidScheme = errors.New("workload endpoint socket URI must have a pipe:// scheme")
+	ErrInvalidEndpointScheme = errors.New("workload endpoint socket URI must have the scheme npipe://")
 )
 
 func parseTargetFromURLAddr(u *url.URL) (string, error) {
 	switch u.Scheme {
-	case "pipe":
+	case "npipe":
 		switch {
 		case u.Opaque != "":
 			return "", errors.New("workload endpoint named pipe URI must not be opaque")
@@ -37,6 +37,6 @@ func parseTargetFromURLAddr(u *url.URL) (string, error) {
 		}
 		return u.Path, nil
 	default:
-		return "", errInvalidScheme
+		return "", ErrInvalidEndpointScheme
 	}
 }

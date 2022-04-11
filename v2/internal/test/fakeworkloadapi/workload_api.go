@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"sync"
 	"testing"
 
@@ -58,7 +59,7 @@ func New(tb testing.TB) *WorkloadAPI {
 		_ = server.Serve(listener)
 	}()
 
-	w.addr = fmt.Sprintf("%s://%s", listener.Addr().Network(), listener.Addr().String())
+	w.addr = fmt.Sprintf("%s://%s", getScheme(listener.Addr()), listener.Addr().String())
 	tb.Logf("WorkloadAPI address: %s", w.addr)
 	w.server = server
 	return w
@@ -326,4 +327,16 @@ func structFromValues(values map[string]interface{}) (*structpb.Struct, error) {
 	}
 
 	return s, nil
+}
+
+// getScheme gets the scheme for the URL representation
+// of the address
+func getScheme(addr net.Addr) string {
+	// The go-winio library defines the network of a
+	// named pipe address as "pipe", but we use the
+	// "npipe" scheme for named pipes URLs.
+	if addr.Network() == "pipe" {
+		return "npipe"
+	}
+	return addr.Network()
 }

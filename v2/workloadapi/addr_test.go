@@ -1,6 +1,7 @@
 package workloadapi
 
 import (
+	"fmt"
 	"os"
 	"testing"
 
@@ -32,6 +33,7 @@ func TestGetDefaultAddress(t *testing.T) {
 }
 
 func TestValidateAddress(t *testing.T) {
+	fmt.Println("test")
 	testCases := []validateAddressCase{
 		{
 			addr: "\t",
@@ -39,7 +41,7 @@ func TestValidateAddress(t *testing.T) {
 		},
 		{
 			addr: "blah",
-			err:  errInvalidScheme.Error(),
+			err:  ErrInvalidEndpointScheme.Error(),
 		},
 	}
 	testCases = append(testCases, validateAddressCasesOS()...)

@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	errInvalidScheme = errors.New("workload endpoint socket URI must have a tcp:// or unix:// scheme")
+	ErrInvalidEndpointScheme = errors.New("workload endpoint socket URI must have a tcp:// or unix:// scheme")
 )
 
 func parseTargetFromURLAddr(u *url.URL) (string, error) {
@@ -56,6 +56,6 @@ func parseTargetFromURLAddr(u *url.URL) (string, error) {
 
 		return net.JoinHostPort(ip.String(), port), nil
 	default:
-		return "", errInvalidScheme
+		return "", ErrInvalidEndpointScheme
 	}
 }
