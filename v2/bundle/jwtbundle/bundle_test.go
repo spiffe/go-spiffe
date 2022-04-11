@@ -8,6 +8,7 @@ import (
 
 	"github.com/spiffe/go-spiffe/v2/bundle/jwtbundle"
 	"github.com/spiffe/go-spiffe/v2/internal/test"
+	"github.com/spiffe/go-spiffe/v2/internal/test/errstrings"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -68,7 +69,7 @@ func TestLoad(t *testing.T) {
 		},
 		{
 			tf:  testFiles["non existent file"],
-			err: "jwtbundle: unable to read JWT bundle: open testdata/does-not-exist.json: no such file or directory",
+			err: "jwtbundle: unable to read JWT bundle: open testdata/does-not-exist.json: " + errstrings.FileNotFound,
 		},
 		{
 			tf:  testFiles["missing kid"],
