@@ -107,9 +107,9 @@ else ifeq ($(os1),windows)
 	unzip -qq $(go_dir)\go.zip -d $(go_dir)
 else
 	@echo "Installing go$(go_version)..."
-	rm -rf $(dir $(go_dir))
-	mkdir -p $(go_dir)
-	curl -sSfL $(go_url) | tar xz -C $(go_dir) --strip-components=1
+	$(E)rm -rf $(dir $(go_dir))
+	$(E)mkdir -p $(go_dir)
+	$(E)curl -sSfL $(go_url) | tar xz -C $(go_dir) --strip-components=1
 endif
 
 
