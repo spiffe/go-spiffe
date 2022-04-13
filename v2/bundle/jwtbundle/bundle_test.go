@@ -22,18 +22,18 @@ type testFile struct {
 var (
 	td        = spiffeid.RequireTrustDomainFromString("example.org")
 	testFiles = map[string]testFile{
-		"valid 1": testFile{
+		"valid 1": {
 			filePath:  "testdata/jwks_valid_1.json",
 			keysCount: 1,
 		},
-		"valid 2": testFile{
+		"valid 2": {
 			filePath:  "testdata/jwks_valid_2.json",
 			keysCount: 2,
 		},
-		"non existent file": testFile{
+		"non existent file": {
 			filePath: "testdata/does-not-exist.json",
 		},
-		"missing kid": testFile{
+		"missing kid": {
 			filePath: "testdata/jwks_missing_kid.json",
 		},
 	}
