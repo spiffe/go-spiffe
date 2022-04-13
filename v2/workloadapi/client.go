@@ -218,22 +218,9 @@ func (c *Client) ValidateJWTSVID(ctx context.Context, token, audience string) (*
 	return jwtsvid.ParseInsecure(token, []string{audience})
 }
 
-func (c *Client) setAddress() error {
-	if c.config.address == "" {
-		var ok bool
-		c.config.address, ok = GetDefaultAddress()
-		if !ok {
-			return errors.New("workload endpoint socket address is not configured")
-		}
-	}
-
-	var err error
-	c.config.address, err = parseTargetFromAddr(c.config.address)
-	return err
-}
-
 func (c *Client) newConn(ctx context.Context) (*grpc.ClientConn, error) {
 	c.config.dialOptions = append(c.config.dialOptions, grpc.WithInsecure())
+	c.appendDialOptionsOS()
 	return grpc.DialContext(ctx, c.config.address, c.config.dialOptions...)
 }
 
