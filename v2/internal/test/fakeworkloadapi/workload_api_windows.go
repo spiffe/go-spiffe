@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/rand"
 	"testing"
+	"time"
 
 	"github.com/Microsoft/go-winio"
 	"github.com/spiffe/go-spiffe/v2/proto/spiffe/workload"
@@ -20,6 +21,7 @@ func NewWithNamedPipeListener(tb testing.TB) *WorkloadAPI {
 		jwtBundlesChans: make(map[chan *workload.JWTBundlesResponse]struct{}),
 	}
 
+	rand.Seed(time.Now().UnixNano())
 	listener, err := winio.ListenPipe(fmt.Sprintf(`\\.\pipe\go-spiffe-test-pipe-%x`, rand.Uint64()), nil)
 	require.NoError(tb, err)
 

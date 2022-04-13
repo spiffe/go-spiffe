@@ -26,7 +26,7 @@ func (c *Client) setAddress() error {
 		if c.config.address != "" {
 			return errors.New("only one of WithAddr or WithNamedPipeName options can be used, not both")
 		}
-		c.config.address = parseTargetFromNamedPipeName(c.config.namedPipeName)
+		c.config.address = namedPipeTarget(c.config.namedPipeName)
 		return nil
 	}
 
@@ -42,9 +42,9 @@ func (c *Client) setAddress() error {
 	return err
 }
 
-// parseTargetFromNamedPipeName parses the named pipe name
-// for the endpoint address and returns the target string
-// suitable for dialing.
-func parseTargetFromNamedPipeName(pipeName string) string {
+// namedPipeTarget returns a target string suitable for
+// dialing the endpoint address based on the provided
+// pipe name.
+func namedPipeTarget(pipeName string) string {
 	return `\\.\` + filepath.Join("pipe", pipeName)
 }
