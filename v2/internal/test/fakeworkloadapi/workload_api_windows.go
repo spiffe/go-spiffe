@@ -21,7 +21,6 @@ func NewWithNamedPipeListener(tb testing.TB) *WorkloadAPI {
 		jwtBundlesChans: make(map[chan *workload.JWTBundlesResponse]struct{}),
 	}
 
-	rand.Seed(time.Now().UnixNano())
 	listener, err := winio.ListenPipe(fmt.Sprintf(`\\.\pipe\go-spiffe-test-pipe-%x`, rand.Uint64()), nil)
 	require.NoError(tb, err)
 
@@ -38,4 +37,8 @@ func NewWithNamedPipeListener(tb testing.TB) *WorkloadAPI {
 	tb.Logf("WorkloadAPI address: %s", w.addr)
 	w.server = server
 	return w
+}
+
+func init() {
+	rand.Seed(time.Now().UnixNano())
 }
