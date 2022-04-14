@@ -12,6 +12,7 @@ import (
 	"github.com/spiffe/go-spiffe/v2/bundle/spiffebundle"
 	"github.com/spiffe/go-spiffe/v2/bundle/x509bundle"
 	"github.com/spiffe/go-spiffe/v2/internal/test"
+	"github.com/spiffe/go-spiffe/v2/internal/test/errstrings"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -70,7 +71,7 @@ func TestNew(t *testing.T) {
 }
 
 func TestLoad(t *testing.T) {
-	testCases[0].err = "spiffebundle: unable to read SPIFFE bundle: open testdata/does-not-exist.json: no such file or directory"
+	testCases[0].err = "spiffebundle: unable to read SPIFFE bundle: open testdata/does-not-exist.json: " + errstrings.FileNotFound
 
 	for _, testCase := range testCases {
 		testCase := testCase
