@@ -136,6 +136,7 @@ func (w *WorkloadAPI) SetX509Bundles(x509Bundles ...*x509bundle.Bundle) {
 	}
 	for _, bundle := range x509Bundles {
 		bundleBytes, err := bundle.Marshal()
+		assert.NoError(w.tb, err)
 		bundlePem, err := pemutil.ParseCertificates(bundleBytes)
 		assert.NoError(w.tb, err)
 
