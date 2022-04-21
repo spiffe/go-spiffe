@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/spiffe/go-spiffe/v2/bundle/x509bundle"
+	"github.com/spiffe/go-spiffe/v2/internal/pemutil"
 	"github.com/spiffe/go-spiffe/v2/internal/test"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/stretchr/testify/assert"
@@ -124,6 +125,49 @@ func TestParse(t *testing.T) {
 			require.NoError(t, err)
 
 			bundle, err := x509bundle.Parse(td, fileBytes)
+			if test.expErrContains != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), test.expErrContains)
+				return
+			}
+			require.NoError(t, err)
+			assert.NotNil(t, bundle)
+			assert.Len(t, bundle.X509Authorities(), test.expNumAuthorities)
+		})
+	}
+}
+
+func TestParseRaw(t *testing.T) {
+	tests := []struct {
+		name              string
+		trustDomain       spiffeid.TrustDomain
+		path              string
+		expNumAuthorities int
+		expErrContains    string
+	}{
+		{
+			name:              "Parse multiple certificates should succeed",
+			path:              "testdata/certs.pem",
+			expNumAuthorities: 2,
+		},
+		{
+			name:              "Parse single certificate should succeed",
+			path:              "testdata/cert.pem",
+			expNumAuthorities: 1,
+		},
+		{
+			name:           "Parse should fail if no certificate block is is found",
+			path:           "testdata/key.pem",
+			expErrContains: "x509bundle: no certificates found",
+		},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			certsBytes := loadRawCertificates(t, test.path)
+			bundle, err := x509bundle.ParseRaw(td, certsBytes)
+
 			if test.expErrContains != "" {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), test.expErrContains)
@@ -273,4 +317,18 @@ func TestClone(t *testing.T) {
 
 	cloned := original.Clone()
 	require.True(t, original.Equal(cloned))
+}
+
+func loadRawCertificates(t *testing.T, path string) []byte {
+	certsBytes, err := ioutil.ReadFile(path)
+	require.NoError(t, err)
+
+	certs, err := pemutil.ParseCertificates(certsBytes)
+	require.NoError(t, err)
+
+	var rawBytes []byte
+	for _, cert := range certs {
+		rawBytes = append(rawBytes, cert.Raw...)
+	}
+	return rawBytes
 }
