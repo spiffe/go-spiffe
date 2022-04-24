@@ -8,6 +8,7 @@ import (
 
 	"github.com/spiffe/go-spiffe/v2/bundle/jwtbundle"
 	"github.com/spiffe/go-spiffe/v2/internal/test"
+	"github.com/spiffe/go-spiffe/v2/internal/test/errstrings"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -21,18 +22,18 @@ type testFile struct {
 var (
 	td        = spiffeid.RequireTrustDomainFromString("example.org")
 	testFiles = map[string]testFile{
-		"valid 1": testFile{
+		"valid 1": {
 			filePath:  "testdata/jwks_valid_1.json",
 			keysCount: 1,
 		},
-		"valid 2": testFile{
+		"valid 2": {
 			filePath:  "testdata/jwks_valid_2.json",
 			keysCount: 2,
 		},
-		"non existent file": testFile{
+		"non existent file": {
 			filePath: "testdata/does-not-exist.json",
 		},
-		"missing kid": testFile{
+		"missing kid": {
 			filePath: "testdata/jwks_missing_kid.json",
 		},
 	}
@@ -68,7 +69,7 @@ func TestLoad(t *testing.T) {
 		},
 		{
 			tf:  testFiles["non existent file"],
-			err: "jwtbundle: unable to read JWT bundle: open testdata/does-not-exist.json: no such file or directory",
+			err: "jwtbundle: unable to read JWT bundle: open testdata/does-not-exist.json: " + errstrings.FileNotFound,
 		},
 		{
 			tf:  testFiles["missing kid"],
