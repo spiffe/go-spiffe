@@ -375,6 +375,9 @@ func parseX509Context(resp *workload.X509SVIDResponse) (*X509Context, error) {
 // Otherwise all SVIDs are parsed and returned.
 func parseX509SVIDs(resp *workload.X509SVIDResponse, firstOnly bool) ([]*x509svid.SVID, error) {
 	n := len(resp.Svids)
+	if n == 0 {
+		return nil, errors.New("no SVIDs in response")
+	}
 	if firstOnly {
 		n = 1
 	}
@@ -389,9 +392,6 @@ func parseX509SVIDs(resp *workload.X509SVIDResponse, firstOnly bool) ([]*x509svi
 		svids = append(svids, s)
 	}
 
-	if len(svids) == 0 {
-		return nil, errors.New("no SVIDs in response")
-	}
 	return svids, nil
 }
 
@@ -436,6 +436,9 @@ func parseX509Bundle(spiffeID string, bundle []byte) (*x509bundle.Bundle, error)
 // Otherwise all SVIDs are parsed and returned.
 func parseJWTSVIDs(resp *workload.JWTSVIDResponse, audience []string, firstOnly bool) ([]*jwtsvid.SVID, error) {
 	n := len(resp.Svids)
+	if n == 0 {
+		return nil, errors.New("there were no SVIDs in the response")
+	}
 	if firstOnly {
 		n = 1
 	}
@@ -450,9 +453,6 @@ func parseJWTSVIDs(resp *workload.JWTSVIDResponse, audience []string, firstOnly 
 		svids = append(svids, s)
 	}
 
-	if len(svids) == 0 {
-		return nil, errors.New("there were no SVIDs in the response")
-	}
 	return svids, nil
 }
 
