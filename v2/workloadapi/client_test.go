@@ -233,7 +233,7 @@ func TestFetchJWTSVID(t *testing.T) {
 	audienceID := spiffeid.RequireFromPath(td, "/audience")
 	extraAudienceID := spiffeid.RequireFromPath(td, "/extra_audience")
 	token := ca.CreateJWTSVID(subjectID, []string{audienceID.String(), extraAudienceID.String()}).Marshal()
-	respJWT := makeJWTSVIDResponse(ca, []string{token}, subjectID)
+	respJWT := makeJWTSVIDResponse([]string{token}, subjectID)
 	wl.SetJWTSVIDResponse(respJWT)
 
 	params := jwtsvid.Params{
@@ -261,7 +261,7 @@ func TestFetchJWTSVIDs(t *testing.T) {
 	extraAudienceID := spiffeid.RequireFromPath(td, "/extra_audience")
 	subjectIDToken := ca.CreateJWTSVID(subjectID, []string{audienceID.String(), extraAudienceID.String()}).Marshal()
 	extraSubjectIDToken := ca.CreateJWTSVID(extraSubjectID, []string{audienceID.String(), extraAudienceID.String()}).Marshal()
-	respJWT := makeJWTSVIDResponse(ca, []string{subjectIDToken, extraSubjectIDToken}, subjectID, extraSubjectID)
+	respJWT := makeJWTSVIDResponse([]string{subjectIDToken, extraSubjectIDToken}, subjectID, extraSubjectID)
 	wl.SetJWTSVIDResponse(respJWT)
 
 	params := jwtsvid.Params{
@@ -386,7 +386,7 @@ func makeX509SVIDs(ca *test.CA, ids ...spiffeid.ID) []*x509svid.SVID {
 	return svids
 }
 
-func makeJWTSVIDResponse(ca *test.CA, token []string, ids ...spiffeid.ID) *workload.JWTSVIDResponse {
+func makeJWTSVIDResponse(token []string, ids ...spiffeid.ID) *workload.JWTSVIDResponse {
 	svids := []*workload.JWTSVID{}
 	for i, id := range ids {
 		svid := &workload.JWTSVID{
