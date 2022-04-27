@@ -17,6 +17,7 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
@@ -219,7 +220,7 @@ func (c *Client) ValidateJWTSVID(ctx context.Context, token, audience string) (*
 }
 
 func (c *Client) newConn(ctx context.Context) (*grpc.ClientConn, error) {
-	c.config.dialOptions = append(c.config.dialOptions, grpc.WithInsecure())
+	c.config.dialOptions = append(c.config.dialOptions, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	c.appendDialOptionsOS()
 	return grpc.DialContext(ctx, c.config.address, c.config.dialOptions...)
 }
