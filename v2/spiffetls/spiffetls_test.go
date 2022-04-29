@@ -414,10 +414,8 @@ func TestClose(t *testing.T) {
 		defer wg.Done()
 		conn, err := listener.Accept()
 		require.NoError(t, err)
-
-		_, err = io.Copy(conn, conn)
-		assert.NoError(t, err)
-		conn.Close()
+		defer conn.Close()
+		_, _ = io.Copy(conn, conn)
 	}()
 
 	dialCtx, cancelDialCtx := context.WithTimeout(context.Background(), time.Second*10)
@@ -436,10 +434,10 @@ func TestClose(t *testing.T) {
 
 	// If the connection was really closed, this should fail
 	_, err = conn.Write([]byte(dataString))
-	require.EqualError(t, err, "tls: use of closed connection")
+	require.Error(t, err)
 
 	// Connection has been closed already, expect error
-	require.EqualError(t, conn.Close(), "spiffetls: unable to close TLS connection: tls: use of closed connection")
+	require.Error(t, conn.Close())
 
 	// Close listener
 	require.NoError(t, listener.Close())
@@ -449,7 +447,7 @@ func TestClose(t *testing.T) {
 	require.Error(t, err)
 
 	// Listener has been closed already, expect error
-	require.Contains(t, listener.Close().Error(), "use of closed network connection")
+	require.Error(t, listener.Close())
 }
 
 func setWorkloadAPIResponse(ca *test.CA, s *fakeworkloadapi.WorkloadAPI, spiffeID spiffeid.ID) {
