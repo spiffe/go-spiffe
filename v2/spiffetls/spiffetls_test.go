@@ -414,10 +414,8 @@ func TestClose(t *testing.T) {
 		defer wg.Done()
 		conn, err := listener.Accept()
 		require.NoError(t, err)
-
-		_, err = io.Copy(conn, conn)
-		assert.NoError(t, err)
-		conn.Close()
+		defer conn.Close()
+		_, _ = io.Copy(conn, conn)
 	}()
 
 	dialCtx, cancelDialCtx := context.WithTimeout(context.Background(), time.Second*10)

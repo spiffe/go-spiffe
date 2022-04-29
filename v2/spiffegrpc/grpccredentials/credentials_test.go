@@ -50,8 +50,7 @@ func TestCredentials(t *testing.T) {
 	t.Run("TLS to mTLS", func(t *testing.T) {
 		// Handshake will fail since server requires client SVID
 		testCredentials(t, clientTLS, serverMTLS, expectResult{
-			Code:    codes.Unavailable,
-			Message: "connection closed",
+			Code: codes.Unavailable,
 		})
 	})
 
@@ -59,8 +58,8 @@ func TestCredentials(t *testing.T) {
 		// Handshake will fail because client is doing hostname validation
 		// against a server SVID
 		testCredentials(t, clientWeb, serverMTLS, expectResult{
-			Code:    codes.Unavailable,
-			Message: `connection error: desc = "transport: authentication handshake failed: x509: cannot validate certificate for 127.0.0.1 because it doesn't contain any IP SANs"`,
+			Code:            codes.Unavailable,
+			MessageContains: `cannot validate certificate for 127.0.0.1 because it doesn't contain any IP SANs`,
 		})
 	})
 
@@ -88,24 +87,24 @@ func TestCredentials(t *testing.T) {
 		// Handshake will fail because client is doing hostname validation
 		// against a server SVID
 		testCredentials(t, clientWeb, serverTLS, expectResult{
-			Code:    codes.Unavailable,
-			Message: `connection error: desc = "transport: authentication handshake failed: x509: cannot validate certificate for 127.0.0.1 because it doesn't contain any IP SANs"`,
+			Code:            codes.Unavailable,
+			MessageContains: `cannot validate certificate for 127.0.0.1 because it doesn't contain any IP SANs`,
 		})
 	})
 
 	t.Run("mTLS to Web", func(t *testing.T) {
 		// Handshake will fail because client expects server SVID
 		testCredentials(t, clientMTLS, serverWeb, expectResult{
-			Code:    codes.Unavailable,
-			Message: `connection error: desc = "transport: authentication handshake failed: x509svid: could not get leaf SPIFFE ID: certificate contains no URI SAN"`,
+			Code:            codes.Unavailable,
+			MessageContains: `certificate contains no URI SAN`,
 		})
 	})
 
 	t.Run("TLS to Web", func(t *testing.T) {
 		// Handshake will fail because client expects server SVID
 		testCredentials(t, clientTLS, serverWeb, expectResult{
-			Code:    codes.Unavailable,
-			Message: `connection error: desc = "transport: authentication handshake failed: x509svid: could not get leaf SPIFFE ID: certificate contains no URI SAN"`,
+			Code:            codes.Unavailable,
+			MessageContains: `could not get leaf SPIFFE ID: certificate contains no URI SAN`,
 		})
 	})
 
@@ -121,10 +120,10 @@ func TestCredentials(t *testing.T) {
 }
 
 type expectResult struct {
-	Code     codes.Code
-	Message  string
-	ClientID string
-	ServerID string
+	Code            codes.Code
+	MessageContains string
+	ClientID        string
+	ServerID        string
 }
 
 func testCredentials(t *testing.T, clientCreds, serverCreds credentials.TransportCredentials, expect expectResult) {
@@ -136,6 +135,7 @@ func testCredentials(t *testing.T, clientCreds, serverCreds credentials.Transpor
 
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
+	defer listener.Close()
 	server := grpc.NewServer(grpc.Creds(serverCreds))
 	defer server.Stop()
 
@@ -163,12 +163,10 @@ func testCredentials(t *testing.T, clientCreds, serverCreds credentials.Transpor
 
 	assert.Equal(t, expect.ServerID != "", serverIDOK)
 
-	assert.Equal(t, expect, expectResult{
-		Code:     st.Code(),
-		Message:  st.Message(),
-		ClientID: clientID,
-		ServerID: serverID.String(),
-	})
+	assert.Equal(t, expect.Code, st.Code())
+	assert.Contains(t, st.Message(), expect.MessageContains)
+	assert.Equal(t, expect.ClientID, clientID)
+	assert.Equal(t, expect.ServerID, serverID.String())
 }
 
 type greeterServer struct {
