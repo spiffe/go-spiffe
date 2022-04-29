@@ -163,10 +163,29 @@ func (c *Client) FetchJWTSVID(ctx context.Context, params jwtsvid.Params) (*jwts
 		return nil, err
 	}
 
-	if len(resp.Svids) == 0 {
-		return nil, errors.New("there were no SVIDs in the response")
+	svids, err := parseJWTSVIDs(resp, audience, true)
+	if err != nil {
+		return nil, err
 	}
-	return jwtsvid.ParseInsecure(resp.Svids[0].Svid, audience)
+
+	return svids[0], nil
+}
+
+// FetchJWTSVIDs fetches all JWT-SVIDs.
+func (c *Client) FetchJWTSVIDs(ctx context.Context, params jwtsvid.Params) ([]*jwtsvid.SVID, error) {
+	ctx, cancel := context.WithCancel(withHeader(ctx))
+	defer cancel()
+
+	audience := append([]string{params.Audience}, params.ExtraAudiences...)
+	resp, err := c.wlClient.FetchJWTSVID(ctx, &workload.JWTSVIDRequest{
+		SpiffeId: params.Subject.String(),
+		Audience: audience,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return parseJWTSVIDs(resp, audience, false)
 }
 
 // FetchJWTBundles fetches the JWT bundles for JWT-SVID validation, keyed
@@ -357,6 +376,9 @@ func parseX509Context(resp *workload.X509SVIDResponse) (*X509Context, error) {
 // Otherwise all SVIDs are parsed and returned.
 func parseX509SVIDs(resp *workload.X509SVIDResponse, firstOnly bool) ([]*x509svid.SVID, error) {
 	n := len(resp.Svids)
+	if n == 0 {
+		return nil, errors.New("no SVIDs in response")
+	}
 	if firstOnly {
 		n = 1
 	}
@@ -371,9 +393,6 @@ func parseX509SVIDs(resp *workload.X509SVIDResponse, firstOnly bool) ([]*x509svi
 		svids = append(svids, s)
 	}
 
-	if len(svids) == 0 {
-		return nil, errors.New("no SVIDs in response")
-	}
 	return svids, nil
 }
 
@@ -411,6 +430,31 @@ func parseX509Bundle(spiffeID string, bundle []byte) (*x509bundle.Bundle, error)
 		return nil, fmt.Errorf("empty X.509 bundle for trust domain %q", td)
 	}
 	return x509bundle.FromX509Authorities(td, certs), nil
+}
+
+// parseJWTSVIDs parses one or all of the SVIDs in the response. If firstOnly
+// is true, then only the first SVID in the response is parsed and returned.
+// Otherwise all SVIDs are parsed and returned.
+func parseJWTSVIDs(resp *workload.JWTSVIDResponse, audience []string, firstOnly bool) ([]*jwtsvid.SVID, error) {
+	n := len(resp.Svids)
+	if n == 0 {
+		return nil, errors.New("there were no SVIDs in the response")
+	}
+	if firstOnly {
+		n = 1
+	}
+
+	svids := make([]*jwtsvid.SVID, 0, n)
+	for i := 0; i < n; i++ {
+		svid := resp.Svids[i]
+		s, err := jwtsvid.ParseInsecure(svid.Svid, audience)
+		if err != nil {
+			return nil, err
+		}
+		svids = append(svids, s)
+	}
+
+	return svids, nil
 }
 
 func parseJWTSVIDBundles(resp *workload.JWTBundlesResponse) (*jwtbundle.Set, error) {
