@@ -116,7 +116,7 @@ func (w credentialsWrapper) Clone() credentials.TransportCredentials {
 }
 
 func (w credentialsWrapper) OverrideServerName(serverName string) error {
-	return w.c.OverrideServerName(serverName)
+	return w.c.OverrideServerName(serverName) // nolint(staticcheck) // wrapper needs to call underlying method until fully deprecated
 }
 
 type authInfoWrapper struct {
