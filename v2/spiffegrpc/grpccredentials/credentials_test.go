@@ -133,8 +133,6 @@ func testCredentials(t *testing.T, clientCreds, serverCreds credentials.Transpor
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	//c1, c2 := net.Pipe()
-
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 	defer listener.Close()
