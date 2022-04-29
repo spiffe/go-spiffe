@@ -12,6 +12,7 @@ import (
 
 	"github.com/spiffe/go-spiffe/v2/bundle/jwtbundle"
 	"github.com/spiffe/go-spiffe/v2/bundle/x509bundle"
+	"github.com/spiffe/go-spiffe/v2/internal/pemutil"
 	"github.com/spiffe/go-spiffe/v2/internal/x509util"
 	"github.com/spiffe/go-spiffe/v2/proto/spiffe/workload"
 	"github.com/spiffe/go-spiffe/v2/svid/jwtsvid"
@@ -29,22 +30,25 @@ import (
 var noIdentityError = status.Error(codes.PermissionDenied, "no identity issued")
 
 type WorkloadAPI struct {
-	tb              testing.TB
-	wg              sync.WaitGroup
-	addr            string
-	server          *grpc.Server
-	mu              sync.Mutex
-	x509Resp        *workload.X509SVIDResponse
-	x509Chans       map[chan *workload.X509SVIDResponse]struct{}
-	jwtResp         *workload.JWTSVIDResponse
-	jwtBundlesResp  *workload.JWTBundlesResponse
-	jwtBundlesChans map[chan *workload.JWTBundlesResponse]struct{}
+	tb               testing.TB
+	wg               sync.WaitGroup
+	addr             string
+	server           *grpc.Server
+	mu               sync.Mutex
+	x509Resp         *workload.X509SVIDResponse
+	x509Chans        map[chan *workload.X509SVIDResponse]struct{}
+	jwtResp          *workload.JWTSVIDResponse
+	jwtBundlesResp   *workload.JWTBundlesResponse
+	jwtBundlesChans  map[chan *workload.JWTBundlesResponse]struct{}
+	x509BundlesResp  *workload.X509BundlesResponse
+	x509BundlesChans map[chan *workload.X509BundlesResponse]struct{}
 }
 
 func New(tb testing.TB) *WorkloadAPI {
 	w := &WorkloadAPI{
-		x509Chans:       make(map[chan *workload.X509SVIDResponse]struct{}),
-		jwtBundlesChans: make(map[chan *workload.JWTBundlesResponse]struct{}),
+		x509Chans:        make(map[chan *workload.X509SVIDResponse]struct{}),
+		jwtBundlesChans:  make(map[chan *workload.JWTBundlesResponse]struct{}),
+		x509BundlesChans: make(map[chan *workload.X509BundlesResponse]struct{}),
 	}
 
 	listener, err := net.Listen("tcp", "localhost:0")
@@ -126,6 +130,38 @@ func (w *WorkloadAPI) SetJWTBundles(jwtBundles ...*jwtbundle.Bundle) {
 	}
 }
 
+func (w *WorkloadAPI) SetX509Bundles(x509Bundles ...*x509bundle.Bundle) {
+	resp := &workload.X509BundlesResponse{
+		Bundles: make(map[string][]byte),
+	}
+	for _, bundle := range x509Bundles {
+		bundleBytes, err := bundle.Marshal()
+		assert.NoError(w.tb, err)
+		bundlePem, err := pemutil.ParseCertificates(bundleBytes)
+		assert.NoError(w.tb, err)
+
+		var rawBytes []byte
+		for _, c := range bundlePem {
+			rawBytes = append(rawBytes, c.Raw...)
+		}
+
+		resp.Bundles[bundle.TrustDomain().String()] = rawBytes
+	}
+
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.x509BundlesResp = resp
+
+	for ch := range w.x509BundlesChans {
+		select {
+		case ch <- w.x509BundlesResp:
+		default:
+			<-ch
+			ch <- w.x509BundlesResp
+		}
+	}
+}
+
 type workloadAPIWrapper struct {
 	workload.UnimplementedSpiffeWorkloadAPIServer
 	w *WorkloadAPI
@@ -133,6 +169,10 @@ type workloadAPIWrapper struct {
 
 func (w *workloadAPIWrapper) FetchX509SVID(req *workload.X509SVIDRequest, stream workload.SpiffeWorkloadAPI_FetchX509SVIDServer) error {
 	return w.w.fetchX509SVID(req, stream)
+}
+
+func (w *workloadAPIWrapper) FetchX509Bundles(req *workload.X509BundlesRequest, stream workload.SpiffeWorkloadAPI_FetchX509BundlesServer) error {
+	return w.w.fetchX509Bundles(req, stream)
 }
 
 func (w *workloadAPIWrapper) FetchJWTSVID(ctx context.Context, req *workload.JWTSVIDRequest) (*workload.JWTSVIDResponse, error) {
@@ -200,6 +240,44 @@ func (w *WorkloadAPI) fetchX509SVID(_ *workload.X509SVIDRequest, stream workload
 	}()
 
 	sendResp := func(resp *workload.X509SVIDResponse) error {
+		if resp == nil {
+			return noIdentityError
+		}
+		return stream.Send(resp)
+	}
+
+	if err := sendResp(resp); err != nil {
+		return err
+	}
+	for {
+		select {
+		case resp := <-ch:
+			if err := sendResp(resp); err != nil {
+				return err
+			}
+		case <-stream.Context().Done():
+			return stream.Context().Err()
+		}
+	}
+}
+
+func (w *WorkloadAPI) fetchX509Bundles(_ *workload.X509BundlesRequest, stream workload.SpiffeWorkloadAPI_FetchX509BundlesServer) error {
+	if err := checkHeader(stream.Context()); err != nil {
+		return err
+	}
+	ch := make(chan *workload.X509BundlesResponse, 1)
+	w.mu.Lock()
+	w.x509BundlesChans[ch] = struct{}{}
+	resp := w.x509BundlesResp
+	w.mu.Unlock()
+
+	defer func() {
+		w.mu.Lock()
+		delete(w.x509BundlesChans, ch)
+		w.mu.Unlock()
+	}()
+
+	sendResp := func(resp *workload.X509BundlesResponse) error {
 		if resp == nil {
 			return noIdentityError
 		}

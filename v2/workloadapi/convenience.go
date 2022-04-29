@@ -102,6 +102,16 @@ func WatchJWTBundles(ctx context.Context, watcher JWTBundleWatcher, options ...C
 	return c.WatchJWTBundles(ctx, watcher)
 }
 
+// WatchX509Bundles watches for changes to the X.509 bundles.
+func WatchX509Bundles(ctx context.Context, watcher X509BundleWatcher, options ...ClientOption) error {
+	c, err := New(ctx, options...)
+	if err != nil {
+		return err
+	}
+	defer c.Close()
+	return c.WatchX509Bundles(ctx, watcher)
+}
+
 // ValidateJWTSVID validates the JWT-SVID token. The parsed and validated
 // JWT-SVID is returned.
 func ValidateJWTSVID(ctx context.Context, token, audience string, options ...ClientOption) (*jwtsvid.SVID, error) {

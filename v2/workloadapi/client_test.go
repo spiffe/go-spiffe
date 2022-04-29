@@ -78,13 +78,7 @@ func TestFetchX509Bundles(t *testing.T) {
 	require.NoError(t, err)
 	defer c.Close()
 
-	svids := makeX509SVIDs(ca, fooID, barID)
-
-	wl.SetX509SVIDResponse(&fakeworkloadapi.X509SVIDResponse{
-		Bundle:           ca.X509Bundle(),
-		SVIDs:            svids,
-		FederatedBundles: []*x509bundle.Bundle{federatedCA.X509Bundle()},
-	})
+	wl.SetX509Bundles(ca.X509Bundle(), federatedCA.X509Bundle())
 
 	bundles, err := c.FetchX509Bundles(context.Background())
 
@@ -92,17 +86,57 @@ func TestFetchX509Bundles(t *testing.T) {
 	assert.Equal(t, 2, bundles.Len())
 	assertX509Bundle(t, bundles, td, ca.X509Bundle())
 	assertX509Bundle(t, bundles, federatedTD, federatedCA.X509Bundle())
+}
 
-	// Now set the next response without any bundles and assert that the call
-	// fails since the bundle cannot be empty.
-	wl.SetX509SVIDResponse(&fakeworkloadapi.X509SVIDResponse{
-		SVIDs: svids,
-	})
+func TestWatchX509Bundles(t *testing.T) {
+	wl := fakeworkloadapi.New(t)
+	defer wl.Stop()
+	c, err := New(context.Background(), WithAddr(wl.Addr()))
+	require.NoError(t, err)
+	defer c.Close()
 
-	bundles, err = c.FetchX509Bundles(context.Background())
+	var wg sync.WaitGroup
+	defer wg.Wait()
 
-	require.EqualError(t, err, `empty X.509 bundle for trust domain "example.org"`)
-	require.Nil(t, bundles)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+
+	tw := newTestWatcher(t)
+	wg.Add(1)
+	go func() {
+		_ = c.WatchX509Bundles(ctx, tw)
+		wg.Done()
+	}()
+
+	// test PermissionDenied
+	tw.WaitForUpdates(1)
+	require.Len(t, tw.Errors(), 1)
+	require.Len(t, tw.X509Bundles(), 0)
+
+	// test first update
+	ca1 := test.NewCA(t, td)
+	wl.SetX509Bundles(ca1.X509Bundle())
+
+	tw.WaitForUpdates(1)
+
+	require.Len(t, tw.Errors(), 1)
+	update := tw.X509Bundles()[len(tw.X509Bundles())-1]
+	assertX509Bundle(t, update, td, ca1.X509Bundle())
+
+	// test second update
+	ca2 := test.NewCA(t, td)
+	wl.SetX509Bundles(ca2.X509Bundle())
+
+	tw.WaitForUpdates(1)
+
+	require.Len(t, tw.Errors(), 1)
+	update = tw.X509Bundles()[len(tw.X509Bundles())-1]
+	assertX509Bundle(t, update, td, ca2.X509Bundle())
+
+	// test error
+	wl.Stop()
+	tw.WaitForUpdates(1)
+	assert.Len(t, tw.Errors(), 2)
 }
 
 func TestFetchX509Context(t *testing.T) {
@@ -431,6 +465,7 @@ type testWatcher struct {
 	mu           sync.Mutex
 	x509Contexts []*X509Context
 	jwtBundles   []*jwtbundle.Set
+	x509Bundles  []*x509bundle.Set
 	errors       []error
 	updateSignal chan struct{}
 }
@@ -452,6 +487,12 @@ func (w *testWatcher) JwtBundles() []*jwtbundle.Set {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	return w.jwtBundles
+}
+
+func (w *testWatcher) X509Bundles() []*x509bundle.Set {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.x509Bundles
 }
 
 func (w *testWatcher) Errors() []error {
@@ -480,7 +521,21 @@ func (w *testWatcher) OnJWTBundlesUpdate(u *jwtbundle.Set) {
 	w.updateSignal <- struct{}{}
 }
 
+func (w *testWatcher) OnX509BundlesUpdate(u *x509bundle.Set) {
+	w.mu.Lock()
+	w.x509Bundles = append(w.x509Bundles, u)
+	w.mu.Unlock()
+	w.updateSignal <- struct{}{}
+}
+
 func (w *testWatcher) OnJWTBundlesWatchError(err error) {
+	w.mu.Lock()
+	w.errors = append(w.errors, err)
+	w.mu.Unlock()
+	w.updateSignal <- struct{}{}
+}
+
+func (w *testWatcher) OnX509BundlesWatchError(err error) {
 	w.mu.Lock()
 	w.errors = append(w.errors, err)
 	w.mu.Unlock()

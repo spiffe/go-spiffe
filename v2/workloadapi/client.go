@@ -104,7 +104,7 @@ func (c *Client) FetchX509Bundles(ctx context.Context) (*x509bundle.Set, error) 
 	ctx, cancel := context.WithCancel(withHeader(ctx))
 	defer cancel()
 
-	stream, err := c.wlClient.FetchX509SVID(ctx, &workload.X509SVIDRequest{})
+	stream, err := c.wlClient.FetchX509Bundles(ctx, &workload.X509BundlesRequest{})
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +113,21 @@ func (c *Client) FetchX509Bundles(ctx context.Context) (*x509bundle.Set, error) 
 		return nil, err
 	}
 
-	return parseX509Bundles(resp)
+	return parseX509BundlesResponse(resp)
+}
+
+// WatchX509Bundles watches for changes to the X.509 bundles. The watcher receives
+// the updated X.509 bundles.
+func (c *Client) WatchX509Bundles(ctx context.Context, watcher X509BundleWatcher) error {
+	backoff := newBackoff()
+	for {
+		err := c.watchX509Bundles(ctx, watcher, backoff)
+		watcher.OnX509BundlesWatchError(err)
+		err = c.handleWatchError(ctx, err, backoff)
+		if err != nil {
+			return err
+		}
+	}
 }
 
 // FetchX509Context fetches the X.509 context, which contains both X509-SVIDs
@@ -321,6 +335,33 @@ func (c *Client) watchJWTBundles(ctx context.Context, watcher JWTBundleWatcher, 
 	}
 }
 
+func (c *Client) watchX509Bundles(ctx context.Context, watcher X509BundleWatcher, backoff *backoff) error {
+	ctx, cancel := context.WithCancel(withHeader(ctx))
+	defer cancel()
+
+	c.config.log.Debugf("Watching X.509 bundles")
+	stream, err := c.wlClient.FetchX509Bundles(ctx, &workload.X509BundlesRequest{})
+	if err != nil {
+		return err
+	}
+
+	for {
+		resp, err := stream.Recv()
+		if err != nil {
+			return err
+		}
+
+		backoff.Reset()
+		x509bundleSet, err := parseX509BundlesResponse(resp)
+		if err != nil {
+			c.config.log.Errorf("Failed to parse X.509 bundle response: %v", err)
+			watcher.OnX509BundlesWatchError(err)
+			continue
+		}
+		watcher.OnX509BundlesUpdate(x509bundleSet)
+	}
+}
+
 // X509ContextWatcher receives X509Context updates from the Workload API.
 type X509ContextWatcher interface {
 	// OnX509ContextUpdate is called with the latest X.509 context retrieved
@@ -341,6 +382,17 @@ type JWTBundleWatcher interface {
 	// OnJWTBundlesWatchError is called when there is a problem establishing
 	// or maintaining connectivity with the Workload API.
 	OnJWTBundlesWatchError(error)
+}
+
+// X509BundleWatcher receives X.509 bundle updates from the Workload API.
+type X509BundleWatcher interface {
+	// OnX509BundlesUpdate is called with the latest X.509 bundle set retrieved
+	// from the Workload API.
+	OnX509BundlesUpdate(*x509bundle.Set)
+
+	// OnX509BundlesWatchError is called when there is a problem establishing
+	// or maintaining connectivity with the Workload API.
+	OnX509BundlesWatchError(error)
 }
 
 func withHeader(ctx context.Context) context.Context {
@@ -430,6 +482,25 @@ func parseX509Bundle(spiffeID string, bundle []byte) (*x509bundle.Bundle, error)
 		return nil, fmt.Errorf("empty X.509 bundle for trust domain %q", td)
 	}
 	return x509bundle.FromX509Authorities(td, certs), nil
+}
+
+func parseX509BundlesResponse(resp *workload.X509BundlesResponse) (*x509bundle.Set, error) {
+	bundles := []*x509bundle.Bundle{}
+
+	for tdID, b := range resp.Bundles {
+		td, err := spiffeid.TrustDomainFromString(tdID)
+		if err != nil {
+			return nil, err
+		}
+
+		b, err := x509bundle.ParseRaw(td, b)
+		if err != nil {
+			return nil, err
+		}
+		bundles = append(bundles, b)
+	}
+
+	return x509bundle.NewSet(bundles...), nil
 }
 
 // parseJWTSVIDs parses one or all of the SVIDs in the response. If firstOnly
