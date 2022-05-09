@@ -37,7 +37,7 @@ func main() {
 	serverID := spiffeid.RequireFromString("spiffe://example.org/server")
 
 	// By default, this example uses the server's SPIFFE ID as the audience.
-	// It doesn't have to be a SPIFFE ID as long as it follows the JWT-SVID guidelines (https://github.com/spiffe/spiffe/blob/master/standards/JWT-SVID.md#32-audience)
+	// It doesn't have to be a SPIFFE ID as long as it follows the JWT-SVID guidelines (https://github.com/spiffe/spiffe/blob/main/standards/JWT-SVID.md#32-audience)
 	audience := serverID.String()
 	args := os.Args
 	if len(args) >= 2 {
