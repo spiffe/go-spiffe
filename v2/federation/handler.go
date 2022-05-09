@@ -26,7 +26,7 @@ func WithLogger(log logger.Logger) HandlerOption {
 // source is used to obtain the bundle on each request. Source implementations
 // should consider a caching strategy if retrieval is expensive.
 // See the specification for more details:
-// https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE_Trust_Domain_and_Bundle.md
+// https://github.com/spiffe/spiffe/blob/main/standards/SPIFFE_Trust_Domain_and_Bundle.md
 func NewHandler(trustDomain spiffeid.TrustDomain, source spiffebundle.Source, opts ...HandlerOption) (http.Handler, error) {
 	conf := &handlerConfig{
 		log: logger.Null,

@@ -52,7 +52,7 @@ func main() {
 	}
 
 	// As default example is using server's ID,
-	// It doesn't have to be an SPIFFE ID as long it follows JWT SVIDs the guidelines (https://github.com/spiffe/spiffe/blob/master/standards/JWT-SVID.md#32-audience)
+	// It doesn't have to be an SPIFFE ID as long it follows JWT SVIDs the guidelines (https://github.com/spiffe/spiffe/blob/main/standards/JWT-SVID.md#32-audience)
 	audience := serverID.String()
 	args := os.Args
 	if len(args) >= 2 {
