@@ -6,6 +6,8 @@ package fakeworkloadapi
 import (
 	"fmt"
 	"math/rand"
+	"net"
+	"strings"
 	"testing"
 	"time"
 
@@ -33,12 +35,31 @@ func NewWithNamedPipeListener(tb testing.TB) *WorkloadAPI {
 		_ = server.Serve(listener)
 	}()
 
-	w.addr = listener.Addr().String()
+	w.addr = getTargetName(listener.Addr())
 	tb.Logf("WorkloadAPI address: %s", w.addr)
 	w.server = server
 	return w
 }
 
+func GetPipeName(s string) string {
+	return strings.TrimPrefix(s, `\\.\pipe`)
+}
+
 func init() {
 	rand.Seed(time.Now().UnixNano())
+}
+
+func newListener() (net.Listener, error) {
+	return winio.ListenPipe(fmt.Sprintf(`\\.\pipe\go-spiffe-test-pipe-%x`, rand.Uint64()), nil)
+}
+
+func getTargetName(addr net.Addr) string {
+	if addr.Network() == "pipe" {
+		// The go-winio library defines the network of a
+		// named pipe address as "pipe", but we use the
+		// "npipe" scheme for named pipes URLs.
+		return "npipe:" + GetPipeName(addr.String())
+	}
+
+	return fmt.Sprintf("%s://%s", addr.Network(), addr.String())
 }

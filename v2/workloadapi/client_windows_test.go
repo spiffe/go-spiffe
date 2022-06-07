@@ -18,7 +18,7 @@ func TestWithNamedPipeName(t *testing.T) {
 	wl := fakeworkloadapi.NewWithNamedPipeListener(t)
 	defer wl.Stop()
 
-	pipeName := getPipeName(wl.Addr())
+	pipeName := strings.TrimPrefix(wl.Addr(), "npipe:")
 	c, err := New(context.Background(), WithNamedPipeName(pipeName))
 	require.NoError(t, err)
 	defer c.Close()
@@ -46,8 +46,4 @@ func TestWithNamedPipeNameError(t *testing.T) {
 	_, err = c.FetchX509SVID(context.Background())
 	require.Error(t, err)
 	require.Contains(t, err.Error(), `ohno: The system cannot find the file specified`)
-}
-
-func getPipeName(s string) string {
-	return strings.TrimPrefix(s, `\\.\pipe`)
 }
