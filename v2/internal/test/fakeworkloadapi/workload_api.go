@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net"
 	"sync"
 	"testing"
 
@@ -51,7 +50,7 @@ func New(tb testing.TB) *WorkloadAPI {
 		x509BundlesChans: make(map[chan *workload.X509BundlesResponse]struct{}),
 	}
 
-	listener, err := net.Listen("tcp", "localhost:0")
+	listener, err := newListener()
 	require.NoError(tb, err)
 
 	server := grpc.NewServer()
@@ -63,7 +62,7 @@ func New(tb testing.TB) *WorkloadAPI {
 		_ = server.Serve(listener)
 	}()
 
-	w.addr = fmt.Sprintf("%s://%s", listener.Addr().Network(), listener.Addr().String())
+	w.addr = getTargetName(listener.Addr())
 	tb.Logf("WorkloadAPI address: %s", w.addr)
 	w.server = server
 	return w

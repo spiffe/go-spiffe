@@ -49,6 +49,26 @@ type testEnv struct {
 	err          error
 }
 
+type listenAndDialCase struct {
+	name string
+
+	dialMode   spiffetls.DialMode
+	dialOption []spiffetls.DialOption
+
+	listenMode   spiffetls.ListenMode
+	listenOption []spiffetls.ListenOption
+
+	defaultWlAPIAddr    string
+	dialErr             string
+	listenErr           string
+	listenLAddr         string
+	listenProtocol      string
+	serverConnPeerIDErr string
+	clientConnPeerIDErr string
+	usesExternalDialer  bool
+	usesBaseTLSConfig   bool
+}
+
 func TestListenAndDial(t *testing.T) {
 	testEnv, cleanup := setupTestEnv(t)
 	defer cleanup()
@@ -67,33 +87,8 @@ func TestListenAndDial(t *testing.T) {
 	externalTLSConfBuffer := &bytes.Buffer{}
 
 	// Test Table
-	tests := []struct {
-		name string
-
-		dialMode   spiffetls.DialMode
-		dialOption []spiffetls.DialOption
-
-		listenMode   spiffetls.ListenMode
-		listenOption []spiffetls.ListenOption
-
-		defaultWlAPIAddr    string
-		dialErr             string
-		listenErr           string
-		listenLAddr         string
-		listenProtocol      string
-		serverConnPeerIDErr string
-		clientConnPeerIDErr string
-		usesExternalDialer  bool
-		usesBaseTLSConfig   bool
-	}{
+	tests := []listenAndDialCase{
 		// Failure Scenarios
-		{
-			name:             "Wrong workload API server socket",
-			dialMode:         spiffetls.TLSClient(tlsconfig.AuthorizeID(serverID)),
-			defaultWlAPIAddr: "wrong-socket-path",
-			dialErr:          "spiffetls: cannot create X.509 source: workload endpoint socket URI must have a tcp:// or unix:// scheme",
-			listenErr:        "spiffetls: cannot create X.509 source: workload endpoint socket URI must have a tcp:// or unix:// scheme",
-		},
 		{
 			name:             "No server listening",
 			dialMode:         spiffetls.TLSClient(tlsconfig.AuthorizeID(serverID)),
@@ -248,6 +243,7 @@ func TestListenAndDial(t *testing.T) {
 			clientConnPeerIDErr: "spiffetls: no URI SANs",
 		},
 	}
+	tests = append(tests, listenAndDialCasesOS()...)
 
 	for _, test := range tests {
 		test := test
