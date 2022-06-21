@@ -15,11 +15,11 @@ import (
 )
 
 const (
-	socketPath    = "unix:///tmp/agent.sock"
-	serverAddress = "localhost:55555"
+	socketPath    = "unix:////run/spire/sockets/agent.sock"
+	serverAddress = "go-spiffe-server-service:55555"
 )
 
-func main() {
+func dial() {
 	// Setup context
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -50,4 +50,14 @@ func main() {
 		log.Fatalf("Unable to read server response: %v", err)
 	}
 	log.Printf("Server says: %q", status)
+}
+
+func main() {
+	ticker := time.NewTicker(10 * time.Second)
+	for {
+		select {
+		case <-ticker.C:
+			dial()
+		}
+	}
 }

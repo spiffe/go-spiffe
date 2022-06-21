@@ -13,8 +13,8 @@ import (
 )
 
 const (
-	socketPath    = "unix:///tmp/agent.sock"
-	serverAddress = "localhost:55555"
+	socketPath    = "unix:////run/spire/sockets/agent.sock"
+	serverAddress = "0.0.0.0:55555"
 )
 
 func main() {
@@ -24,6 +24,7 @@ func main() {
 
 	// Allowed SPIFFE ID
 	clientID := spiffeid.RequireFromString("spiffe://example.org/client")
+	log.Printf("Server starting on %s", serverAddress)
 
 	// Creates a TLS listener
 	// The server expects the client to present an SVID with the spiffeID: 'spiffe://example.org/client'
@@ -38,6 +39,7 @@ func main() {
 		log.Fatalf("Unable to create TLS listener: %v", err)
 	}
 	defer listener.Close()
+	log.Print("Server started")
 
 	// Handle connections
 	for {
