@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.1.1] - 2022-06-29
+
+### Added
+- Support for dialing named pipes using an npipe URL scheme (#198)
+
 ## [2.1.0] - 2022-04-29
 
 ### Added
