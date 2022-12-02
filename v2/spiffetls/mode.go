@@ -135,7 +135,7 @@ func MTLSClient(authorizer tlsconfig.Authorizer) DialMode {
 	}
 }
 
-// MTLSClientWithSource configures the dialing for mutally authenticated TLS
+// MTLSClientWithSource configures the dialing for mutually authenticated TLS
 // (mTLS). The client X509-SVID and the X.509 bundles used to authenticate the
 // server X509-SVID are obtained via the provided Workload API X.509 source.
 // The source must remain valid for the lifetime of the connection. The
