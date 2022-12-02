@@ -24,14 +24,14 @@ func (fn dialOption) apply(c *dialConfig) {
 type dialConfig struct {
 	baseTLSConf *tls.Config
 	dialer      *net.Dialer
-	tlsoptions  []tlsconfig.Option
+	tlsOptions  []tlsconfig.Option
 }
 
 type listenOption func(*listenConfig)
 
 type listenConfig struct {
 	baseTLSConf *tls.Config
-	tlsoptions  []tlsconfig.Option
+	tlsOptions  []tlsconfig.Option
 }
 
 func (fn listenOption) apply(c *listenConfig) {
@@ -50,7 +50,7 @@ func WithDialTLSConfigBase(base *tls.Config) DialOption {
 // WithDialTLSOptions provides options to use for the TLS config.
 func WithDialTLSOptions(opts ...tlsconfig.Option) DialOption {
 	return dialOption(func(c *dialConfig) {
-		c.tlsoptions = opts
+		c.tlsOptions = opts
 	})
 }
 
@@ -79,6 +79,6 @@ func WithListenTLSConfigBase(base *tls.Config) ListenOption {
 // WithListenTLSOptions provides options to use when doing Server mTLS.
 func WithListenTLSOptions(opts ...tlsconfig.Option) ListenOption {
 	return listenOption(func(c *listenConfig) {
-		c.tlsoptions = opts
+		c.tlsOptions = opts
 	})
 }
