@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net"
 
@@ -27,14 +28,17 @@ func (s *server) SayHello(ctx context.Context, in *pb.HelloRequest) (*pb.HelloRe
 }
 
 func main() {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	if err := run(context.Background()); err != nil {
+		log.Fatal(err)
+	}
+}
 
+func run(ctx context.Context) error {
 	// Create a `workloadapi.X509Source`, it will connect to Workload API using provided socket path
 	// If socket path is not defined using `workloadapi.SourceOption`, value from environment variable `SPIFFE_ENDPOINT_SOCKET` is used.
 	source, err := workloadapi.NewX509Source(ctx, workloadapi.WithClientOptions(workloadapi.WithAddr(socketPath)))
 	if err != nil {
-		log.Fatalf("Unable to create X509Source: %v", err)
+		return fmt.Errorf("unable to create X509Source: %w", err)
 	}
 	defer source.Close()
 
@@ -48,12 +52,13 @@ func main() {
 
 	lis, err := net.Listen("tcp", "127.0.0.1:50051")
 	if err != nil {
-		log.Fatalf("Error creating listener: %v", err)
+		return fmt.Errorf("error creating listener: %w", err)
 	}
 
 	pb.RegisterGreeterServer(s, &server{})
 
 	if err := s.Serve(lis); err != nil {
-		log.Fatal(err)
+		return fmt.Errorf("failed to serve: %w", err)
 	}
+	return nil
 }

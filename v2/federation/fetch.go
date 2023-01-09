@@ -49,7 +49,8 @@ func WithWebPKIRoots(rootCAs *x509.CertPool) FetchOption {
 			return federationErr.New("cannot use both SPIFFE and Web PKI authentication")
 		}
 		o.transport.TLSClientConfig = &tls.Config{
-			RootCAs: rootCAs,
+			RootCAs:    rootCAs,
+			MinVersion: tls.VersionTLS12,
 		}
 		o.authMethod = authMethodWebPKI
 		return nil

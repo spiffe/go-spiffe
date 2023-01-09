@@ -232,7 +232,7 @@ func TestMarshal(t *testing.T) {
 	expBytes, err := ioutil.ReadFile("testdata/certs.pem")
 	require.NoError(t, err)
 
-	//Assert the marshalled bundle is equal to the one loaded
+	// Assert the marshalled bundle is equal to the one loaded
 	assert.Equal(t, expBytes, pemBytes)
 }
 

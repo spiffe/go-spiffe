@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -18,14 +19,20 @@ const (
 )
 
 func main() {
-	ctx, cancel := context.WithCancel(context.Background())
+	if err := run(context.Background()); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func run(ctx context.Context) error {
+	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	// Create a `workloadapi.X509Source`, it will connect to Workload API using provided socket path
 	// If socket path is not defined using `workloadapi.SourceOption`, value from environment variable `SPIFFE_ENDPOINT_SOCKET` is used.
 	source, err := workloadapi.NewX509Source(ctx, workloadapi.WithClientOptions(workloadapi.WithAddr(socketPath)))
 	if err != nil {
-		log.Fatalf("Unable to create X509Source %v", err)
+		return fmt.Errorf("unable to create X509Source: %w", err)
 	}
 	defer source.Close()
 
@@ -42,14 +49,15 @@ func main() {
 
 	r, err := client.Get(serverURL)
 	if err != nil {
-		log.Fatalf("Error connecting to %q: %v", serverURL, err)
+		return fmt.Errorf("error connecting to %q: %w", serverURL, err)
 	}
 
 	defer r.Body.Close()
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		log.Fatalf("Unable to read body: %v", err)
+		return fmt.Errorf("unable to read body: %w", err)
 	}
 
 	log.Printf("%s", body)
+	return nil
 }

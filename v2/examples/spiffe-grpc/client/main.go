@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 
 	"github.com/spiffe/go-spiffe/v2/spiffegrpc/grpccredentials"
@@ -16,14 +17,17 @@ import (
 const socketPath = "unix:///tmp/agent.sock"
 
 func main() {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	if err := run(context.Background()); err != nil {
+		log.Fatal(err)
+	}
+}
 
+func run(ctx context.Context) error {
 	// Create a `workloadapi.X509Source`, it will connect to Workload API using provided socket path
 	// If socket path is not defined using `workloadapi.SourceOption`, value from environment variable `SPIFFE_ENDPOINT_SOCKET` is used.
 	source, err := workloadapi.NewX509Source(ctx, workloadapi.WithClientOptions(workloadapi.WithAddr(socketPath)))
 	if err != nil {
-		log.Fatalf("Unable to create X509Source: %v", err)
+		return fmt.Errorf("unable to create X509Source: %w", err)
 	}
 	defer source.Close()
 
@@ -35,14 +39,15 @@ func main() {
 		grpccredentials.MTLSClientCredentials(source, source, tlsconfig.AuthorizeID(serverID)),
 	))
 	if err != nil {
-		log.Fatalf("Error creating dial: %v", err)
+		return fmt.Errorf("failed to dial: %w", err)
 	}
 
 	client := pb.NewGreeterClient(conn)
 	reply, err := client.SayHello(ctx, &pb.HelloRequest{Name: "world"})
 	if err != nil {
-		log.Fatalf("Error connecting to server %v", err)
+		return fmt.Errorf("failed issuing RPC to server: %w", err)
 	}
 
 	log.Print(reply.Message)
+	return nil
 }

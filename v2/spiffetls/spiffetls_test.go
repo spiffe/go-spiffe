@@ -125,6 +125,7 @@ func TestListenAndDial(t *testing.T) {
 			usesBaseTLSConfig:   true,
 			dialOption: []spiffetls.DialOption{
 				spiffetls.WithDialTLSConfigBase(&tls.Config{
+					MinVersion:   tls.VersionTLS12,
 					KeyLogWriter: externalTLSConfBuffer,
 				}),
 			},
@@ -151,6 +152,7 @@ func TestListenAndDial(t *testing.T) {
 			listenMode: spiffetls.TLSServerWithSource(testEnv.wlAPISourceA),
 			listenOption: []spiffetls.ListenOption{
 				spiffetls.WithListenTLSConfigBase(&tls.Config{
+					MinVersion:   tls.VersionTLS12,
 					KeyLogWriter: externalTLSConfBuffer,
 				}),
 			},

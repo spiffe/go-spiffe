@@ -2,10 +2,12 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
 	"github.com/spiffe/go-spiffe/v2/svid/jwtsvid"
@@ -63,8 +65,12 @@ func svidClaims(ctx context.Context) map[string]interface{} {
 }
 
 func main() {
-	ctx := context.Background()
+	if err := run(context.Background()); err != nil {
+		log.Fatal(err)
+	}
+}
 
+func run(ctx context.Context) error {
 	// Create options to configure Sources to use expected socket path,
 	// as default sources will use value environment variable `SPIFFE_ENDPOINT_SOCKET`
 	clientOptions := workloadapi.WithClientOptions(workloadapi.WithAddr(socketPath))
@@ -72,21 +78,22 @@ func main() {
 	// Create a X509Source using previously create workloadapi client
 	x509Source, err := workloadapi.NewX509Source(ctx, clientOptions)
 	if err != nil {
-		log.Fatalf("Unable to create X509Source: %v", err)
+		return fmt.Errorf("unable to create X509Source: %w", err)
 	}
 	defer x509Source.Close()
 
 	// Create a `tls.Config` with configuration to allow TLS communication with client
 	tlsConfig := tlsconfig.TLSServerConfig(x509Source)
 	server := &http.Server{
-		Addr:      ":8443",
-		TLSConfig: tlsConfig,
+		Addr:              ":8443",
+		TLSConfig:         tlsConfig,
+		ReadHeaderTimeout: time.Second * 10,
 	}
 
 	// Create a JWTSource to validate provided tokens from clients
 	jwtSource, err := workloadapi.NewJWTSource(ctx, clientOptions)
 	if err != nil {
-		log.Fatalf("Unable to create JWTSource: %v", err)
+		return fmt.Errorf("unable to create JWTSource: %w", err)
 	}
 	defer jwtSource.Close()
 
@@ -97,5 +104,8 @@ func main() {
 	}
 	http.Handle("/", auth.authenticateClient(http.HandlerFunc(index)))
 
-	log.Fatal(server.ListenAndServeTLS("", ""))
+	if err := server.ListenAndServeTLS("", ""); err != nil {
+		return fmt.Errorf("failed to serve: %w", err)
+	}
+	return nil
 }

@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/spiffe/go-spiffe/v2/bundle/spiffebundle"
 	"github.com/spiffe/go-spiffe/v2/internal/test"
@@ -39,6 +40,7 @@ func New(tb testing.TB, option ...ServerOption) *Server {
 	rootCAs, cert := test.CreateWebCredentials(tb)
 	tlscfg := &tls.Config{
 		Certificates: []tls.Certificate{*cert},
+		MinVersion:   tls.VersionTLS12,
 	}
 
 	s := &Server{
@@ -54,8 +56,9 @@ func New(tb testing.TB, option ...ServerOption) *Server {
 	sm := http.NewServeMux()
 	sm.HandleFunc("/test-bundle", s.testbundle)
 	s.httpServer = &http.Server{
-		Handler:   sm,
-		TLSConfig: s.tlscfg,
+		Handler:           sm,
+		TLSConfig:         s.tlscfg,
+		ReadHeaderTimeout: time.Second * 10,
 	}
 	err := s.start()
 	if err != nil {

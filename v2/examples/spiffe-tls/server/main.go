@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"log"
 	"net"
 
@@ -18,10 +19,12 @@ const (
 )
 
 func main() {
-	// Setup context
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	if err := run(context.Background()); err != nil {
+		log.Fatal(err)
+	}
+}
 
+func run(ctx context.Context) error {
 	// Allowed SPIFFE ID
 	clientID := spiffeid.RequireFromString("spiffe://example.org/client")
 
@@ -35,7 +38,7 @@ func main() {
 			workloadapi.WithClientOptions(workloadapi.WithAddr(socketPath)),
 		))
 	if err != nil {
-		log.Fatalf("Unable to create TLS listener: %v", err)
+		return fmt.Errorf("unable to create TLS listener: %w", err)
 	}
 	defer listener.Close()
 
@@ -43,7 +46,7 @@ func main() {
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
-			go handleError(err)
+			return fmt.Errorf("failed to accept connection: %w", err)
 		}
 		go handleConnection(conn)
 	}
@@ -65,8 +68,4 @@ func handleConnection(conn net.Conn) {
 		log.Printf("Unable to send response: %v", err)
 		return
 	}
-}
-
-func handleError(err error) {
-	log.Printf("Unable to accept connection: %v", err)
 }

@@ -17,11 +17,11 @@ linters:
     - bodyclose
     - depguard
     - goimports
-    - golint
+    - revive
     - gosec
     - misspell
     - nakedret
-    - scopelint
+    - exportloopref
     - unconvert
     - unparam
     - whitespace

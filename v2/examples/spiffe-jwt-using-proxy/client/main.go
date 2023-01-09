@@ -21,8 +21,14 @@ const (
 )
 
 func main() {
+	if err := run(context.Background()); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func run(ctx context.Context) error {
 	// Set a timeout to prevent the request from hanging if this workload is not properly registered in SPIRE.
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
 	clientOptions := workloadapi.WithClientOptions(workloadapi.WithAddr(socketPath))
@@ -30,7 +36,7 @@ func main() {
 	// Create an X509Source struct to fetch the trust bundle as needed to verify the X509-SVID presented by the server.
 	x509Source, err := workloadapi.NewX509Source(ctx, clientOptions)
 	if err != nil {
-		log.Fatalf("Unable to create X509Source %v", err)
+		return fmt.Errorf("unable to create X509Source: %w", err)
 	}
 	defer x509Source.Close()
 
@@ -47,7 +53,7 @@ func main() {
 	// Create a JWTSource to fetch JWT-SVIDs
 	jwtSource, err := workloadapi.NewJWTSource(ctx, clientOptions)
 	if err != nil {
-		log.Fatalf("Unable to create JWTSource: %v", err)
+		return fmt.Errorf("unable to create JWTSource: %w", err)
 	}
 	defer jwtSource.Close()
 
@@ -57,12 +63,12 @@ func main() {
 		Audience: audience,
 	})
 	if err != nil {
-		log.Fatalf("Unable to fetch SVID: %v", err)
+		return fmt.Errorf("unable to fetch SVID: %w", err)
 	}
 
 	req, err := http.NewRequest("GET", serverURL, nil)
 	if err != nil {
-		log.Fatalf("Unable to create request: %v", err)
+		return fmt.Errorf("unable to create request: %w", err)
 	}
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", svid.Marshal()))
 
@@ -76,18 +82,19 @@ func main() {
 	}
 	res, err := client.Do(req)
 	if err != nil {
-		log.Fatalf("Unable to connect to %q: %v", serverURL, err)
+		return fmt.Errorf("unable to connect to %q: %w", serverURL, err)
 	}
 	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusOK {
-		log.Fatalf("%v", res.Status)
+		return fmt.Errorf("unexpected status: %d", res.StatusCode)
 	}
 
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		log.Fatalf("Error reading response body: %v", err)
+		return fmt.Errorf("error reading response body: %w", err)
 	}
 
 	log.Printf("%s", body)
+	return nil
 }

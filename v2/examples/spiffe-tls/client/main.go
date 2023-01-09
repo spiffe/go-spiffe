@@ -20,8 +20,13 @@ const (
 )
 
 func main() {
-	// Setup context
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	if err := run(context.Background()); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func run(ctx context.Context) error {
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 
 	// Allowed SPIFFE ID
@@ -37,7 +42,7 @@ func main() {
 			workloadapi.WithClientOptions(workloadapi.WithAddr(socketPath)),
 		))
 	if err != nil {
-		log.Fatalf("Unable to create TLS connection: %v", err)
+		return fmt.Errorf("unable to create TLS connection: %w", err)
 	}
 	defer conn.Close()
 
@@ -47,7 +52,8 @@ func main() {
 	// Read server response
 	status, err := bufio.NewReader(conn).ReadString('\n')
 	if err != nil && err != io.EOF {
-		log.Fatalf("Unable to read server response: %v", err)
+		return fmt.Errorf("unable to read server response: %w", err)
 	}
 	log.Printf("Server says: %q", status)
+	return nil
 }
