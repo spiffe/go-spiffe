@@ -119,7 +119,7 @@ endif
 
 .PHONY: lint
 lint: $(golangci_lint_bin) | go-check
-	cd ./v2; PATH="$(go_bin_dir):$(PATH)" $(golangci_lint_bin) run ./...
+	@cd ./v2; PATH="$(go_bin_dir):$(PATH)" $(golangci_lint_bin) run ./...
 
 $(golangci_lint_bin):
 	@echo "Installing golangci-lint $(golangci_lint_version)..."
