@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.1.2] - 2023-01-09
+
+### Changed
+- Minimum supported go version to 1.17 (#209)
+
 ## [2.1.1] - 2022-06-29
 
 ### Added
