@@ -70,7 +70,7 @@ protoc_gen_go_grpc_base_dir := $(build_dir)/protoc-gen-go-grpc
 protoc_gen_go_grpc_dir := $(protoc_gen_go_grpc_base_dir)/$(protoc_gen_go_grpc_version)-go$(go_version)
 protoc_gen_go_grpc_bin := $(protoc_gen_go_grpc_dir)/protoc-gen-go-grpc
 
-golangci_lint_version = v1.24.0
+golangci_lint_version = v1.50.1
 golangci_lint_dir = $(build_dir)/golangci_lint/$(golangci_lint_version)
 golangci_lint_bin = $(golangci_lint_dir)/golangci-lint
 
@@ -81,7 +81,7 @@ apiprotos := \
 # Toolchain
 #############################################################################
 
-go_version_full := 1.13.15
+go_version_full := 1.17.13
 go_version := $(go_version_full:.0=)
 go_dir := $(build_dir)/go/$(go_version)
 
@@ -128,6 +128,14 @@ $(golangci_lint_bin):
 	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(golangci_lint_dir) $(golangci_lint_version)
 
 #############################################################################
+# Tidy
+#############################################################################
+
+.PHONY: test
+tidy: | go-check
+	@cd ./v2; $(go_path) go mod tidy
+
+#############################################################################
 # Testing
 #############################################################################
 
@@ -166,14 +174,13 @@ $(protoc_gen_go_bin): | go-check
 	@echo "Installing protoc-gen-go $(protoc_gen_go_version)..."
 	@rm -rf $(protoc_gen_go_base_dir)
 	@mkdir -p $(protoc_gen_go_dir)
-	@$(go_path) go build -o $(protoc_gen_go_bin) google.golang.org/protobuf/cmd/protoc-gen-go
+	@GOBIN="$(protoc_gen_go_dir)" $(go_path) go install google.golang.org/protobuf/cmd/protoc-gen-go@$(protoc_gen_go_version)
 
 $(protoc_gen_go_grpc_bin): | go-check
 	@echo "Installing protoc-gen-go-grpc $(protoc_gen_go_grpc_version)..."
 	@rm -rf $(protoc_gen_go_grpc_base_dir)
 	@mkdir -p $(protoc_gen_go_grpc_dir)
-	@echo "module tools" > $(protoc_gen_go_grpc_dir)/go.mod
-	@cd $(protoc_gen_go_grpc_dir) && GOBIN=$(protoc_gen_go_grpc_dir) $(go_path) go get google.golang.org/grpc/cmd/protoc-gen-go-grpc@$(protoc_gen_go_grpc_version)
+	@GOBIN=$(protoc_gen_go_grpc_dir) $(go_path) go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@$(protoc_gen_go_grpc_version)
 
 #############################################################################
 # Code Generation Checks

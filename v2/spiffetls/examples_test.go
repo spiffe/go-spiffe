@@ -25,6 +25,7 @@ func ExampleListenMTLS_customTLSConfigBase() {
 	baseConfig := &tls.Config{
 		// TODO: set up custom configuration. Note that the spiffetls package
 		// will override certificate and verification related fields.
+		MinVersion: tls.VersionTLS12,
 	}
 
 	listener, err := spiffetls.Listen(context.TODO(), "tcp", ":8443", tlsconfig.AuthorizeMemberOf(td), spiffetls.WithListenTLSConfigBase(baseConfig))

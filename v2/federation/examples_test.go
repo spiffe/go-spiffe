@@ -3,6 +3,7 @@ package federation_test
 import (
 	"context"
 	"net/http"
+	"time"
 
 	"github.com/spiffe/go-spiffe/v2/bundle/spiffebundle"
 	"github.com/spiffe/go-spiffe/v2/federation"
@@ -119,7 +120,12 @@ func ExampleHandler_webPKI() {
 		// TODO: handle error
 	}
 
-	if err := http.ListenAndServeTLS(":8443", "cert.pem", "key.pem", handler); err != nil {
+	server := http.Server{
+		Addr:              ":8443",
+		Handler:           handler,
+		ReadHeaderTimeout: time.Second * 10, // TODO: set this appropriately
+	}
+	if err := server.ListenAndServeTLS("", ""); err != nil {
 		// TODO: handle error
 	}
 }
@@ -150,9 +156,10 @@ func ExampleHandler_sPIFFEAuth() {
 	}
 
 	server := http.Server{
-		Addr:      ":8443",
-		Handler:   handler,
-		TLSConfig: tlsconfig.TLSServerConfig(x509Source),
+		Addr:              ":8443",
+		Handler:           handler,
+		ReadHeaderTimeout: time.Second * 10, // TODO: set this appropriately
+		TLSConfig:         tlsconfig.TLSServerConfig(x509Source),
 	}
 	if err := server.ListenAndServeTLS("", ""); err != nil {
 		// TODO: handle error

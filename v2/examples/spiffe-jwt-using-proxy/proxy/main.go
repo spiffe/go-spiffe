@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"net/http/httputil"
@@ -16,13 +17,19 @@ import (
 const socketPath = "unix:///tmp/agent.sock"
 
 func main() {
+	if err := run(context.Background()); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func run(ctx context.Context) error {
 	remote, err := url.Parse("https://localhost:8080")
 	if err != nil {
-		log.Fatalf("Unable to parse server URL: %v", err)
+		return fmt.Errorf("unable to parse server URL: %w", err)
 	}
 
 	// Set a timeout to prevent the request from hanging if this workload is not properly registered in SPIRE.
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
 	// Create an X509Source struct to fetch a SPIFFE X.509-SVID automatically from the
@@ -33,7 +40,7 @@ func main() {
 		workloadapi.WithClientOptions(workloadapi.WithAddr(socketPath)),
 	)
 	if err != nil {
-		log.Fatalf("Unable to create X509Source: %v", err)
+		return fmt.Errorf("unable to create X509Source: %w", err)
 	}
 	defer x509Source.Close()
 
@@ -53,10 +60,14 @@ func main() {
 	// client certificates, because the proxy is not in charge of authenticating
 	// the clients.
 	server := &http.Server{
-		Addr:      ":8443",
-		TLSConfig: tlsconfig.TLSServerConfig(x509Source),
+		Addr:              ":8443",
+		TLSConfig:         tlsconfig.TLSServerConfig(x509Source),
+		ReadHeaderTimeout: time.Second * 10,
 	}
-	log.Fatal(server.ListenAndServeTLS("", ""))
+	if err := server.ListenAndServeTLS("", ""); err != nil {
+		return fmt.Errorf("failed to serve: %w", err)
+	}
+	return nil
 }
 
 func handler(p *httputil.ReverseProxy) func(http.ResponseWriter, *http.Request) {

@@ -129,7 +129,7 @@ func TestParse(t *testing.T) {
 			name:           "Corrupt certificate",
 			keyPath:        keyRSA,
 			certsPath:      corruptCert,
-			expErrContains: "x509svid: cannot parse PEM encoded certificate: asn1: structure error:",
+			expErrContains: "x509svid: cannot parse PEM encoded certificate: x509: malformed certificate",
 		},
 		{
 			name:           "Certificate does not match private key",

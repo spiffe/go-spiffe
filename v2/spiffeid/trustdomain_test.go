@@ -129,7 +129,7 @@ func TestTrustDomainCompare(t *testing.T) {
 	a := spiffeid.RequireTrustDomainFromString("a")
 	b := spiffeid.RequireTrustDomainFromString("b")
 	assert.Equal(t, -1, a.Compare(b))
-	assert.Equal(t, 0, a.Compare(a))
+	assert.Equal(t, 0, a.Compare(a)) //nolint:gocritic // this comparison is intentional.
 	assert.Equal(t, 1, b.Compare(a))
 }
 
