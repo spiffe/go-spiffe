@@ -23,7 +23,7 @@ func NewWithNamedPipeListener(tb testing.TB) *WorkloadAPI {
 		jwtBundlesChans: make(map[chan *workload.JWTBundlesResponse]struct{}),
 	}
 
-	listener, err := winio.ListenPipe(fmt.Sprintf(`\\.\pipe\go-spiffe-test-pipe-%x`, rand.Uint64()), nil)
+	listener, err := winio.ListenPipe(fmt.Sprintf(`\\.\pipe\go-spiffe-test-pipe-%x`, rand.Uint64()), nil) //nolint: gosec // not use for crypto
 	require.NoError(tb, err)
 
 	server := grpc.NewServer()
@@ -50,7 +50,7 @@ func init() {
 }
 
 func newListener() (net.Listener, error) {
-	return winio.ListenPipe(fmt.Sprintf(`\\.\pipe\go-spiffe-test-pipe-%x`, rand.Uint64()), nil)
+	return winio.ListenPipe(fmt.Sprintf(`\\.\pipe\go-spiffe-test-pipe-%x`, rand.Uint64()), nil) //nolint: gosec // not used for crypto
 }
 
 func getTargetName(addr net.Addr) string {
