@@ -149,7 +149,10 @@ type X509SVID struct {
 	X509SvidKey []byte `protobuf:"bytes,3,opt,name=x509_svid_key,json=x509SvidKey,proto3" json:"x509_svid_key,omitempty"`
 	// Required. ASN.1 DER encoded X.509 bundle for the trust domain.
 	Bundle []byte `protobuf:"bytes,4,opt,name=bundle,proto3" json:"bundle,omitempty"`
-	// Optional. Hint string that helps the workload decide which SVID to use.
+	// Optional. An operator-specified string used to provide guidance on how this
+	// identity should be used by a workload when more than one SVID is returned.
+	// For example, `internal` and `external` to indicate an SVID for internal or
+	// external use, respectively.
 	Hint string `protobuf:"bytes,5,opt,name=hint,proto3" json:"hint,omitempty"`
 }
 
@@ -438,7 +441,10 @@ type JWTSVID struct {
 	SpiffeId string `protobuf:"bytes,1,opt,name=spiffe_id,json=spiffeId,proto3" json:"spiffe_id,omitempty"`
 	// Required. Encoded JWT using JWS Compact Serialization.
 	Svid string `protobuf:"bytes,2,opt,name=svid,proto3" json:"svid,omitempty"`
-	// Optional. Hint string that helps the workload decide which SVID to use.
+	// Optional. An operator-specified string used to provide guidance on how this
+	// identity should be used by a workload when more than one SVID is returned.
+	// For example, `internal` and `external` to indicate an SVID for internal or
+	// external use, respectively.
 	Hint string `protobuf:"bytes,3,opt,name=hint,proto3" json:"hint,omitempty"`
 }
 
