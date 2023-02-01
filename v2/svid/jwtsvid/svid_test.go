@@ -10,13 +10,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-jose/go-jose/v3"
+	"github.com/go-jose/go-jose/v3/cryptosigner"
+	"github.com/go-jose/go-jose/v3/jwt"
 	"github.com/spiffe/go-spiffe/v2/bundle/jwtbundle"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/spiffe/go-spiffe/v2/svid/jwtsvid"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/square/go-jose.v2"
-	"gopkg.in/square/go-jose.v2/cryptosigner"
-	"gopkg.in/square/go-jose.v2/jwt"
 )
 
 const hs256Token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG" +
@@ -234,7 +234,7 @@ func TestParseAndValidate(t *testing.T) {
 
 				return generateToken(tb, claims, key2, "authority1")
 			},
-			err: "jwtsvid: unable to get claims from token: square/go-jose: error in cryptographic primitive",
+			err: "jwtsvid: unable to get claims from token: go-jose/go-jose: error in cryptographic primitive",
 		},
 	}
 
