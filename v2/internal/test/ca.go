@@ -40,14 +40,26 @@ type CA struct {
 	jwtKid string
 }
 
-type CertificateOption interface {
-	apply(*x509.Certificate)
+type SVIDOption interface {
+	applyCertOption(*x509.Certificate)
+	applySVIDOption(svid *x509svid.SVID)
 }
 
-type certificateOption func(*x509.Certificate)
+type SvidOption struct {
+	certificateOption func(*x509.Certificate)
+	x509SvidOption    func(*x509svid.SVID)
+}
 
-func (co certificateOption) apply(c *x509.Certificate) {
-	co(c)
+func (s SvidOption) applyCertOption(certificate *x509.Certificate) {
+	if s.certificateOption != nil {
+		s.certificateOption(certificate)
+	}
+}
+
+func (s SvidOption) applySVIDOption(svid *x509svid.SVID) {
+	if s.x509SvidOption != nil {
+		s.x509SvidOption(svid)
+	}
 }
 
 func NewCA(tb testing.TB, td spiffeid.TrustDomain) *CA {
@@ -62,7 +74,7 @@ func NewCA(tb testing.TB, td spiffeid.TrustDomain) *CA {
 	}
 }
 
-func (ca *CA) ChildCA(options ...CertificateOption) *CA {
+func (ca *CA) ChildCA(options ...SVIDOption) *CA {
 	cert, key := CreateCACertificate(ca.tb, ca.cert, ca.key, options...)
 	return &CA{
 		tb:     ca.tb,
@@ -74,16 +86,18 @@ func (ca *CA) ChildCA(options ...CertificateOption) *CA {
 	}
 }
 
-func (ca *CA) CreateX509SVID(id spiffeid.ID, options ...CertificateOption) *x509svid.SVID {
+func (ca *CA) CreateX509SVID(id spiffeid.ID, options ...SVIDOption) *x509svid.SVID {
 	cert, key := CreateX509SVID(ca.tb, ca.cert, ca.key, id, options...)
-	return &x509svid.SVID{
+	svid := &x509svid.SVID{
 		ID:           id,
 		Certificates: append([]*x509.Certificate{cert}, ca.chain(false)...),
 		PrivateKey:   key,
 	}
+	applySVIDOptions(svid, options...)
+	return svid
 }
 
-func (ca *CA) CreateX509Certificate(options ...CertificateOption) ([]*x509.Certificate, crypto.Signer) {
+func (ca *CA) CreateX509Certificate(options ...SVIDOption) ([]*x509.Certificate, crypto.Signer) {
 	cert, key := CreateX509Certificate(ca.tb, ca.cert, ca.key, options...)
 	return append([]*x509.Certificate{cert}, ca.chain(false)...), key
 }
@@ -146,7 +160,7 @@ func (ca *CA) JWTBundle() *jwtbundle.Bundle {
 	return jwtbundle.FromJWTAuthorities(ca.td, ca.JWTAuthorities())
 }
 
-func CreateCACertificate(tb testing.TB, parent *x509.Certificate, parentKey crypto.Signer, options ...CertificateOption) (*x509.Certificate, crypto.Signer) {
+func CreateCACertificate(tb testing.TB, parent *x509.Certificate, parentKey crypto.Signer, options ...SVIDOption) (*x509.Certificate, crypto.Signer) {
 	now := time.Now()
 	serial := NewSerial(tb)
 	key := NewEC256Key(tb)
@@ -161,7 +175,7 @@ func CreateCACertificate(tb testing.TB, parent *x509.Certificate, parentKey cryp
 		NotAfter:              now.Add(time.Hour),
 	}
 
-	applyOptions(tmpl, options...)
+	applyCertOptions(tmpl, options...)
 
 	if parent == nil {
 		parent = tmpl
@@ -170,7 +184,7 @@ func CreateCACertificate(tb testing.TB, parent *x509.Certificate, parentKey cryp
 	return CreateCertificate(tb, tmpl, parent, key.Public(), parentKey), key
 }
 
-func CreateX509Certificate(tb testing.TB, parent *x509.Certificate, parentKey crypto.Signer, options ...CertificateOption) (*x509.Certificate, crypto.Signer) {
+func CreateX509Certificate(tb testing.TB, parent *x509.Certificate, parentKey crypto.Signer, options ...SVIDOption) (*x509.Certificate, crypto.Signer) {
 	now := time.Now()
 	serial := NewSerial(tb)
 	key := NewEC256Key(tb)
@@ -184,12 +198,12 @@ func CreateX509Certificate(tb testing.TB, parent *x509.Certificate, parentKey cr
 		KeyUsage:  x509.KeyUsageDigitalSignature,
 	}
 
-	applyOptions(tmpl, options...)
+	applyCertOptions(tmpl, options...)
 
 	return CreateCertificate(tb, tmpl, parent, key.Public(), parentKey), key
 }
 
-func CreateX509SVID(tb testing.TB, parent *x509.Certificate, parentKey crypto.Signer, id spiffeid.ID, options ...CertificateOption) (*x509.Certificate, crypto.Signer) {
+func CreateX509SVID(tb testing.TB, parent *x509.Certificate, parentKey crypto.Signer, id spiffeid.ID, options ...SVIDOption) (*x509.Certificate, crypto.Signer) {
 	serial := NewSerial(tb)
 	options = append(options,
 		WithSerial(serial),
@@ -230,46 +244,72 @@ func NewSerial(tb testing.TB) *big.Int {
 	return new(big.Int).SetBytes(b)
 }
 
-func WithSerial(serial *big.Int) CertificateOption {
-	return certificateOption(func(c *x509.Certificate) {
-		c.SerialNumber = serial
-	})
+func WithSerial(serial *big.Int) SVIDOption {
+	return SvidOption{
+		certificateOption: func(c *x509.Certificate) {
+			c.SerialNumber = serial
+		},
+	}
 }
 
-func WithKeyUsage(keyUsage x509.KeyUsage) CertificateOption {
-	return certificateOption(func(c *x509.Certificate) {
-		c.KeyUsage = keyUsage
-	})
+func WithKeyUsage(keyUsage x509.KeyUsage) SvidOption {
+	return SvidOption{
+		certificateOption: func(c *x509.Certificate) {
+			c.KeyUsage = keyUsage
+		},
+	}
 }
 
-func WithLifetime(notBefore, notAfter time.Time) CertificateOption {
-	return certificateOption(func(c *x509.Certificate) {
-		c.NotBefore = notBefore
-		c.NotAfter = notAfter
-	})
+func WithLifetime(notBefore, notAfter time.Time) SvidOption {
+	return SvidOption{
+		certificateOption: func(c *x509.Certificate) {
+			c.NotBefore = notBefore
+			c.NotAfter = notAfter
+		},
+	}
 }
 
-func WithIPAddresses(ips ...net.IP) CertificateOption {
-	return certificateOption(func(c *x509.Certificate) {
-		c.IPAddresses = ips
-	})
+func WithIPAddresses(ips ...net.IP) SvidOption {
+	return SvidOption{
+		certificateOption: func(c *x509.Certificate) {
+			c.IPAddresses = ips
+		},
+	}
 }
 
-func WithURIs(uris ...*url.URL) CertificateOption {
-	return certificateOption(func(c *x509.Certificate) {
-		c.URIs = uris
-	})
+func WithURIs(uris ...*url.URL) SvidOption {
+	return SvidOption{
+		certificateOption: func(c *x509.Certificate) {
+			c.URIs = uris
+		},
+	}
 }
 
-func WithSubject(subject pkix.Name) CertificateOption {
-	return certificateOption(func(c *x509.Certificate) {
-		c.Subject = subject
-	})
+func WithSubject(subject pkix.Name) SvidOption {
+	return SvidOption{
+		certificateOption: func(c *x509.Certificate) {
+			c.Subject = subject
+		},
+	}
 }
 
-func applyOptions(c *x509.Certificate, options ...CertificateOption) {
+func WithHint(hint string) SvidOption {
+	return SvidOption{
+		x509SvidOption: func(svid *x509svid.SVID) {
+			svid.Hint = hint
+		},
+	}
+}
+
+func applyCertOptions(c *x509.Certificate, options ...SVIDOption) {
 	for _, opt := range options {
-		opt.apply(c)
+		opt.applyCertOption(c)
+	}
+}
+
+func applySVIDOptions(svid *x509svid.SVID, options ...SVIDOption) {
+	for _, opt := range options {
+		opt.applySVIDOption(svid)
 	}
 }
 

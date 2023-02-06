@@ -439,7 +439,7 @@ func parseX509SVIDs(resp *workload.X509SVIDResponse, firstOnly bool) ([]*x509svi
 	svids := make([]*x509svid.SVID, 0, n)
 	for i := 0; i < n; i++ {
 		svid := resp.Svids[i]
-		s, err := x509svid.ParseRaw(svid.X509Svid, svid.X509SvidKey)
+		s, err := x509svid.ParseRaw(svid.X509Svid, svid.X509SvidKey, svid.Hint)
 		if err != nil {
 			return nil, err
 		}

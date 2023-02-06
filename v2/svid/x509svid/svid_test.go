@@ -63,7 +63,9 @@ func TestParse(t *testing.T) {
 		name           string
 		keyPath        string
 		certsPath      string
+		hint           string
 		expID          spiffeid.ID
+		expHint        string
 		expNumCerts    int
 		expErrContains string
 	}{
@@ -72,6 +74,8 @@ func TestParse(t *testing.T) {
 			keyPath:     keyRSA,
 			certsPath:   certSingle,
 			expID:       spiffeid.RequireFromString("spiffe://example.org/workload-1"),
+			hint:        "internal usage",
+			expHint:     "internal usage",
 			expNumCerts: 1,
 		},
 		{
@@ -190,7 +194,7 @@ func TestParse(t *testing.T) {
 			keyBytes, err := ioutil.ReadFile(test.keyPath)
 			require.NoError(t, err)
 
-			svid, err := x509svid.Parse(certBytes, keyBytes)
+			svid, err := x509svid.Parse(certBytes, keyBytes, test.hint)
 			if test.expErrContains != "" {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), test.expErrContains)
@@ -199,6 +203,7 @@ func TestParse(t *testing.T) {
 			require.NoError(t, err)
 			assert.NotNil(t, svid)
 			assert.Equal(t, test.expID, svid.ID)
+			assert.Equal(t, test.expHint, svid.Hint)
 			assert.Len(t, svid.Certificates, test.expNumCerts)
 			assert.Equal(t, svid.PrivateKey.Public(), svid.Certificates[0].PublicKey)
 		})
@@ -359,6 +364,8 @@ func TestParseRaw(t *testing.T) {
 		certsPath      string
 		rawCerts       []byte
 		rawKey         []byte
+		hint           string
+		expHint        string
 		expErrContains string
 	}{
 		{
@@ -367,6 +374,8 @@ func TestParseRaw(t *testing.T) {
 			certsPath: certSingle,
 			rawCerts:  loadRawCertificates(t, certSingle),
 			rawKey:    loadRawKey(t, keyRSA),
+			hint:      "internal usage",
+			expHint:   "internal usage",
 		},
 		{
 			name:      "Multiple certificates and key",
@@ -392,7 +401,7 @@ func TestParseRaw(t *testing.T) {
 	for _, test := range tests {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
-			svid, err := x509svid.ParseRaw(test.rawCerts, test.rawKey)
+			svid, err := x509svid.ParseRaw(test.rawCerts, test.rawKey, test.hint)
 			if test.expErrContains != "" {
 				require.Error(t, err)
 				require.Nil(t, svid)
@@ -401,9 +410,12 @@ func TestParseRaw(t *testing.T) {
 			}
 			require.NoError(t, err)
 			require.NotNil(t, svid)
+			require.Equal(t, test.expHint, svid.Hint)
 			expectedSVID, err := x509svid.Load(test.certsPath, test.keyPath)
 			require.NoError(t, err)
-			assert.Equal(t, expectedSVID, svid)
+			assert.Equal(t, expectedSVID.ID, svid.ID)
+			assert.Equal(t, expectedSVID.PrivateKey, svid.PrivateKey)
+			assert.Equal(t, expectedSVID.Certificates, svid.Certificates)
 		})
 	}
 }

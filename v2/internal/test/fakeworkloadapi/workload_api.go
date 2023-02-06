@@ -213,6 +213,7 @@ func (r *X509SVIDResponse) ToProto(tb testing.TB) *workload.X509SVIDResponse {
 			X509Svid:    x509util.ConcatRawCertsFromCerts(svid.Certificates),
 			X509SvidKey: keyDER,
 			Bundle:      bundle,
+			Hint:        svid.Hint,
 		})
 	}
 	for _, v := range r.FederatedBundles {
