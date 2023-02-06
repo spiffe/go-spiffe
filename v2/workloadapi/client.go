@@ -519,7 +519,7 @@ func parseJWTSVIDs(resp *workload.JWTSVIDResponse, audience []string, firstOnly 
 	svids := make([]*jwtsvid.SVID, 0, n)
 	for i := 0; i < n; i++ {
 		svid := resp.Svids[i]
-		s, err := jwtsvid.ParseInsecure(svid.Svid, audience)
+		s, err := jwtsvid.ParseInsecure(svid.Svid, audience, jwtsvid.WithHint(svid.Hint))
 		if err != nil {
 			return nil, err
 		}

@@ -282,7 +282,8 @@ func TestFetchJWTSVID(t *testing.T) {
 	audienceID := spiffeid.RequireFromPath(td, "/audience")
 	extraAudienceID := spiffeid.RequireFromPath(td, "/extra_audience")
 	token := ca.CreateJWTSVID(subjectID, []string{audienceID.String(), extraAudienceID.String()}).Marshal()
-	respJWT := makeJWTSVIDResponse([]string{token}, subjectID)
+	hints := []string{"internal usage"}
+	respJWT := makeJWTSVIDResponse([]string{token}, hints, subjectID)
 	wl.SetJWTSVIDResponse(respJWT)
 
 	params := jwtsvid.Params{
@@ -294,7 +295,7 @@ func TestFetchJWTSVID(t *testing.T) {
 	jwtSvid, err := c.FetchJWTSVID(context.Background(), params)
 
 	require.NoError(t, err)
-	assertJWTSVID(t, jwtSvid, subjectID, token, audienceID.String(), extraAudienceID.String())
+	assertJWTSVID(t, jwtSvid, subjectID, token, hints[0], audienceID.String(), extraAudienceID.String())
 }
 
 func TestFetchJWTSVIDs(t *testing.T) {
@@ -310,7 +311,8 @@ func TestFetchJWTSVIDs(t *testing.T) {
 	extraAudienceID := spiffeid.RequireFromPath(td, "/extra_audience")
 	subjectIDToken := ca.CreateJWTSVID(subjectID, []string{audienceID.String(), extraAudienceID.String()}).Marshal()
 	extraSubjectIDToken := ca.CreateJWTSVID(extraSubjectID, []string{audienceID.String(), extraAudienceID.String()}).Marshal()
-	respJWT := makeJWTSVIDResponse([]string{subjectIDToken, extraSubjectIDToken}, subjectID, extraSubjectID)
+	hints := []string{"internal usage", "external usage"}
+	respJWT := makeJWTSVIDResponse([]string{subjectIDToken, extraSubjectIDToken}, hints, subjectID, extraSubjectID)
 	wl.SetJWTSVIDResponse(respJWT)
 
 	params := jwtsvid.Params{
@@ -322,8 +324,8 @@ func TestFetchJWTSVIDs(t *testing.T) {
 	jwtSvid, err := c.FetchJWTSVIDs(context.Background(), params)
 
 	require.NoError(t, err)
-	assertJWTSVID(t, jwtSvid[0], subjectID, subjectIDToken, audienceID.String(), extraAudienceID.String())
-	assertJWTSVID(t, jwtSvid[1], extraSubjectID, extraSubjectIDToken, audienceID.String(), extraAudienceID.String())
+	assertJWTSVID(t, jwtSvid[0], subjectID, subjectIDToken, hints[0], audienceID.String(), extraAudienceID.String())
+	assertJWTSVID(t, jwtSvid[1], extraSubjectID, extraSubjectIDToken, hints[1], audienceID.String(), extraAudienceID.String())
 }
 
 func TestFetchJWTBundles(t *testing.T) {
@@ -409,14 +411,14 @@ func TestValidateJWTSVID(t *testing.T) {
 		jwtSvid, err := c.ValidateJWTSVID(context.Background(), token.Marshal(), audience[0])
 
 		assert.NoError(t, err)
-		assertJWTSVID(t, jwtSvid, workloadID, token.Marshal(), audience...)
+		assertJWTSVID(t, jwtSvid, workloadID, token.Marshal(), "", audience...)
 	})
 
 	t.Run("second audience is valid", func(t *testing.T) {
 		jwtSvid, err := c.ValidateJWTSVID(context.Background(), token.Marshal(), audience[1])
 
 		assert.NoError(t, err)
-		assertJWTSVID(t, jwtSvid, workloadID, token.Marshal(), audience...)
+		assertJWTSVID(t, jwtSvid, workloadID, token.Marshal(), "", audience...)
 	})
 
 	t.Run("invalid audience returns error", func(t *testing.T) {
@@ -435,12 +437,13 @@ func makeX509SVIDs(ca *test.CA, hint string, ids ...spiffeid.ID) []*x509svid.SVI
 	return svids
 }
 
-func makeJWTSVIDResponse(token []string, ids ...spiffeid.ID) *workload.JWTSVIDResponse {
+func makeJWTSVIDResponse(token []string, hints []string, ids ...spiffeid.ID) *workload.JWTSVIDResponse {
 	svids := []*workload.JWTSVID{}
 	for i, id := range ids {
 		svid := &workload.JWTSVID{
 			SpiffeId: id.String(),
 			Svid:     token[i],
+			Hint:     hints[i],
 		}
 		svids = append(svids, svid)
 	}
@@ -468,12 +471,13 @@ func assertJWTBundle(tb testing.TB, bundleSet *jwtbundle.Set, trustDomain spiffe
 	assert.Equal(tb, b, expectedBundle)
 }
 
-func assertJWTSVID(t testing.TB, jwtSvid *jwtsvid.SVID, subjectID spiffeid.ID, token string, audience ...string) {
+func assertJWTSVID(t testing.TB, jwtSvid *jwtsvid.SVID, subjectID spiffeid.ID, token, hint string, audience ...string) {
 	assert.Equal(t, subjectID.String(), jwtSvid.ID.String())
 	assert.Equal(t, audience, jwtSvid.Audience)
 	assert.NotNil(t, jwtSvid.Claims)
 	assert.NotEmpty(t, jwtSvid.Expiry)
 	assert.Equal(t, token, jwtSvid.Marshal())
+	assert.Equal(t, hint, jwtSvid.Hint)
 }
 
 type testWatcher struct {

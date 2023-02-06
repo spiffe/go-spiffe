@@ -69,6 +69,7 @@ func TestParseAndValidate(t *testing.T) {
 				ID:       spiffeid.RequireFromPath(trustDomain1, "/host"),
 				Audience: []string{"audience"},
 				Expiry:   expiresTime,
+				Hint:     "internal usage only",
 			},
 		},
 		{
@@ -244,8 +245,12 @@ func TestParseAndValidate(t *testing.T) {
 			// Generate token
 			token := testCase.generateToken(t)
 
+			var opts []jwtsvid.Option
+			if testCase.svid != nil && testCase.svid.Hint != "" {
+				opts = append(opts, jwtsvid.WithHint(testCase.svid.Hint))
+			}
 			// Parse and validate
-			svid, err := jwtsvid.ParseAndValidate(token, testCase.bundle, testCase.audience)
+			svid, err := jwtsvid.ParseAndValidate(token, testCase.bundle, testCase.audience, opts...)
 
 			// Verify returned error, in case it is expected
 			if testCase.err != "" {
@@ -258,6 +263,7 @@ func TestParseAndValidate(t *testing.T) {
 			require.Equal(t, testCase.svid.ID, svid.ID)
 			require.Equal(t, testCase.svid.Expiry.Unix(), svid.Expiry.Unix())
 			require.Equal(t, testCase.svid.Audience, svid.Audience)
+			require.Equal(t, testCase.svid.Hint, svid.Hint)
 
 			claims := parseToken(t, token)
 			require.Equal(t, claims, svid.Claims)
@@ -398,8 +404,12 @@ func TestParseInsecure(t *testing.T) {
 			// Create token
 			token := testCase.generateToken(t)
 
+			var opts []jwtsvid.Option
+			if testCase.svid != nil && testCase.svid.Hint != "" {
+				opts = append(opts, jwtsvid.WithHint(testCase.svid.Hint))
+			}
 			// Call ParseInsecure
-			svid, err := jwtsvid.ParseInsecure(token, testCase.audience)
+			svid, err := jwtsvid.ParseInsecure(token, testCase.audience, opts...)
 
 			// Verify returned error, in case it is expected
 			if testCase.err != "" {
@@ -412,6 +422,7 @@ func TestParseInsecure(t *testing.T) {
 			require.Equal(t, testCase.svid.ID, svid.ID)
 			require.Equal(t, testCase.svid.Expiry.Unix(), svid.Expiry.Unix())
 			require.Equal(t, testCase.svid.Audience, svid.Audience)
+			require.Equal(t, testCase.svid.Hint, svid.Hint)
 
 			claims := parseToken(t, token)
 			require.Equal(t, claims, svid.Claims)

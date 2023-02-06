@@ -28,14 +28,25 @@ type SVID struct {
 	Expiry time.Time
 	// Claims is the parsed claims from token
 	Claims map[string]interface{}
+	// Hint is an optional operator-specified string used to provide guidance on how this
+	// identity should be used by a workload when more than one SVID is returned.
+	Hint string
 
 	// token is the serialized JWT token
 	token string
 }
 
+type Option func(*SVID)
+
+func WithHint(hint string) Option {
+	return func(svid *SVID) {
+		svid.Hint = hint
+	}
+}
+
 // ParseAndValidate parses and validates a JWT-SVID token and returns the
 // JWT-SVID. The JWT-SVID signature is verified using the JWT bundle source.
-func ParseAndValidate(token string, bundles jwtbundle.Source, audience []string) (*SVID, error) {
+func ParseAndValidate(token string, bundles jwtbundle.Source, audience []string, options ...Option) (*SVID, error) {
 	return parse(token, audience, func(tok *jwt.JSONWebToken, trustDomain spiffeid.TrustDomain) (map[string]interface{}, error) {
 		// Obtain the key ID from the header
 		keyID := tok.Headers[0].KeyID
@@ -62,12 +73,12 @@ func ParseAndValidate(token string, bundles jwtbundle.Source, audience []string)
 		}
 
 		return claimsMap, nil
-	})
+	}, options...)
 }
 
 // ParseInsecure parses and validates a JWT-SVID token and returns the
 // JWT-SVID. The JWT-SVID signature is not verified.
-func ParseInsecure(token string, audience []string) (*SVID, error) {
+func ParseInsecure(token string, audience []string, options ...Option) (*SVID, error) {
 	return parse(token, audience, func(tok *jwt.JSONWebToken, td spiffeid.TrustDomain) (map[string]interface{}, error) {
 		// Obtain the token claims insecurely, i.e. without signature verification
 		claimsMap := make(map[string]interface{})
@@ -76,7 +87,7 @@ func ParseInsecure(token string, audience []string) (*SVID, error) {
 		}
 
 		return claimsMap, nil
-	})
+	}, options...)
 }
 
 // Marshal returns the JWT-SVID marshaled to a string. The returned value is
@@ -85,7 +96,7 @@ func (svid *SVID) Marshal() string {
 	return svid.token
 }
 
-func parse(token string, audience []string, getClaims tokenValidator) (*SVID, error) {
+func parse(token string, audience []string, getClaims tokenValidator, options ...Option) (*SVID, error) {
 	// Parse serialized token
 	tok, err := jwt.ParseSigned(token)
 	if err != nil {
@@ -137,13 +148,19 @@ func parse(token string, audience []string, getClaims tokenValidator) (*SVID, er
 		return nil, err
 	}
 
-	return &SVID{
+	svid := &SVID{
 		ID:       spiffeID,
 		Audience: claims.Audience,
 		Expiry:   claims.Expiry.Time().UTC(),
 		Claims:   claimsMap,
 		token:    token,
-	}, nil
+	}
+
+	for _, option := range options {
+		option(svid)
+	}
+
+	return svid, nil
 }
 
 // validateTokenAlgorithm json web token have only one header, and it is signed for a supported algorithm
