@@ -13,7 +13,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-const socketPath = "unix:///tmp/agent.sock"
+const socketPath = "unix:///tmp/spire-agent/public/api.sock"
 
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())

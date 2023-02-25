@@ -22,12 +22,20 @@ type tokenValidator = func(*jwt.JSONWebToken, spiffeid.TrustDomain) (map[string]
 type SVID struct {
 	// ID is the SPIFFE ID of the JWT-SVID as present in the 'sub' claim
 	ID spiffeid.ID
+
 	// Audience is the intended recipients of JWT-SVID as present in the 'aud' claim
 	Audience []string
+
 	// Expiry is the expiration time of JWT-SVID as present in 'exp' claim
 	Expiry time.Time
+
 	// Claims is the parsed claims from token
 	Claims map[string]interface{}
+
+	// Hint is an operator-specified string used to provide guidance on how
+	// this identity should be used by a workload when more than one SVID is
+	// returned.
+	Hint string
 
 	// token is the serialized JWT token
 	token string

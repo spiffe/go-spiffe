@@ -282,7 +282,7 @@ func (c *Client) handleWatchError(ctx context.Context, err error, backoff *backo
 	}
 }
 
-func (c *Client) watchX509Context(ctx context.Context, watcher X509ContextWatcher, backoff *backoff) error {
+func (c *Client) watchX509Context(ctx context.Context, watcher X509ContextWatcher, backoff *backoff) (err error) {
 	ctx, cancel := context.WithCancel(withHeader(ctx))
 	defer cancel()
 
@@ -292,7 +292,12 @@ func (c *Client) watchX509Context(ctx context.Context, watcher X509ContextWatche
 		return err
 	}
 
+	fmt.Printf("WATCHING\n")
+	defer func() {
+		fmt.Printf("DONE WATCHING: %v\n", err)
+	}()
 	for {
+		fmt.Printf("RECV\n")
 		resp, err := stream.Recv()
 		if err != nil {
 			return err
@@ -300,6 +305,7 @@ func (c *Client) watchX509Context(ctx context.Context, watcher X509ContextWatche
 
 		backoff.Reset()
 		x509Context, err := parseX509Context(resp)
+		fmt.Printf("PARSE: %v\n", err)
 		if err != nil {
 			c.config.log.Errorf("Failed to parse X509-SVID response: %v", err)
 			watcher.OnX509ContextWatchError(err)
@@ -443,6 +449,7 @@ func parseX509SVIDs(resp *workload.X509SVIDResponse, firstOnly bool) ([]*x509svi
 		if err != nil {
 			return nil, err
 		}
+		s.Hint = svid.Hint
 		svids = append(svids, s)
 	}
 
@@ -523,6 +530,7 @@ func parseJWTSVIDs(resp *workload.JWTSVIDResponse, audience []string, firstOnly 
 		if err != nil {
 			return nil, err
 		}
+		s.Hint = svid.Hint
 		svids = append(svids, s)
 	}
 

@@ -2,7 +2,7 @@ package workloadapi
 
 import (
 	"context"
-	"crypto/x509"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -44,7 +44,7 @@ func TestFetchX509SVID(t *testing.T) {
 	svid, err := c.FetchX509SVID(context.Background())
 
 	require.NoError(t, err)
-	assertX509SVID(t, svid, fooID, resp.SVIDs[0].Certificates)
+	assert.Equal(t, resp.SVIDs[0], svid)
 }
 
 func TestFetchX509SVIDs(t *testing.T) {
@@ -65,8 +65,8 @@ func TestFetchX509SVIDs(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Len(t, svids, 2)
-	assertX509SVID(t, svids[0], fooID, resp.SVIDs[0].Certificates)
-	assertX509SVID(t, svids[1], barID, resp.SVIDs[1].Certificates)
+	assert.Equal(t, resp.SVIDs[0], svids[0])
+	assert.Equal(t, resp.SVIDs[1], svids[1])
 }
 
 func TestFetchX509Bundles(t *testing.T) {
@@ -162,8 +162,8 @@ func TestFetchX509Context(t *testing.T) {
 	require.NoError(t, err)
 	// inspect svids
 	require.Len(t, x509Ctx.SVIDs, 2)
-	assertX509SVID(t, x509Ctx.SVIDs[0], fooID, resp.SVIDs[0].Certificates)
-	assertX509SVID(t, x509Ctx.SVIDs[1], barID, resp.SVIDs[1].Certificates)
+	assert.Equal(t, resp.SVIDs[0], x509Ctx.SVIDs[0])
+	assert.Equal(t, resp.SVIDs[1], x509Ctx.SVIDs[1])
 
 	// inspect bundles
 	assert.Equal(t, 2, x509Ctx.Bundles.Len())
@@ -220,8 +220,8 @@ func TestWatchX509Context(t *testing.T) {
 	update := tw.X509Contexts()[len(tw.X509Contexts())-1]
 	// inspect svids
 	require.Len(t, update.SVIDs, 2)
-	assertX509SVID(t, update.SVIDs[0], fooID, resp.SVIDs[0].Certificates)
-	assertX509SVID(t, update.SVIDs[1], barID, resp.SVIDs[1].Certificates)
+	assert.Equal(t, resp.SVIDs[0], update.SVIDs[0])
+	assert.Equal(t, resp.SVIDs[1], update.SVIDs[1])
 	// inspect bundles
 	assert.Equal(t, 2, update.Bundles.Len())
 	assertX509Bundle(t, update.Bundles, td, ca.X509Bundle())
@@ -242,7 +242,7 @@ func TestWatchX509Context(t *testing.T) {
 	update = tw.X509Contexts()[len(tw.X509Contexts())-1]
 	// inspect svids
 	require.Len(t, update.SVIDs, 1)
-	assertX509SVID(t, update.SVIDs[0], bazID, resp.SVIDs[0].Certificates)
+	assert.Equal(t, resp.SVIDs[0], update.SVIDs[0])
 	// inspect bundles
 	assert.Equal(t, 1, update.Bundles.Len())
 	assertX509Bundle(t, update.Bundles, td, ca.X509Bundle())
@@ -279,7 +279,7 @@ func TestFetchJWTSVID(t *testing.T) {
 	jwtSvid, err := c.FetchJWTSVID(context.Background(), params)
 
 	require.NoError(t, err)
-	assertJWTSVID(t, jwtSvid, subjectID, token, audienceID.String(), extraAudienceID.String())
+	assertJWTSVID(t, jwtSvid, subjectID, token, []string{audienceID.String(), extraAudienceID.String()}, "HINT-0")
 }
 
 func TestFetchJWTSVIDs(t *testing.T) {
@@ -307,8 +307,8 @@ func TestFetchJWTSVIDs(t *testing.T) {
 	jwtSvid, err := c.FetchJWTSVIDs(context.Background(), params)
 
 	require.NoError(t, err)
-	assertJWTSVID(t, jwtSvid[0], subjectID, subjectIDToken, audienceID.String(), extraAudienceID.String())
-	assertJWTSVID(t, jwtSvid[1], extraSubjectID, extraSubjectIDToken, audienceID.String(), extraAudienceID.String())
+	assertJWTSVID(t, jwtSvid[0], subjectID, subjectIDToken, []string{audienceID.String(), extraAudienceID.String()}, "HINT-0")
+	assertJWTSVID(t, jwtSvid[1], extraSubjectID, extraSubjectIDToken, []string{audienceID.String(), extraAudienceID.String()}, "HINT-1")
 }
 
 func TestFetchJWTBundles(t *testing.T) {
@@ -394,14 +394,14 @@ func TestValidateJWTSVID(t *testing.T) {
 		jwtSvid, err := c.ValidateJWTSVID(context.Background(), token.Marshal(), audience[0])
 
 		assert.NoError(t, err)
-		assertJWTSVID(t, jwtSvid, workloadID, token.Marshal(), audience...)
+		assertJWTSVID(t, jwtSvid, workloadID, token.Marshal(), audience, "")
 	})
 
 	t.Run("second audience is valid", func(t *testing.T) {
 		jwtSvid, err := c.ValidateJWTSVID(context.Background(), token.Marshal(), audience[1])
 
 		assert.NoError(t, err)
-		assertJWTSVID(t, jwtSvid, workloadID, token.Marshal(), audience...)
+		assertJWTSVID(t, jwtSvid, workloadID, token.Marshal(), audience, "")
 	})
 
 	t.Run("invalid audience returns error", func(t *testing.T) {
@@ -414,8 +414,10 @@ func TestValidateJWTSVID(t *testing.T) {
 
 func makeX509SVIDs(ca *test.CA, ids ...spiffeid.ID) []*x509svid.SVID {
 	svids := []*x509svid.SVID{}
-	for _, id := range ids {
-		svids = append(svids, ca.CreateX509SVID(id))
+	for i, id := range ids {
+		svid := ca.CreateX509SVID(id)
+		svid.Hint = fmt.Sprintf("HINT-%d", i)
+		svids = append(svids, svid)
 	}
 	return svids
 }
@@ -426,18 +428,13 @@ func makeJWTSVIDResponse(token []string, ids ...spiffeid.ID) *workload.JWTSVIDRe
 		svid := &workload.JWTSVID{
 			SpiffeId: id.String(),
 			Svid:     token[i],
+			Hint:     fmt.Sprintf("HINT-%d", i),
 		}
 		svids = append(svids, svid)
 	}
 	return &workload.JWTSVIDResponse{
 		Svids: svids,
 	}
-}
-
-func assertX509SVID(tb testing.TB, svid *x509svid.SVID, spiffeID spiffeid.ID, certificates []*x509.Certificate) {
-	assert.Equal(tb, spiffeID, svid.ID)
-	assert.Equal(tb, certificates, svid.Certificates)
-	assert.NotEmpty(tb, svid.PrivateKey)
 }
 
 func assertX509Bundle(tb testing.TB, bundleSet *x509bundle.Set, trustDomain spiffeid.TrustDomain, expectedBundle *x509bundle.Bundle) {
@@ -452,12 +449,13 @@ func assertJWTBundle(tb testing.TB, bundleSet *jwtbundle.Set, trustDomain spiffe
 	assert.Equal(tb, b, expectedBundle)
 }
 
-func assertJWTSVID(t testing.TB, jwtSvid *jwtsvid.SVID, subjectID spiffeid.ID, token string, audience ...string) {
-	assert.Equal(t, subjectID.String(), jwtSvid.ID.String())
-	assert.Equal(t, audience, jwtSvid.Audience)
-	assert.NotNil(t, jwtSvid.Claims)
-	assert.NotEmpty(t, jwtSvid.Expiry)
-	assert.Equal(t, token, jwtSvid.Marshal())
+func assertJWTSVID(tb testing.TB, jwtSvid *jwtsvid.SVID, subjectID spiffeid.ID, token string, audience []string, hint string) {
+	assert.Equal(tb, subjectID.String(), jwtSvid.ID.String())
+	assert.Equal(tb, audience, jwtSvid.Audience)
+	assert.NotNil(tb, jwtSvid.Claims)
+	assert.NotEmpty(tb, jwtSvid.Expiry)
+	assert.Equal(tb, token, jwtSvid.Marshal())
+	assert.Equal(tb, hint, jwtSvid.Hint)
 }
 
 type testWatcher struct {

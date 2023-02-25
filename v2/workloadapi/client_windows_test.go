@@ -31,7 +31,7 @@ func TestWithNamedPipeName(t *testing.T) {
 	wl.SetX509SVIDResponse(resp)
 	svid, err := c.FetchX509SVID(context.Background())
 	require.NoError(t, err)
-	assertX509SVID(t, svid, fooID, resp.SVIDs[0].Certificates)
+	assert.Equal(t, resp.SVIDs[0], svid)
 }
 
 func TestWithNamedPipeNameError(t *testing.T) {
