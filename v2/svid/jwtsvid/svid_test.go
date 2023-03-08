@@ -15,6 +15,7 @@ import (
 	"github.com/go-jose/go-jose/v3/jwt"
 	"github.com/spiffe/go-spiffe/v2/bundle/jwtbundle"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
+	"github.com/spiffe/go-spiffe/v2/svid/common/optional"
 	"github.com/spiffe/go-spiffe/v2/svid/jwtsvid"
 	"github.com/stretchr/testify/require"
 )
@@ -69,7 +70,9 @@ func TestParseAndValidate(t *testing.T) {
 				ID:       spiffeid.RequireFromPath(trustDomain1, "/host"),
 				Audience: []string{"audience"},
 				Expiry:   expiresTime,
-				Hint:     "internal usage only",
+				SVIDOptionals: optional.SVIDOptionals{
+					Hint: "internal usage only",
+				},
 			},
 		},
 		{
@@ -245,9 +248,9 @@ func TestParseAndValidate(t *testing.T) {
 			// Generate token
 			token := testCase.generateToken(t)
 
-			var opts []jwtsvid.Option
+			var opts []optional.SVIDOption
 			if testCase.svid != nil && testCase.svid.Hint != "" {
-				opts = append(opts, jwtsvid.WithHint(testCase.svid.Hint))
+				opts = append(opts, optional.WithHint(testCase.svid.Hint))
 			}
 			// Parse and validate
 			svid, err := jwtsvid.ParseAndValidate(token, testCase.bundle, testCase.audience, opts...)
@@ -404,9 +407,9 @@ func TestParseInsecure(t *testing.T) {
 			// Create token
 			token := testCase.generateToken(t)
 
-			var opts []jwtsvid.Option
+			var opts []optional.SVIDOption
 			if testCase.svid != nil && testCase.svid.Hint != "" {
-				opts = append(opts, jwtsvid.WithHint(testCase.svid.Hint))
+				opts = append(opts, optional.WithHint(testCase.svid.Hint))
 			}
 			// Call ParseInsecure
 			svid, err := jwtsvid.ParseInsecure(token, testCase.audience, opts...)

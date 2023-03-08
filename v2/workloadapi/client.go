@@ -12,6 +12,7 @@ import (
 	"github.com/spiffe/go-spiffe/v2/logger"
 	"github.com/spiffe/go-spiffe/v2/proto/spiffe/workload"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
+	"github.com/spiffe/go-spiffe/v2/svid/common/optional"
 	"github.com/spiffe/go-spiffe/v2/svid/jwtsvid"
 	"github.com/spiffe/go-spiffe/v2/svid/x509svid"
 
@@ -439,7 +440,7 @@ func parseX509SVIDs(resp *workload.X509SVIDResponse, firstOnly bool) ([]*x509svi
 	svids := make([]*x509svid.SVID, 0, n)
 	for i := 0; i < n; i++ {
 		svid := resp.Svids[i]
-		s, err := x509svid.ParseRaw(svid.X509Svid, svid.X509SvidKey, svid.Hint)
+		s, err := x509svid.ParseRaw(svid.X509Svid, svid.X509SvidKey, optional.WithHint(svid.Hint))
 		if err != nil {
 			return nil, err
 		}
@@ -519,7 +520,7 @@ func parseJWTSVIDs(resp *workload.JWTSVIDResponse, audience []string, firstOnly 
 	svids := make([]*jwtsvid.SVID, 0, n)
 	for i := 0; i < n; i++ {
 		svid := resp.Svids[i]
-		s, err := jwtsvid.ParseInsecure(svid.Svid, audience, jwtsvid.WithHint(svid.Hint))
+		s, err := jwtsvid.ParseInsecure(svid.Svid, audience, optional.WithHint(svid.Hint))
 		if err != nil {
 			return nil, err
 		}

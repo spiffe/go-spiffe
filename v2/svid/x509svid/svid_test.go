@@ -9,6 +9,7 @@ import (
 
 	"github.com/spiffe/go-spiffe/v2/internal/pemutil"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
+	"github.com/spiffe/go-spiffe/v2/svid/common/optional"
 	"github.com/spiffe/go-spiffe/v2/svid/x509svid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -194,7 +195,7 @@ func TestParse(t *testing.T) {
 			keyBytes, err := ioutil.ReadFile(test.keyPath)
 			require.NoError(t, err)
 
-			svid, err := x509svid.Parse(certBytes, keyBytes, test.hint)
+			svid, err := x509svid.Parse(certBytes, keyBytes, optional.WithHint(test.hint))
 			if test.expErrContains != "" {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), test.expErrContains)
@@ -401,7 +402,7 @@ func TestParseRaw(t *testing.T) {
 	for _, test := range tests {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
-			svid, err := x509svid.ParseRaw(test.rawCerts, test.rawKey, test.hint)
+			svid, err := x509svid.ParseRaw(test.rawCerts, test.rawKey, optional.WithHint(test.hint))
 			if test.expErrContains != "" {
 				require.Error(t, err)
 				require.Nil(t, svid)
