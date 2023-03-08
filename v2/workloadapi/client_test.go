@@ -283,9 +283,8 @@ func TestFetchJWTSVID(t *testing.T) {
 	subjectID := spiffeid.RequireFromPath(td, "/subject")
 	audienceID := spiffeid.RequireFromPath(td, "/audience")
 	extraAudienceID := spiffeid.RequireFromPath(td, "/extra_audience")
-	token := ca.CreateJWTSVID(subjectID, []string{audienceID.String(), extraAudienceID.String()}).Marshal()
-	hints := []string{"internal usage"}
-	respJWT := makeJWTSVIDResponse([]string{token}, hints, subjectID)
+	svid := ca.CreateJWTSVID(subjectID, []string{audienceID.String(), extraAudienceID.String()}, test.WithHint("internal usage"))
+	respJWT := makeJWTSVIDResponse(svid)
 	wl.SetJWTSVIDResponse(respJWT)
 
 	params := jwtsvid.Params{
@@ -297,7 +296,7 @@ func TestFetchJWTSVID(t *testing.T) {
 	jwtSvid, err := c.FetchJWTSVID(context.Background(), params)
 
 	require.NoError(t, err)
-	assertJWTSVID(t, jwtSvid, subjectID, token, hints[0], audienceID.String(), extraAudienceID.String())
+	assertJWTSVID(t, jwtSvid, subjectID, svid.Marshal(), svid.Hint, audienceID.String(), extraAudienceID.String())
 }
 
 func TestFetchJWTSVIDs(t *testing.T) {
@@ -312,11 +311,10 @@ func TestFetchJWTSVIDs(t *testing.T) {
 	duplicatedHintID := spiffeid.RequireFromPath(td, "/somePath")
 	audienceID := spiffeid.RequireFromPath(td, "/audience")
 	extraAudienceID := spiffeid.RequireFromPath(td, "/extra_audience")
-	subjectIDToken := ca.CreateJWTSVID(subjectID, []string{audienceID.String(), extraAudienceID.String()}).Marshal()
-	extraSubjectIDToken := ca.CreateJWTSVID(extraSubjectID, []string{audienceID.String(), extraAudienceID.String()}).Marshal()
-	duplicatedHintSvid := ca.CreateJWTSVID(duplicatedHintID, []string{audienceID.String(), extraAudienceID.String()}).Marshal()
-	hints := []string{"internal usage", "external usage", "internal usage"}
-	respJWT := makeJWTSVIDResponse([]string{subjectIDToken, extraSubjectIDToken, duplicatedHintSvid}, hints, subjectID, extraSubjectID, duplicatedHintID)
+	subjectSVID := ca.CreateJWTSVID(subjectID, []string{audienceID.String(), extraAudienceID.String()}, test.WithHint("internal usage"))
+	extraSubjectSVID := ca.CreateJWTSVID(extraSubjectID, []string{audienceID.String(), extraAudienceID.String()}, test.WithHint("external usage"))
+	duplicatedHintSVID := ca.CreateJWTSVID(duplicatedHintID, []string{audienceID.String(), extraAudienceID.String()}, test.WithHint("internal usage"))
+	respJWT := makeJWTSVIDResponse(subjectSVID, extraSubjectSVID, duplicatedHintSVID)
 	wl.SetJWTSVIDResponse(respJWT)
 
 	params := jwtsvid.Params{
@@ -330,8 +328,8 @@ func TestFetchJWTSVIDs(t *testing.T) {
 	require.NoError(t, err)
 	// Assert that the response contains the expected SVIDs, and does not contain the SVID with duplicated hint
 	assert.Len(t, jwtSvid, 2)
-	assertJWTSVID(t, jwtSvid[0], subjectID, subjectIDToken, hints[0], audienceID.String(), extraAudienceID.String())
-	assertJWTSVID(t, jwtSvid[1], extraSubjectID, extraSubjectIDToken, hints[1], audienceID.String(), extraAudienceID.String())
+	assertJWTSVID(t, jwtSvid[0], subjectID, subjectSVID.Marshal(), subjectSVID.Hint, audienceID.String(), extraAudienceID.String())
+	assertJWTSVID(t, jwtSvid[1], extraSubjectID, extraSubjectSVID.Marshal(), extraSubjectSVID.Hint, audienceID.String(), extraAudienceID.String())
 }
 
 func TestFetchJWTBundles(t *testing.T) {
@@ -443,18 +441,18 @@ func makeX509SVIDs(ca *test.CA, hint string, ids ...spiffeid.ID) []*x509svid.SVI
 	return svids
 }
 
-func makeJWTSVIDResponse(token []string, hints []string, ids ...spiffeid.ID) *workload.JWTSVIDResponse {
-	svids := []*workload.JWTSVID{}
-	for i, id := range ids {
-		svid := &workload.JWTSVID{
-			SpiffeId: id.String(),
-			Svid:     token[i],
-			Hint:     hints[i],
+func makeJWTSVIDResponse(svids ...*jwtsvid.SVID) *workload.JWTSVIDResponse {
+	respSVIDS := []*workload.JWTSVID{}
+	for _, svid := range svids {
+		respSVID := &workload.JWTSVID{
+			SpiffeId: svid.ID.String(),
+			Svid:     svid.Marshal(),
+			Hint:     svid.Hint,
 		}
-		svids = append(svids, svid)
+		respSVIDS = append(respSVIDS, respSVID)
 	}
 	return &workload.JWTSVIDResponse{
-		Svids: svids,
+		Svids: respSVIDS,
 	}
 }
 
