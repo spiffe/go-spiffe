@@ -60,17 +60,19 @@ func TestFetchX509SVIDs(t *testing.T) {
 
 	fooSVID := ca.CreateX509SVID(fooID, test.WithHint(hintInternal))
 	barSVID := ca.CreateX509SVID(barID, test.WithHint(hintExternal))
+	duplicatedHintSVID := ca.CreateX509SVID(bazID, test.WithHint(hintInternal))
 
 	resp := &fakeworkloadapi.X509SVIDResponse{
 		Bundle: ca.X509Bundle(),
-		SVIDs:  []*x509svid.SVID{fooSVID, barSVID},
+		SVIDs:  []*x509svid.SVID{fooSVID, barSVID, duplicatedHintSVID},
 	}
 	wl.SetX509SVIDResponse(resp)
 
 	svids, err := c.FetchX509SVIDs(context.Background())
 
 	require.NoError(t, err)
-	require.Len(t, svids, 2)
+	// Assert that the response contains the expected SVIDs, and does not contain the SVID with duplicated hint
+	assert.Len(t, svids, 2)
 	assertX509SVID(t, svids[0], fooID, resp.SVIDs[0].Certificates, hintInternal)
 	assertX509SVID(t, svids[1], barID, resp.SVIDs[1].Certificates, hintExternal)
 }
@@ -307,12 +309,14 @@ func TestFetchJWTSVIDs(t *testing.T) {
 
 	subjectID := spiffeid.RequireFromPath(td, "/subject")
 	extraSubjectID := spiffeid.RequireFromPath(td, "/extra_subject")
+	duplicatedHintID := spiffeid.RequireFromPath(td, "/somePath")
 	audienceID := spiffeid.RequireFromPath(td, "/audience")
 	extraAudienceID := spiffeid.RequireFromPath(td, "/extra_audience")
 	subjectIDToken := ca.CreateJWTSVID(subjectID, []string{audienceID.String(), extraAudienceID.String()}).Marshal()
 	extraSubjectIDToken := ca.CreateJWTSVID(extraSubjectID, []string{audienceID.String(), extraAudienceID.String()}).Marshal()
-	hints := []string{"internal usage", "external usage"}
-	respJWT := makeJWTSVIDResponse([]string{subjectIDToken, extraSubjectIDToken}, hints, subjectID, extraSubjectID)
+	duplicatedHintSvid := ca.CreateJWTSVID(duplicatedHintID, []string{audienceID.String(), extraAudienceID.String()}).Marshal()
+	hints := []string{"internal usage", "external usage", "internal usage"}
+	respJWT := makeJWTSVIDResponse([]string{subjectIDToken, extraSubjectIDToken, duplicatedHintSvid}, hints, subjectID, extraSubjectID, duplicatedHintID)
 	wl.SetJWTSVIDResponse(respJWT)
 
 	params := jwtsvid.Params{
@@ -324,6 +328,8 @@ func TestFetchJWTSVIDs(t *testing.T) {
 	jwtSvid, err := c.FetchJWTSVIDs(context.Background(), params)
 
 	require.NoError(t, err)
+	// Assert that the response contains the expected SVIDs, and does not contain the SVID with duplicated hint
+	assert.Len(t, jwtSvid, 2)
 	assertJWTSVID(t, jwtSvid[0], subjectID, subjectIDToken, hints[0], audienceID.String(), extraAudienceID.String())
 	assertJWTSVID(t, jwtSvid[1], extraSubjectID, extraSubjectIDToken, hints[1], audienceID.String(), extraAudienceID.String())
 }
