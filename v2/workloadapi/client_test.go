@@ -162,8 +162,11 @@ func TestFetchX509Context(t *testing.T) {
 
 	fooSVID := ca.CreateX509SVID(fooID, test.WithHint(hintInternal))
 	barSVID := ca.CreateX509SVID(barID, test.WithHint(hintExternal))
+	duplicatedHintSVID := ca.CreateX509SVID(bazID, test.WithHint(hintInternal))
+	emptyHintSVID1 := ca.CreateX509SVID(spiffeid.RequireFromPath(td, "/empty1"), test.WithHint(""))
+	emptyHintSVID2 := ca.CreateX509SVID(spiffeid.RequireFromPath(td, "/empty2"), test.WithHint(""))
 
-	svids := []*x509svid.SVID{fooSVID, barSVID}
+	svids := []*x509svid.SVID{fooSVID, barSVID, duplicatedHintSVID, emptyHintSVID1, emptyHintSVID2}
 
 	resp := &fakeworkloadapi.X509SVIDResponse{
 		Bundle:           ca.X509Bundle(),
@@ -176,9 +179,11 @@ func TestFetchX509Context(t *testing.T) {
 
 	require.NoError(t, err)
 	// inspect svids
-	require.Len(t, x509Ctx.SVIDs, 2)
+	require.Len(t, x509Ctx.SVIDs, 4)
 	assertX509SVID(t, x509Ctx.SVIDs[0], fooID, resp.SVIDs[0].Certificates, hintInternal)
 	assertX509SVID(t, x509Ctx.SVIDs[1], barID, resp.SVIDs[1].Certificates, hintExternal)
+	assertX509SVID(t, x509Ctx.SVIDs[2], emptyHintSVID1.ID, resp.SVIDs[3].Certificates, "")
+	assertX509SVID(t, x509Ctx.SVIDs[3], emptyHintSVID2.ID, resp.SVIDs[4].Certificates, "")
 
 	// inspect bundles
 	assert.Equal(t, 2, x509Ctx.Bundles.Len())
@@ -222,8 +227,11 @@ func TestWatchX509Context(t *testing.T) {
 
 	fooSVID := ca.CreateX509SVID(fooID, test.WithHint(hintInternal))
 	barSVID := ca.CreateX509SVID(barID, test.WithHint(hintExternal))
+	duplicatedHintSVID := ca.CreateX509SVID(bazID, test.WithHint(hintInternal))
+	emptyHintSVID1 := ca.CreateX509SVID(spiffeid.RequireFromPath(td, "/empty1"), test.WithHint(""))
+	emptyHintSVID2 := ca.CreateX509SVID(spiffeid.RequireFromPath(td, "/empty2"), test.WithHint(""))
 
-	svids := []*x509svid.SVID{fooSVID, barSVID}
+	svids := []*x509svid.SVID{fooSVID, barSVID, duplicatedHintSVID, emptyHintSVID1, emptyHintSVID2}
 
 	// test first update
 	resp := &fakeworkloadapi.X509SVIDResponse{
@@ -239,9 +247,11 @@ func TestWatchX509Context(t *testing.T) {
 	require.Len(t, tw.X509Contexts(), 1)
 	update := tw.X509Contexts()[len(tw.X509Contexts())-1]
 	// inspect svids
-	require.Len(t, update.SVIDs, 2)
+	require.Len(t, update.SVIDs, 4)
 	assertX509SVID(t, update.SVIDs[0], fooID, resp.SVIDs[0].Certificates, hintInternal)
 	assertX509SVID(t, update.SVIDs[1], barID, resp.SVIDs[1].Certificates, hintExternal)
+	assertX509SVID(t, update.SVIDs[2], emptyHintSVID1.ID, resp.SVIDs[3].Certificates, "")
+	assertX509SVID(t, update.SVIDs[3], emptyHintSVID2.ID, resp.SVIDs[4].Certificates, "")
 	// inspect bundles
 	assert.Equal(t, 2, update.Bundles.Len())
 	assertX509Bundle(t, update.Bundles, td, ca.X509Bundle())
