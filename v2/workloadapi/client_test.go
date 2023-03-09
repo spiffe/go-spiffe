@@ -61,10 +61,12 @@ func TestFetchX509SVIDs(t *testing.T) {
 	fooSVID := ca.CreateX509SVID(fooID, test.WithHint(hintInternal))
 	barSVID := ca.CreateX509SVID(barID, test.WithHint(hintExternal))
 	duplicatedHintSVID := ca.CreateX509SVID(bazID, test.WithHint(hintInternal))
+	emptyHintSVID1 := ca.CreateX509SVID(spiffeid.RequireFromPath(td, "/empty1"), test.WithHint(""))
+	emptyHintSVID2 := ca.CreateX509SVID(spiffeid.RequireFromPath(td, "/empty2"), test.WithHint(""))
 
 	resp := &fakeworkloadapi.X509SVIDResponse{
 		Bundle: ca.X509Bundle(),
-		SVIDs:  []*x509svid.SVID{fooSVID, barSVID, duplicatedHintSVID},
+		SVIDs:  []*x509svid.SVID{fooSVID, barSVID, duplicatedHintSVID, emptyHintSVID1, emptyHintSVID2},
 	}
 	wl.SetX509SVIDResponse(resp)
 
@@ -72,9 +74,11 @@ func TestFetchX509SVIDs(t *testing.T) {
 
 	require.NoError(t, err)
 	// Assert that the response contains the expected SVIDs, and does not contain the SVID with duplicated hint
-	assert.Len(t, svids, 2)
+	require.Len(t, svids, 4)
 	assertX509SVID(t, svids[0], fooID, resp.SVIDs[0].Certificates, hintInternal)
 	assertX509SVID(t, svids[1], barID, resp.SVIDs[1].Certificates, hintExternal)
+	assertX509SVID(t, svids[2], emptyHintSVID1.ID, resp.SVIDs[3].Certificates, "")
+	assertX509SVID(t, svids[3], emptyHintSVID2.ID, resp.SVIDs[4].Certificates, "")
 }
 
 func TestFetchX509Bundles(t *testing.T) {
@@ -314,7 +318,9 @@ func TestFetchJWTSVIDs(t *testing.T) {
 	subjectSVID := ca.CreateJWTSVID(subjectID, []string{audienceID.String(), extraAudienceID.String()}, test.WithHint("internal usage"))
 	extraSubjectSVID := ca.CreateJWTSVID(extraSubjectID, []string{audienceID.String(), extraAudienceID.String()}, test.WithHint("external usage"))
 	duplicatedHintSVID := ca.CreateJWTSVID(duplicatedHintID, []string{audienceID.String(), extraAudienceID.String()}, test.WithHint("internal usage"))
-	respJWT := makeJWTSVIDResponse(subjectSVID, extraSubjectSVID, duplicatedHintSVID)
+	emptyHintSVID1 := ca.CreateJWTSVID(extraSubjectID, []string{audienceID.String(), extraAudienceID.String()}, test.WithHint(""))
+	emptyHintSVID2 := ca.CreateJWTSVID(duplicatedHintID, []string{audienceID.String(), extraAudienceID.String()}, test.WithHint(""))
+	respJWT := makeJWTSVIDResponse(subjectSVID, extraSubjectSVID, duplicatedHintSVID, emptyHintSVID1, emptyHintSVID2)
 	wl.SetJWTSVIDResponse(respJWT)
 
 	params := jwtsvid.Params{
@@ -327,9 +333,11 @@ func TestFetchJWTSVIDs(t *testing.T) {
 
 	require.NoError(t, err)
 	// Assert that the response contains the expected SVIDs, and does not contain the SVID with duplicated hint
-	assert.Len(t, jwtSvid, 2)
+	require.Len(t, jwtSvid, 4)
 	assertJWTSVID(t, jwtSvid[0], subjectID, subjectSVID.Marshal(), subjectSVID.Hint, audienceID.String(), extraAudienceID.String())
 	assertJWTSVID(t, jwtSvid[1], extraSubjectID, extraSubjectSVID.Marshal(), extraSubjectSVID.Hint, audienceID.String(), extraAudienceID.String())
+	assertJWTSVID(t, jwtSvid[2], emptyHintSVID1.ID, emptyHintSVID1.Marshal(), emptyHintSVID1.Hint, audienceID.String(), extraAudienceID.String())
+	assertJWTSVID(t, jwtSvid[3], emptyHintSVID2.ID, emptyHintSVID2.Marshal(), emptyHintSVID2.Hint, audienceID.String(), extraAudienceID.String())
 }
 
 func TestFetchJWTBundles(t *testing.T) {

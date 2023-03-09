@@ -443,9 +443,10 @@ func parseX509SVIDs(resp *workload.X509SVIDResponse, firstOnly bool) ([]*x509svi
 		svid := resp.Svids[i]
 		// In the event of more than one X509SVID message with the same hint value set, then the first message in the
 		// list SHOULD be selected.
-		if _, ok := hints[svid.Hint]; ok {
+		if _, ok := hints[svid.Hint]; ok && svid.Hint != "" {
 			continue
 		}
+
 		hints[svid.Hint] = struct{}{}
 
 		s, err := x509svid.ParseRaw(svid.X509Svid, svid.X509SvidKey, optional.WithHint(svid.Hint))
@@ -532,7 +533,7 @@ func parseJWTSVIDs(resp *workload.JWTSVIDResponse, audience []string, firstOnly 
 		svid := resp.Svids[i]
 		// In the event of more than one X509SVID message with the same hint value set, then the first message in the
 		// list SHOULD be selected.
-		if _, ok := hints[svid.Hint]; ok {
+		if _, ok := hints[svid.Hint]; ok && svid.Hint != "" {
 			continue
 		}
 		hints[svid.Hint] = struct{}{}
