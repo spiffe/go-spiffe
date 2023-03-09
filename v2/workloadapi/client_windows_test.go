@@ -26,12 +26,12 @@ func TestWithNamedPipeName(t *testing.T) {
 
 	resp := &fakeworkloadapi.X509SVIDResponse{
 		Bundle: ca.X509Bundle(),
-		SVIDs:  makeX509SVIDs(ca, fooID, barID),
+		SVIDs:  makeX509SVIDs(ca, "internal", fooID, barID),
 	}
 	wl.SetX509SVIDResponse(resp)
 	svid, err := c.FetchX509SVID(context.Background())
 	require.NoError(t, err)
-	assertX509SVID(t, svid, fooID, resp.SVIDs[0].Certificates)
+	assertX509SVID(t, svid, fooID, resp.SVIDs[0].Certificates, "internal")
 }
 
 func TestWithNamedPipeNameError(t *testing.T) {
