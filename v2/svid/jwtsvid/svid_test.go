@@ -15,7 +15,6 @@ import (
 	"github.com/go-jose/go-jose/v3/jwt"
 	"github.com/spiffe/go-spiffe/v2/bundle/jwtbundle"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
-	"github.com/spiffe/go-spiffe/v2/svid/common/optional"
 	"github.com/spiffe/go-spiffe/v2/svid/jwtsvid"
 	"github.com/stretchr/testify/require"
 )
@@ -70,9 +69,6 @@ func TestParseAndValidate(t *testing.T) {
 				ID:       spiffeid.RequireFromPath(trustDomain1, "/host"),
 				Audience: []string{"audience"},
 				Expiry:   expiresTime,
-				SVIDOptionals: optional.SVIDOptionals{
-					Hint: "internal usage only",
-				},
 			},
 		},
 		{
@@ -248,12 +244,8 @@ func TestParseAndValidate(t *testing.T) {
 			// Generate token
 			token := testCase.generateToken(t)
 
-			var opts []optional.SVIDOption
-			if testCase.svid != nil && testCase.svid.Hint != "" {
-				opts = append(opts, optional.WithHint(testCase.svid.Hint))
-			}
 			// Parse and validate
-			svid, err := jwtsvid.ParseAndValidate(token, testCase.bundle, testCase.audience, opts...)
+			svid, err := jwtsvid.ParseAndValidate(token, testCase.bundle, testCase.audience)
 
 			// Verify returned error, in case it is expected
 			if testCase.err != "" {
@@ -266,7 +258,6 @@ func TestParseAndValidate(t *testing.T) {
 			require.Equal(t, testCase.svid.ID, svid.ID)
 			require.Equal(t, testCase.svid.Expiry.Unix(), svid.Expiry.Unix())
 			require.Equal(t, testCase.svid.Audience, svid.Audience)
-			require.Equal(t, testCase.svid.Hint, svid.Hint)
 
 			claims := parseToken(t, token)
 			require.Equal(t, claims, svid.Claims)
@@ -407,12 +398,8 @@ func TestParseInsecure(t *testing.T) {
 			// Create token
 			token := testCase.generateToken(t)
 
-			var opts []optional.SVIDOption
-			if testCase.svid != nil && testCase.svid.Hint != "" {
-				opts = append(opts, optional.WithHint(testCase.svid.Hint))
-			}
 			// Call ParseInsecure
-			svid, err := jwtsvid.ParseInsecure(token, testCase.audience, opts...)
+			svid, err := jwtsvid.ParseInsecure(token, testCase.audience)
 
 			// Verify returned error, in case it is expected
 			if testCase.err != "" {
@@ -425,7 +412,6 @@ func TestParseInsecure(t *testing.T) {
 			require.Equal(t, testCase.svid.ID, svid.ID)
 			require.Equal(t, testCase.svid.Expiry.Unix(), svid.Expiry.Unix())
 			require.Equal(t, testCase.svid.Audience, svid.Audience)
-			require.Equal(t, testCase.svid.Hint, svid.Hint)
 
 			claims := parseToken(t, token)
 			require.Equal(t, claims, svid.Claims)

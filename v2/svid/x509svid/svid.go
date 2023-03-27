@@ -10,14 +10,11 @@ import (
 	"github.com/spiffe/go-spiffe/v2/internal/pemutil"
 	"github.com/spiffe/go-spiffe/v2/internal/x509util"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
-	"github.com/spiffe/go-spiffe/v2/svid/common/optional"
 	"github.com/zeebo/errs"
 )
 
 // SVID represents a SPIFFE X509-SVID.
 type SVID struct {
-	optional.SVIDOptionals
-
 	// ID is the SPIFFE ID of the X509-SVID.
 	ID spiffeid.ID
 
@@ -29,6 +26,10 @@ type SVID struct {
 
 	// PrivateKey is the private key for the X509-SVID.
 	PrivateKey crypto.Signer
+
+	// Hint is an operator-specified string used to provide guidance on how this
+	// identity should be used by a workload when more than one SVID is returned.
+	Hint string
 }
 
 // Load loads the X509-SVID from PEM encoded files on disk. certFile and
@@ -50,7 +51,7 @@ func Load(certFile, keyFile string) (*SVID, error) {
 // Parse parses the X509-SVID from PEM blocks containing certificate and key
 // bytes. The certificate must be one or more PEM blocks with ASN.1 DER. The
 // key must be a PEM block with PKCS#8 ASN.1 DER.
-func Parse(certBytes, keyBytes []byte, opts ...optional.SVIDOption) (*SVID, error) {
+func Parse(certBytes, keyBytes []byte) (*SVID, error) {
 	certs, err := pemutil.ParseCertificates(certBytes)
 	if err != nil {
 		return nil, x509svidErr.New("cannot parse PEM encoded certificate: %v", err)
@@ -61,14 +62,14 @@ func Parse(certBytes, keyBytes []byte, opts ...optional.SVIDOption) (*SVID, erro
 		return nil, x509svidErr.New("cannot parse PEM encoded private key: %v", err)
 	}
 
-	return newSVID(certs, privateKey, opts...)
+	return newSVID(certs, privateKey)
 }
 
 // ParseRaw parses the X509-SVID from certificate and key bytes. The
 // certificate must be ASN.1 DER (concatenated with no intermediate
 // padding if there are more than one certificate). The key must be a PKCS#8
 // ASN.1 DER.
-func ParseRaw(certBytes, keyBytes []byte, opts ...optional.SVIDOption) (*SVID, error) {
+func ParseRaw(certBytes, keyBytes []byte) (*SVID, error) {
 	certificates, err := x509.ParseCertificates(certBytes)
 	if err != nil {
 		return nil, x509svidErr.New("cannot parse DER encoded certificate: %v", err)
@@ -79,7 +80,7 @@ func ParseRaw(certBytes, keyBytes []byte, opts ...optional.SVIDOption) (*SVID, e
 		return nil, x509svidErr.New("cannot parse DER encoded private key: %v", err)
 	}
 
-	return newSVID(certificates, privateKey, opts...)
+	return newSVID(certificates, privateKey)
 }
 
 // Marshal marshals the X509-SVID and returns PEM encoded blocks for the SVID
@@ -119,7 +120,12 @@ func (s *SVID) GetX509SVID() (*SVID, error) {
 	return s, nil
 }
 
-func newSVID(certificates []*x509.Certificate, privateKey crypto.PrivateKey, opts ...optional.SVIDOption) (*SVID, error) {
+// SetHint sets the hint for the SVID.
+func (s *SVID) SetHint(hint string) {
+	s.Hint = hint
+}
+
+func newSVID(certificates []*x509.Certificate, privateKey crypto.PrivateKey) (*SVID, error) {
 	spiffeID, err := validateCertificates(certificates)
 	if err != nil {
 		return nil, x509svidErr.New("certificate validation failed: %v", err)
@@ -134,10 +140,6 @@ func newSVID(certificates []*x509.Certificate, privateKey crypto.PrivateKey, opt
 		Certificates: certificates,
 		PrivateKey:   signer,
 		ID:           *spiffeID,
-	}
-
-	for _, apply := range opts {
-		apply(&svid.SVIDOptionals)
 	}
 
 	return svid, nil

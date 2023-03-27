@@ -8,7 +8,6 @@ import (
 	"github.com/go-jose/go-jose/v3/jwt"
 	"github.com/spiffe/go-spiffe/v2/bundle/jwtbundle"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
-	"github.com/spiffe/go-spiffe/v2/svid/common/optional"
 	"github.com/zeebo/errs"
 )
 
@@ -21,8 +20,6 @@ type tokenValidator = func(*jwt.JSONWebToken, spiffeid.TrustDomain) (map[string]
 
 // SVID represents a JWT-SVID.
 type SVID struct {
-	optional.SVIDOptionals
-
 	// ID is the SPIFFE ID of the JWT-SVID as present in the 'sub' claim
 	ID spiffeid.ID
 	// Audience is the intended recipients of JWT-SVID as present in the 'aud' claim
@@ -31,6 +28,9 @@ type SVID struct {
 	Expiry time.Time
 	// Claims is the parsed claims from token
 	Claims map[string]interface{}
+	// Hint is an operator-specified string used to provide guidance on how this
+	// identity should be used by a workload when more than one SVID is returned.
+	Hint string
 
 	// token is the serialized JWT token
 	token string
@@ -38,7 +38,7 @@ type SVID struct {
 
 // ParseAndValidate parses and validates a JWT-SVID token and returns the
 // JWT-SVID. The JWT-SVID signature is verified using the JWT bundle source.
-func ParseAndValidate(token string, bundles jwtbundle.Source, audience []string, options ...optional.SVIDOption) (*SVID, error) {
+func ParseAndValidate(token string, bundles jwtbundle.Source, audience []string) (*SVID, error) {
 	return parse(token, audience, func(tok *jwt.JSONWebToken, trustDomain spiffeid.TrustDomain) (map[string]interface{}, error) {
 		// Obtain the key ID from the header
 		keyID := tok.Headers[0].KeyID
@@ -65,12 +65,12 @@ func ParseAndValidate(token string, bundles jwtbundle.Source, audience []string,
 		}
 
 		return claimsMap, nil
-	}, options...)
+	})
 }
 
 // ParseInsecure parses and validates a JWT-SVID token and returns the
 // JWT-SVID. The JWT-SVID signature is not verified.
-func ParseInsecure(token string, audience []string, options ...optional.SVIDOption) (*SVID, error) {
+func ParseInsecure(token string, audience []string) (*SVID, error) {
 	return parse(token, audience, func(tok *jwt.JSONWebToken, td spiffeid.TrustDomain) (map[string]interface{}, error) {
 		// Obtain the token claims insecurely, i.e. without signature verification
 		claimsMap := make(map[string]interface{})
@@ -79,7 +79,7 @@ func ParseInsecure(token string, audience []string, options ...optional.SVIDOpti
 		}
 
 		return claimsMap, nil
-	}, options...)
+	})
 }
 
 // Marshal returns the JWT-SVID marshaled to a string. The returned value is
@@ -88,7 +88,12 @@ func (svid *SVID) Marshal() string {
 	return svid.token
 }
 
-func parse(token string, audience []string, getClaims tokenValidator, opts ...optional.SVIDOption) (*SVID, error) {
+// SetHint sets the hint for the JWT-SVID.
+func (svid *SVID) SetHint(hint string) {
+	svid.Hint = hint
+}
+
+func parse(token string, audience []string, getClaims tokenValidator) (*SVID, error) {
 	// Parse serialized token
 	tok, err := jwt.ParseSigned(token)
 	if err != nil {
@@ -146,10 +151,6 @@ func parse(token string, audience []string, getClaims tokenValidator, opts ...op
 		Expiry:   claims.Expiry.Time().UTC(),
 		Claims:   claimsMap,
 		token:    token,
-	}
-
-	for _, apply := range opts {
-		apply(&svid.SVIDOptionals)
 	}
 
 	return svid, nil
