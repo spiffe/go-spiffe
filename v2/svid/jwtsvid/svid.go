@@ -145,15 +145,13 @@ func parse(token string, audience []string, getClaims tokenValidator) (*SVID, er
 		return nil, err
 	}
 
-	svid := &SVID{
+	return &SVID{
 		ID:       spiffeID,
 		Audience: claims.Audience,
 		Expiry:   claims.Expiry.Time().UTC(),
 		Claims:   claimsMap,
 		token:    token,
-	}
-
-	return svid, nil
+	}, nil
 }
 
 // validateTokenAlgorithm json web token have only one header, and it is signed for a supported algorithm

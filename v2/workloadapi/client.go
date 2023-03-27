@@ -453,7 +453,6 @@ func parseX509SVIDs(resp *workload.X509SVIDResponse, firstOnly bool) ([]*x509svi
 		if err != nil {
 			return nil, err
 		}
-
 		svids = append(svids, s)
 	}
 
@@ -543,7 +542,6 @@ func parseJWTSVIDs(resp *workload.JWTSVIDResponse, audience []string, firstOnly 
 		if err != nil {
 			return nil, err
 		}
-
 		svids = append(svids, s)
 	}
 

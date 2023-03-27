@@ -136,13 +136,11 @@ func newSVID(certificates []*x509.Certificate, privateKey crypto.PrivateKey) (*S
 		return nil, x509svidErr.New("private key validation failed: %v", err)
 	}
 
-	svid := &SVID{
+	return &SVID{
 		Certificates: certificates,
 		PrivateKey:   signer,
 		ID:           *spiffeID,
-	}
-
-	return svid, nil
+	}, nil
 }
 
 // validate the slice of certificates constitutes a valid SVID chain according

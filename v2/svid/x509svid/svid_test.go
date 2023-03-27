@@ -63,7 +63,6 @@ func TestParse(t *testing.T) {
 		name           string
 		keyPath        string
 		certsPath      string
-		hint           string
 		expID          spiffeid.ID
 		expNumCerts    int
 		expErrContains string
@@ -192,7 +191,6 @@ func TestParse(t *testing.T) {
 			require.NoError(t, err)
 
 			svid, err := x509svid.Parse(certBytes, keyBytes)
-
 			if test.expErrContains != "" {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), test.expErrContains)
@@ -405,9 +403,7 @@ func TestParseRaw(t *testing.T) {
 			require.NotNil(t, svid)
 			expectedSVID, err := x509svid.Load(test.certsPath, test.keyPath)
 			require.NoError(t, err)
-			assert.Equal(t, expectedSVID.ID, svid.ID)
-			assert.Equal(t, expectedSVID.PrivateKey, svid.PrivateKey)
-			assert.Equal(t, expectedSVID.Certificates, svid.Certificates)
+			assert.Equal(t, expectedSVID, svid)
 		})
 	}
 }
