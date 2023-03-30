@@ -120,11 +120,6 @@ func (s *SVID) GetX509SVID() (*SVID, error) {
 	return s, nil
 }
 
-// SetHint sets the hint for the SVID.
-func (s *SVID) SetHint(hint string) {
-	s.Hint = hint
-}
-
 func newSVID(certificates []*x509.Certificate, privateKey crypto.PrivateKey) (*SVID, error) {
 	spiffeID, err := validateCertificates(certificates)
 	if err != nil {

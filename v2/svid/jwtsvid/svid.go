@@ -88,11 +88,6 @@ func (svid *SVID) Marshal() string {
 	return svid.token
 }
 
-// SetHint sets the hint for the JWT-SVID.
-func (svid *SVID) SetHint(hint string) {
-	svid.Hint = hint
-}
-
 func parse(token string, audience []string, getClaims tokenValidator) (*SVID, error) {
 	// Parse serialized token
 	tok, err := jwt.ParseSigned(token)

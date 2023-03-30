@@ -449,7 +449,7 @@ func parseX509SVIDs(resp *workload.X509SVIDResponse, firstOnly bool) ([]*x509svi
 		hints[svid.Hint] = struct{}{}
 
 		s, err := x509svid.ParseRaw(svid.X509Svid, svid.X509SvidKey)
-		s.SetHint(svid.Hint)
+		s.Hint = svid.Hint
 		if err != nil {
 			return nil, err
 		}
@@ -538,7 +538,7 @@ func parseJWTSVIDs(resp *workload.JWTSVIDResponse, audience []string, firstOnly 
 		hints[svid.Hint] = struct{}{}
 
 		s, err := jwtsvid.ParseInsecure(svid.Svid, audience)
-		s.SetHint(svid.Hint)
+		s.Hint = svid.Hint
 		if err != nil {
 			return nil, err
 		}

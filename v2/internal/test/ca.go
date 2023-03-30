@@ -301,10 +301,10 @@ func WithSubject(subject pkix.Name) SVIDOption {
 func WithHint(hint string) SVIDOption {
 	return SVIDOption{
 		x509SvidOption: func(svid *x509svid.SVID) {
-			svid.SetHint(hint)
+			svid.Hint = hint
 		},
 		jwtSvidOption: func(svid *jwtsvid.SVID) {
-			svid.SetHint(hint)
+			svid.Hint = hint
 		},
 	}
 }
