@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.1.4] - 2023-03-31
+
+### Added
+
+- Support for the SVID hints obtained from the Workload API (#220)
+
+## [2.1.3] - 2023-03-16
+
+### Changed
+
+- JoinPathSegments properly disallows dot segments (#221)
+
+### Added
+
+- ValidatePathSegment function for validating an individual path segment (#221)
+
 ## [2.1.2] - 2023-01-09
 
 ### Changed
