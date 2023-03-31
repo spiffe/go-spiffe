@@ -20,11 +20,13 @@ import (
 )
 
 var (
-	td          = spiffeid.RequireTrustDomainFromString("example.org")
-	federatedTD = spiffeid.RequireTrustDomainFromString("federated.test")
-	fooID       = spiffeid.RequireFromPath(td, "/foo")
-	barID       = spiffeid.RequireFromPath(td, "/bar")
-	bazID       = spiffeid.RequireFromPath(td, "/baz")
+	td           = spiffeid.RequireTrustDomainFromString("example.org")
+	federatedTD  = spiffeid.RequireTrustDomainFromString("federated.test")
+	fooID        = spiffeid.RequireFromPath(td, "/foo")
+	barID        = spiffeid.RequireFromPath(td, "/bar")
+	bazID        = spiffeid.RequireFromPath(td, "/baz")
+	hintInternal = "internal usage"
+	hintExternal = "external usage"
 )
 
 func TestFetchX509SVID(t *testing.T) {
@@ -34,17 +36,18 @@ func TestFetchX509SVID(t *testing.T) {
 	c, err := New(context.Background(), WithAddr(wl.Addr()))
 	require.NoError(t, err)
 	defer c.Close()
+	hint := "internal usage"
 
 	resp := &fakeworkloadapi.X509SVIDResponse{
 		Bundle: ca.X509Bundle(),
-		SVIDs:  makeX509SVIDs(ca, fooID, barID),
+		SVIDs:  makeX509SVIDs(ca, hint, fooID, barID),
 	}
 
 	wl.SetX509SVIDResponse(resp)
 	svid, err := c.FetchX509SVID(context.Background())
 
 	require.NoError(t, err)
-	assertX509SVID(t, svid, fooID, resp.SVIDs[0].Certificates)
+	assertX509SVID(t, svid, fooID, resp.SVIDs[0].Certificates, hint)
 }
 
 func TestFetchX509SVIDs(t *testing.T) {
@@ -55,18 +58,27 @@ func TestFetchX509SVIDs(t *testing.T) {
 	require.NoError(t, err)
 	defer c.Close()
 
+	fooSVID := ca.CreateX509SVID(fooID, test.WithHint(hintInternal))
+	barSVID := ca.CreateX509SVID(barID, test.WithHint(hintExternal))
+	duplicatedHintSVID := ca.CreateX509SVID(bazID, test.WithHint(hintInternal))
+	emptyHintSVID1 := ca.CreateX509SVID(spiffeid.RequireFromPath(td, "/empty1"), test.WithHint(""))
+	emptyHintSVID2 := ca.CreateX509SVID(spiffeid.RequireFromPath(td, "/empty2"), test.WithHint(""))
+
 	resp := &fakeworkloadapi.X509SVIDResponse{
 		Bundle: ca.X509Bundle(),
-		SVIDs:  makeX509SVIDs(ca, fooID, barID),
+		SVIDs:  []*x509svid.SVID{fooSVID, barSVID, duplicatedHintSVID, emptyHintSVID1, emptyHintSVID2},
 	}
 	wl.SetX509SVIDResponse(resp)
 
 	svids, err := c.FetchX509SVIDs(context.Background())
 
 	require.NoError(t, err)
-	require.Len(t, svids, 2)
-	assertX509SVID(t, svids[0], fooID, resp.SVIDs[0].Certificates)
-	assertX509SVID(t, svids[1], barID, resp.SVIDs[1].Certificates)
+	// Assert that the response contains the expected SVIDs, and does not contain the SVID with duplicated hint
+	require.Len(t, svids, 4)
+	assertX509SVID(t, svids[0], fooID, resp.SVIDs[0].Certificates, hintInternal)
+	assertX509SVID(t, svids[1], barID, resp.SVIDs[1].Certificates, hintExternal)
+	assertX509SVID(t, svids[2], emptyHintSVID1.ID, resp.SVIDs[3].Certificates, "")
+	assertX509SVID(t, svids[3], emptyHintSVID2.ID, resp.SVIDs[4].Certificates, "")
 }
 
 func TestFetchX509Bundles(t *testing.T) {
@@ -148,7 +160,13 @@ func TestFetchX509Context(t *testing.T) {
 	require.NoError(t, err)
 	defer c.Close()
 
-	svids := makeX509SVIDs(ca, fooID, barID)
+	fooSVID := ca.CreateX509SVID(fooID, test.WithHint(hintInternal))
+	barSVID := ca.CreateX509SVID(barID, test.WithHint(hintExternal))
+	duplicatedHintSVID := ca.CreateX509SVID(bazID, test.WithHint(hintInternal))
+	emptyHintSVID1 := ca.CreateX509SVID(spiffeid.RequireFromPath(td, "/empty1"), test.WithHint(""))
+	emptyHintSVID2 := ca.CreateX509SVID(spiffeid.RequireFromPath(td, "/empty2"), test.WithHint(""))
+
+	svids := []*x509svid.SVID{fooSVID, barSVID, duplicatedHintSVID, emptyHintSVID1, emptyHintSVID2}
 
 	resp := &fakeworkloadapi.X509SVIDResponse{
 		Bundle:           ca.X509Bundle(),
@@ -161,9 +179,11 @@ func TestFetchX509Context(t *testing.T) {
 
 	require.NoError(t, err)
 	// inspect svids
-	require.Len(t, x509Ctx.SVIDs, 2)
-	assertX509SVID(t, x509Ctx.SVIDs[0], fooID, resp.SVIDs[0].Certificates)
-	assertX509SVID(t, x509Ctx.SVIDs[1], barID, resp.SVIDs[1].Certificates)
+	require.Len(t, x509Ctx.SVIDs, 4)
+	assertX509SVID(t, x509Ctx.SVIDs[0], fooID, resp.SVIDs[0].Certificates, hintInternal)
+	assertX509SVID(t, x509Ctx.SVIDs[1], barID, resp.SVIDs[1].Certificates, hintExternal)
+	assertX509SVID(t, x509Ctx.SVIDs[2], emptyHintSVID1.ID, resp.SVIDs[3].Certificates, "")
+	assertX509SVID(t, x509Ctx.SVIDs[3], emptyHintSVID2.ID, resp.SVIDs[4].Certificates, "")
 
 	// inspect bundles
 	assert.Equal(t, 2, x509Ctx.Bundles.Len())
@@ -205,10 +225,18 @@ func TestWatchX509Context(t *testing.T) {
 	require.Len(t, tw.Errors(), 1)
 	require.Len(t, tw.X509Contexts(), 0)
 
+	fooSVID := ca.CreateX509SVID(fooID, test.WithHint(hintInternal))
+	barSVID := ca.CreateX509SVID(barID, test.WithHint(hintExternal))
+	duplicatedHintSVID := ca.CreateX509SVID(bazID, test.WithHint(hintInternal))
+	emptyHintSVID1 := ca.CreateX509SVID(spiffeid.RequireFromPath(td, "/empty1"), test.WithHint(""))
+	emptyHintSVID2 := ca.CreateX509SVID(spiffeid.RequireFromPath(td, "/empty2"), test.WithHint(""))
+
+	svids := []*x509svid.SVID{fooSVID, barSVID, duplicatedHintSVID, emptyHintSVID1, emptyHintSVID2}
+
 	// test first update
 	resp := &fakeworkloadapi.X509SVIDResponse{
 		Bundle:           ca.X509Bundle(),
-		SVIDs:            makeX509SVIDs(ca, fooID, barID),
+		SVIDs:            svids,
 		FederatedBundles: []*x509bundle.Bundle{federatedCA.X509Bundle()},
 	}
 	wl.SetX509SVIDResponse(resp)
@@ -219,18 +247,21 @@ func TestWatchX509Context(t *testing.T) {
 	require.Len(t, tw.X509Contexts(), 1)
 	update := tw.X509Contexts()[len(tw.X509Contexts())-1]
 	// inspect svids
-	require.Len(t, update.SVIDs, 2)
-	assertX509SVID(t, update.SVIDs[0], fooID, resp.SVIDs[0].Certificates)
-	assertX509SVID(t, update.SVIDs[1], barID, resp.SVIDs[1].Certificates)
+	require.Len(t, update.SVIDs, 4)
+	assertX509SVID(t, update.SVIDs[0], fooID, resp.SVIDs[0].Certificates, hintInternal)
+	assertX509SVID(t, update.SVIDs[1], barID, resp.SVIDs[1].Certificates, hintExternal)
+	assertX509SVID(t, update.SVIDs[2], emptyHintSVID1.ID, resp.SVIDs[3].Certificates, "")
+	assertX509SVID(t, update.SVIDs[3], emptyHintSVID2.ID, resp.SVIDs[4].Certificates, "")
 	// inspect bundles
 	assert.Equal(t, 2, update.Bundles.Len())
 	assertX509Bundle(t, update.Bundles, td, ca.X509Bundle())
 	assertX509Bundle(t, update.Bundles, federatedTD, federatedCA.X509Bundle())
 
+	bazSVID := ca.CreateX509SVID(bazID, test.WithHint(hintExternal))
 	// test second update
 	resp = &fakeworkloadapi.X509SVIDResponse{
 		Bundle: ca.X509Bundle(),
-		SVIDs:  makeX509SVIDs(ca, bazID),
+		SVIDs:  []*x509svid.SVID{bazSVID},
 	}
 
 	wl.SetX509SVIDResponse(resp)
@@ -242,7 +273,7 @@ func TestWatchX509Context(t *testing.T) {
 	update = tw.X509Contexts()[len(tw.X509Contexts())-1]
 	// inspect svids
 	require.Len(t, update.SVIDs, 1)
-	assertX509SVID(t, update.SVIDs[0], bazID, resp.SVIDs[0].Certificates)
+	assertX509SVID(t, update.SVIDs[0], bazID, resp.SVIDs[0].Certificates, hintExternal)
 	// inspect bundles
 	assert.Equal(t, 1, update.Bundles.Len())
 	assertX509Bundle(t, update.Bundles, td, ca.X509Bundle())
@@ -266,8 +297,8 @@ func TestFetchJWTSVID(t *testing.T) {
 	subjectID := spiffeid.RequireFromPath(td, "/subject")
 	audienceID := spiffeid.RequireFromPath(td, "/audience")
 	extraAudienceID := spiffeid.RequireFromPath(td, "/extra_audience")
-	token := ca.CreateJWTSVID(subjectID, []string{audienceID.String(), extraAudienceID.String()}).Marshal()
-	respJWT := makeJWTSVIDResponse([]string{token}, subjectID)
+	svid := ca.CreateJWTSVID(subjectID, []string{audienceID.String(), extraAudienceID.String()}, test.WithHint("internal usage"))
+	respJWT := makeJWTSVIDResponse(svid)
 	wl.SetJWTSVIDResponse(respJWT)
 
 	params := jwtsvid.Params{
@@ -279,7 +310,7 @@ func TestFetchJWTSVID(t *testing.T) {
 	jwtSvid, err := c.FetchJWTSVID(context.Background(), params)
 
 	require.NoError(t, err)
-	assertJWTSVID(t, jwtSvid, subjectID, token, audienceID.String(), extraAudienceID.String())
+	assertJWTSVID(t, jwtSvid, subjectID, svid.Marshal(), svid.Hint, audienceID.String(), extraAudienceID.String())
 }
 
 func TestFetchJWTSVIDs(t *testing.T) {
@@ -291,11 +322,15 @@ func TestFetchJWTSVIDs(t *testing.T) {
 
 	subjectID := spiffeid.RequireFromPath(td, "/subject")
 	extraSubjectID := spiffeid.RequireFromPath(td, "/extra_subject")
+	duplicatedHintID := spiffeid.RequireFromPath(td, "/somePath")
 	audienceID := spiffeid.RequireFromPath(td, "/audience")
 	extraAudienceID := spiffeid.RequireFromPath(td, "/extra_audience")
-	subjectIDToken := ca.CreateJWTSVID(subjectID, []string{audienceID.String(), extraAudienceID.String()}).Marshal()
-	extraSubjectIDToken := ca.CreateJWTSVID(extraSubjectID, []string{audienceID.String(), extraAudienceID.String()}).Marshal()
-	respJWT := makeJWTSVIDResponse([]string{subjectIDToken, extraSubjectIDToken}, subjectID, extraSubjectID)
+	subjectSVID := ca.CreateJWTSVID(subjectID, []string{audienceID.String(), extraAudienceID.String()}, test.WithHint("internal usage"))
+	extraSubjectSVID := ca.CreateJWTSVID(extraSubjectID, []string{audienceID.String(), extraAudienceID.String()}, test.WithHint("external usage"))
+	duplicatedHintSVID := ca.CreateJWTSVID(duplicatedHintID, []string{audienceID.String(), extraAudienceID.String()}, test.WithHint("internal usage"))
+	emptyHintSVID1 := ca.CreateJWTSVID(extraSubjectID, []string{audienceID.String(), extraAudienceID.String()}, test.WithHint(""))
+	emptyHintSVID2 := ca.CreateJWTSVID(duplicatedHintID, []string{audienceID.String(), extraAudienceID.String()}, test.WithHint(""))
+	respJWT := makeJWTSVIDResponse(subjectSVID, extraSubjectSVID, duplicatedHintSVID, emptyHintSVID1, emptyHintSVID2)
 	wl.SetJWTSVIDResponse(respJWT)
 
 	params := jwtsvid.Params{
@@ -307,8 +342,12 @@ func TestFetchJWTSVIDs(t *testing.T) {
 	jwtSvid, err := c.FetchJWTSVIDs(context.Background(), params)
 
 	require.NoError(t, err)
-	assertJWTSVID(t, jwtSvid[0], subjectID, subjectIDToken, audienceID.String(), extraAudienceID.String())
-	assertJWTSVID(t, jwtSvid[1], extraSubjectID, extraSubjectIDToken, audienceID.String(), extraAudienceID.String())
+	// Assert that the response contains the expected SVIDs, and does not contain the SVID with duplicated hint
+	require.Len(t, jwtSvid, 4)
+	assertJWTSVID(t, jwtSvid[0], subjectID, subjectSVID.Marshal(), subjectSVID.Hint, audienceID.String(), extraAudienceID.String())
+	assertJWTSVID(t, jwtSvid[1], extraSubjectID, extraSubjectSVID.Marshal(), extraSubjectSVID.Hint, audienceID.String(), extraAudienceID.String())
+	assertJWTSVID(t, jwtSvid[2], emptyHintSVID1.ID, emptyHintSVID1.Marshal(), emptyHintSVID1.Hint, audienceID.String(), extraAudienceID.String())
+	assertJWTSVID(t, jwtSvid[3], emptyHintSVID2.ID, emptyHintSVID2.Marshal(), emptyHintSVID2.Hint, audienceID.String(), extraAudienceID.String())
 }
 
 func TestFetchJWTBundles(t *testing.T) {
@@ -394,14 +433,14 @@ func TestValidateJWTSVID(t *testing.T) {
 		jwtSvid, err := c.ValidateJWTSVID(context.Background(), token.Marshal(), audience[0])
 
 		assert.NoError(t, err)
-		assertJWTSVID(t, jwtSvid, workloadID, token.Marshal(), audience...)
+		assertJWTSVID(t, jwtSvid, workloadID, token.Marshal(), "", audience...)
 	})
 
 	t.Run("second audience is valid", func(t *testing.T) {
 		jwtSvid, err := c.ValidateJWTSVID(context.Background(), token.Marshal(), audience[1])
 
 		assert.NoError(t, err)
-		assertJWTSVID(t, jwtSvid, workloadID, token.Marshal(), audience...)
+		assertJWTSVID(t, jwtSvid, workloadID, token.Marshal(), "", audience...)
 	})
 
 	t.Run("invalid audience returns error", func(t *testing.T) {
@@ -412,31 +451,33 @@ func TestValidateJWTSVID(t *testing.T) {
 	})
 }
 
-func makeX509SVIDs(ca *test.CA, ids ...spiffeid.ID) []*x509svid.SVID {
+func makeX509SVIDs(ca *test.CA, hint string, ids ...spiffeid.ID) []*x509svid.SVID {
 	svids := []*x509svid.SVID{}
 	for _, id := range ids {
-		svids = append(svids, ca.CreateX509SVID(id))
+		svids = append(svids, ca.CreateX509SVID(id, test.WithHint(hint)))
 	}
 	return svids
 }
 
-func makeJWTSVIDResponse(token []string, ids ...spiffeid.ID) *workload.JWTSVIDResponse {
-	svids := []*workload.JWTSVID{}
-	for i, id := range ids {
-		svid := &workload.JWTSVID{
-			SpiffeId: id.String(),
-			Svid:     token[i],
+func makeJWTSVIDResponse(svids ...*jwtsvid.SVID) *workload.JWTSVIDResponse {
+	respSVIDS := []*workload.JWTSVID{}
+	for _, svid := range svids {
+		respSVID := &workload.JWTSVID{
+			SpiffeId: svid.ID.String(),
+			Svid:     svid.Marshal(),
+			Hint:     svid.Hint,
 		}
-		svids = append(svids, svid)
+		respSVIDS = append(respSVIDS, respSVID)
 	}
 	return &workload.JWTSVIDResponse{
-		Svids: svids,
+		Svids: respSVIDS,
 	}
 }
 
-func assertX509SVID(tb testing.TB, svid *x509svid.SVID, spiffeID spiffeid.ID, certificates []*x509.Certificate) {
+func assertX509SVID(tb testing.TB, svid *x509svid.SVID, spiffeID spiffeid.ID, certificates []*x509.Certificate, hint string) {
 	assert.Equal(tb, spiffeID, svid.ID)
 	assert.Equal(tb, certificates, svid.Certificates)
+	assert.Equal(tb, hint, svid.Hint)
 	assert.NotEmpty(tb, svid.PrivateKey)
 }
 
@@ -452,12 +493,13 @@ func assertJWTBundle(tb testing.TB, bundleSet *jwtbundle.Set, trustDomain spiffe
 	assert.Equal(tb, b, expectedBundle)
 }
 
-func assertJWTSVID(t testing.TB, jwtSvid *jwtsvid.SVID, subjectID spiffeid.ID, token string, audience ...string) {
+func assertJWTSVID(t testing.TB, jwtSvid *jwtsvid.SVID, subjectID spiffeid.ID, token, hint string, audience ...string) {
 	assert.Equal(t, subjectID.String(), jwtSvid.ID.String())
 	assert.Equal(t, audience, jwtSvid.Audience)
 	assert.NotNil(t, jwtSvid.Claims)
 	assert.NotEmpty(t, jwtSvid.Expiry)
 	assert.Equal(t, token, jwtSvid.Marshal())
+	assert.Equal(t, hint, jwtSvid.Hint)
 }
 
 type testWatcher struct {
