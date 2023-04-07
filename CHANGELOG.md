@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.5] - 2023-04-07
+
+### Fixed
+
+- Panic when failing to parse raw SVID response returned from the Workload API (#223)
+
+
 ## [2.1.4] - 2023-03-31
 
 ### Added
