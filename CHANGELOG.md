@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.1.5] - 2023-05-26
+
+### Added
+
+- PeerIDFromConnectionState method for extracting the peer ID from TLS connection state (#225)
+
+### Changed
+
+- The `tlsconfig` to enforce a minimum TLS version of TLS1.2 (#226)
+
+### Fixed
+
+- Panic when failing to parse raw SVID response returned from the Workload API (#223)
+
+
 ## [2.1.4] - 2023-03-31
 
 ### Added
