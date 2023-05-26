@@ -22,7 +22,7 @@ func PeerIDFromConn(conn net.Conn) (spiffeid.ID, error) {
 	return spiffeid.ID{}, spiffetlsErr.New("connection does not expose peer ID")
 }
 
-func peerIDFromConnectionState(state tls.ConnectionState) (spiffeid.ID, error) {
+func PeerIDFromConnectionState(state tls.ConnectionState) (spiffeid.ID, error) {
 	// The connection state unfortunately does not have VerifiedChains set
 	// because SPIFFE TLS does custom verification, i.e., Go's TLS stack only
 	// sets VerifiedChains if it is the one to verify the chain of trust. The

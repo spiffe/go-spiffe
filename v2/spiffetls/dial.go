@@ -102,5 +102,5 @@ func (c *clientConn) Close() error {
 // been completed. Note that in Go's TLS stack, the TLS 1.3 handshake may not
 // complete until the first read from the connection.
 func (c *clientConn) PeerID() (spiffeid.ID, error) {
-	return peerIDFromConnectionState(c.Conn.ConnectionState())
+	return PeerIDFromConnectionState(c.Conn.ConnectionState())
 }
