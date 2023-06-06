@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.1.6] - 2023-06-06
+
+### Added
+
+- Name convenience method to the spiffeid.TrustDomain type (#228)
+
 ## [2.1.5] - 2023-05-26
 
 ### Added
