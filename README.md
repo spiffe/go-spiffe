@@ -18,7 +18,7 @@ Prerequisites:
 1. Running [SPIRE](https://spiffe.io/spire/) or another SPIFFE Workload API
    implementation.
 2. `SPIFFE_ENDPOINT_SOCKET` environment variable set to address of the Workload
-   API (e.g. `unix:///tmp/agent.sock`). Alternatively the socket address can be
+   API (e.g. `unix:///tmp/spire-agent/public/api.sock`). Alternatively the socket address can be
    provided programatically.
 
 To create an mTLS server:

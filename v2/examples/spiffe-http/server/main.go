@@ -14,7 +14,7 @@ import (
 )
 
 // Worload API socket path
-const socketPath = "unix:///tmp/agent.sock"
+const socketPath = "unix:///tmp/spire-agent/public/api.sock"
 
 func main() {
 	if err := run(context.Background()); err != nil {

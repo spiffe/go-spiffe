@@ -17,7 +17,7 @@ import (
 
 const (
 	serverURL  = "https://localhost:8443"
-	socketPath = "unix:///tmp/agent.sock"
+	socketPath = "unix:///tmp/spire-agent/public/api.sock"
 )
 
 func main() {

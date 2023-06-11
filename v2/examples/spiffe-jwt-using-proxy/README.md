@@ -33,7 +33,7 @@ As you may noted, the three workloads create a [workloadapi.X509Source](https://
 ```
 Where:
 - ctx is a `context.Context`. `NewX509Source` function blocks until the first Workload API response is received or this context times out or is cancelled.
-- socketPath is the address of the Workload API (`unix:///tmp/agent.sock`) to which the internal Workload API client connects to get up-to-date SVIDs. Alternatively, we could have omitted this configuration option, in which case the listener would have used the `SPIFFE_ENDPOINT_SOCKET` environment variable to locate the Workload API. The code could have then been written like this:
+- socketPath is the address of the Workload API (`unix:///tmp/spire-agent/public/api.sock`) to which the internal Workload API client connects to get up-to-date SVIDs. Alternatively, we could have omitted this configuration option, in which case the listener would have used the `SPIFFE_ENDPOINT_SOCKET` environment variable to locate the Workload API. The code could have then been written like this:
 ```go
 	x509Source, err := workloadapi.NewX509Source(ctx)
 ```
@@ -99,7 +99,7 @@ On the scenario described we can see that only the client and the server workloa
 ```
 Where:
 - ctx is a `context.Context`. `NewJWTSource` function blocks until the first Workload API response is received or this context times out or is cancelled.
-- socketPath is the address of the Workload API (`unix:///tmp/agent.sock`) to which the internal Workload API client connects to get up-to-date SVIDs. Alternatively, we could have omitted this configuration option, in which case the listener would have used the `SPIFFE_ENDPOINT_SOCKET` environment variable to locate the Workload API. The code could have then been written like this:
+- socketPath is the address of the Workload API (`unix:///tmp/spire-agent/public/api.sock`) to which the internal Workload API client connects to get up-to-date SVIDs. Alternatively, we could have omitted this configuration option, in which case the listener would have used the `SPIFFE_ENDPOINT_SOCKET` environment variable to locate the Workload API. The code could have then been written like this:
 ```go
 	jwtSource, err := workloadapi.NewJWTSource(ctx)
 ```

@@ -2,7 +2,7 @@
 
 This example shows how two services using HTTP can communicate using mTLS with X509 SVIDs obtained from SPIFFE workload API.
 
-Each service is connecting to the Workload API to fetch its identities. Since this example assumes the SPIRE implementation, it uses the SPIRE default socket path: `/tmp/agent.sock`. 
+Each service is connecting to the Workload API to fetch its identities. Since this example assumes the SPIRE implementation, it uses the SPIRE default socket path: `unix:////tmp/spire-agent/public/api.sock`. 
 
 ```go
 source, err := workloadapi.NewX509Source(ctx, workloadapi.WithClientOptions(workloadapi.WithAddr(socketPath)))

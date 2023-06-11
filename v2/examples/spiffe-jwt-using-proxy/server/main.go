@@ -14,7 +14,7 @@ import (
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
 )
 
-const socketPath = "unix:///tmp/agent.sock"
+const socketPath = "unix:///tmp/spire-agent/public/api.sock"
 
 func index(w http.ResponseWriter, r *http.Request) {
 	log.Println("Request received")

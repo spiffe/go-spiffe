@@ -14,7 +14,7 @@ import (
 
 const (
 	// Workload API socket path
-	socketPath = "unix:///tmp/agent.sock"
+	socketPath = "unix:///tmp/spire-agent/public/api.sock"
 	serverURL  = "https://localhost:8443/"
 )
 

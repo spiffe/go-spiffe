@@ -14,7 +14,7 @@ import (
 	pb "google.golang.org/grpc/examples/helloworld/helloworld"
 )
 
-const socketPath = "unix:///tmp/agent.sock"
+const socketPath = "unix:///tmp/spire-agent/public/api.sock"
 
 // server is used to implement helloworld.GreeterServer.
 type server struct {

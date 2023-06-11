@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	socketPath    = "unix:///tmp/agent.sock"
+	socketPath    = "unix:///tmp/spire-agent/public/api.sock"
 	serverAddress = "localhost:55555"
 )
 
