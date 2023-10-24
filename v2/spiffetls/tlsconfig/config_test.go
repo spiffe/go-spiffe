@@ -794,7 +794,7 @@ func testConnection(t testing.TB, serverConfig *tls.Config, clientConfig *tls.Co
 
 func createTestTLSConfig(base *tls.Config) *tls.Config {
 	tlsCert := tls.Certificate{Certificate: [][]byte{[]byte("body")}}
-	return &tls.Config{
+	return &tls.Config{ //nolint:gosec // MinVersion it is ok for this test
 		Rand:                        base.Rand,
 		Time:                        base.Time,
 		GetConfigForClient:          base.GetConfigForClient,
@@ -802,7 +802,6 @@ func createTestTLSConfig(base *tls.Config) *tls.Config {
 		ServerName:                  base.ServerName,
 		ClientCAs:                   base.ClientCAs,
 		CipherSuites:                base.CipherSuites,
-		PreferServerCipherSuites:    base.PreferServerCipherSuites, //nolint:gosec // setting to true is OK, for this test
 		SessionTicketsDisabled:      base.SessionTicketsDisabled,
 		SessionTicketKey:            base.SessionTicketKey, //nolint:staticcheck // need to ensure this value is copied from the base
 		ClientSessionCache:          base.ClientSessionCache,
@@ -841,7 +840,6 @@ func createBaseTLSConfig() *tls.Config {
 		ServerName:                  "Server1",
 		ClientCAs:                   x509.NewCertPool(),
 		CipherSuites:                []uint16{12},
-		PreferServerCipherSuites:    true, //nolint:gosec // setting to true is OK, for this test
 		SessionTicketsDisabled:      true,
 		SessionTicketKey:            [32]byte{32},
 		ClientSessionCache:          tls.NewLRUClientSessionCache(32),
@@ -862,7 +860,6 @@ func assertUnrelatedFieldsUntouched(t testing.TB, base, wrapped *tls.Config) {
 	assert.Equal(t, base.ServerName, wrapped.ServerName)
 	assert.Equal(t, base.ClientCAs, wrapped.ClientCAs)
 	assert.Equal(t, base.CipherSuites, wrapped.CipherSuites)
-	assert.Equal(t, base.PreferServerCipherSuites, wrapped.PreferServerCipherSuites)
 	assert.Equal(t, base.SessionTicketsDisabled, wrapped.SessionTicketsDisabled)
 	assert.Equal(t, base.SessionTicketKey, wrapped.SessionTicketKey) //nolint:staticcheck // need to assert this field is not inadvertently mutated
 	assert.Equal(t, base.ClientSessionCache, wrapped.ClientSessionCache)

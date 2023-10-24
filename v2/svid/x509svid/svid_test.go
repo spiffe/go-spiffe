@@ -3,7 +3,6 @@ package x509svid_test
 import (
 	"crypto/x509"
 	"errors"
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -184,10 +183,10 @@ func TestParse(t *testing.T) {
 	for _, test := range tests {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
-			certBytes, err := ioutil.ReadFile(test.certsPath)
+			certBytes, err := os.ReadFile(test.certsPath)
 			require.NoError(t, err)
 
-			keyBytes, err := ioutil.ReadFile(test.keyPath)
+			keyBytes, err := os.ReadFile(test.keyPath)
 			require.NoError(t, err)
 
 			svid, err := x509svid.Parse(certBytes, keyBytes)
@@ -273,11 +272,11 @@ func TestMarshal(t *testing.T) {
 			require.NotNil(t, certs)
 			require.NotNil(t, key)
 
-			expCerts, err := ioutil.ReadFile(test.certsPath)
+			expCerts, err := os.ReadFile(test.certsPath)
 			require.NoError(t, err)
 			assert.Equal(t, expCerts, certs)
 
-			expKey, err := ioutil.ReadFile(test.keyPath)
+			expKey, err := os.ReadFile(test.keyPath)
 			require.NoError(t, err)
 			assert.Equal(t, expKey, key)
 		})
@@ -409,7 +408,7 @@ func TestParseRaw(t *testing.T) {
 }
 
 func loadRawCertificates(t *testing.T, path string) []byte {
-	certsBytes, err := ioutil.ReadFile(path)
+	certsBytes, err := os.ReadFile(path)
 	require.NoError(t, err)
 
 	certs, err := pemutil.ParseCertificates(certsBytes)
@@ -423,7 +422,7 @@ func loadRawCertificates(t *testing.T, path string) []byte {
 }
 
 func loadRawKey(t *testing.T, path string) []byte {
-	keyBytes, err := ioutil.ReadFile(path)
+	keyBytes, err := os.ReadFile(path)
 	require.NoError(t, err)
 
 	key, err := pemutil.ParsePrivateKey(keyBytes)
