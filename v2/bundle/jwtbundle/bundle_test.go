@@ -2,7 +2,6 @@ package jwtbundle_test
 
 import (
 	"crypto"
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -157,7 +156,7 @@ func TestParse(t *testing.T) {
 		testCase := testCase
 		t.Run(testCase.tf.filePath, func(t *testing.T) {
 			// we expect the ReadFile call to fail in some cases
-			bundleBytes, _ := ioutil.ReadFile(testCase.tf.filePath)
+			bundleBytes, _ := os.ReadFile(testCase.tf.filePath)
 
 			bundle, err := jwtbundle.Parse(td, bundleBytes)
 			if testCase.err != "" {

@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"crypto/x509"
 	"errors"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -126,7 +126,7 @@ func TestHandler(t *testing.T) {
 			require.NoError(t, err)
 			defer res.Body.Close()
 
-			actual, err := ioutil.ReadAll(res.Body)
+			actual, err := io.ReadAll(res.Body)
 			require.NoError(t, err)
 
 			switch {

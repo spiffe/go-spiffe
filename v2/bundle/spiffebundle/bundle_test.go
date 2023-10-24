@@ -3,7 +3,6 @@ package spiffebundle_test
 import (
 	"crypto"
 	"crypto/x509"
-	"io/ioutil"
 	"os"
 	"testing"
 	"time"
@@ -105,7 +104,7 @@ func TestParse(t *testing.T) {
 		testCase := testCase
 		t.Run(testCase.filePath, func(t *testing.T) {
 			// we expect the ReadFile call to fail in some cases
-			bundleBytes, _ := ioutil.ReadFile(testCase.filePath)
+			bundleBytes, _ := os.ReadFile(testCase.filePath)
 
 			bundle, err := spiffebundle.Parse(td, bundleBytes)
 			checkBundleProperties(t, err, testCase, bundle)

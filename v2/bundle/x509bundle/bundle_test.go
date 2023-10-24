@@ -2,7 +2,6 @@ package x509bundle_test
 
 import (
 	"crypto/x509"
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -121,7 +120,7 @@ func TestParse(t *testing.T) {
 	for _, test := range tests {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
-			fileBytes, err := ioutil.ReadFile(test.path)
+			fileBytes, err := os.ReadFile(test.path)
 			require.NoError(t, err)
 
 			bundle, err := x509bundle.Parse(td, fileBytes)
@@ -229,7 +228,7 @@ func TestMarshal(t *testing.T) {
 	require.NotNil(t, pemBytes)
 
 	// Load original bytes for comparison
-	expBytes, err := ioutil.ReadFile("testdata/certs.pem")
+	expBytes, err := os.ReadFile("testdata/certs.pem")
 	require.NoError(t, err)
 
 	// Assert the marshalled bundle is equal to the one loaded
@@ -320,7 +319,7 @@ func TestClone(t *testing.T) {
 }
 
 func loadRawCertificates(t *testing.T, path string) []byte {
-	certsBytes, err := ioutil.ReadFile(path)
+	certsBytes, err := os.ReadFile(path)
 	require.NoError(t, err)
 
 	certs, err := pemutil.ParseCertificates(certsBytes)
