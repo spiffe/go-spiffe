@@ -3,6 +3,7 @@ package jwtsvid_test
 import (
 	"crypto"
 	"crypto/ecdsa"
+	"crypto/ed25519"
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
@@ -502,6 +503,8 @@ func getSignerAlgorithm(signer crypto.Signer) (jose.SignatureAlgorithm, error) {
 		default:
 			return "", fmt.Errorf("unable to determine signature algorithm for EC public key size %d", params.BitSize)
 		}
+	case ed25519.PublicKey:
+		return jose.EdDSA, nil
 	default:
 		return "", fmt.Errorf("unable to determine signature algorithm for public key type %T", publicKey)
 	}
