@@ -5,17 +5,17 @@ package workloadapi
 
 import (
 	"context"
+	fakeworkloadapi2 "github.com/spiffe/go-spiffe/v2/test/fakeworkloadapi"
 	"strings"
 	"testing"
 
 	"github.com/spiffe/go-spiffe/v2/internal/test"
-	"github.com/spiffe/go-spiffe/v2/internal/test/fakeworkloadapi"
 	"github.com/stretchr/testify/require"
 )
 
 func TestWithNamedPipeName(t *testing.T) {
 	ca := test.NewCA(t, td)
-	wl := fakeworkloadapi.NewWithNamedPipeListener(t)
+	wl := fakeworkloadapi2.NewWithNamedPipeListener(t)
 	defer wl.Stop()
 
 	pipeName := strings.TrimPrefix(wl.Addr(), "npipe:")
@@ -24,7 +24,7 @@ func TestWithNamedPipeName(t *testing.T) {
 	defer c.Close()
 	require.Equal(t, pipeName, c.config.namedPipeName)
 
-	resp := &fakeworkloadapi.X509SVIDResponse{
+	resp := &fakeworkloadapi2.X509SVIDResponse{
 		Bundle: ca.X509Bundle(),
 		SVIDs:  makeX509SVIDs(ca, "internal", fooID, barID),
 	}
@@ -35,14 +35,14 @@ func TestWithNamedPipeName(t *testing.T) {
 }
 
 func TestWithNamedPipeNameError(t *testing.T) {
-	wl := fakeworkloadapi.NewWithNamedPipeListener(t)
+	wl := fakeworkloadapi2.NewWithNamedPipeListener(t)
 	defer wl.Stop()
 
 	c, err := New(context.Background(), WithNamedPipeName("ohno"))
 	require.NoError(t, err)
 	defer c.Close()
 
-	wl.SetX509SVIDResponse(&fakeworkloadapi.X509SVIDResponse{})
+	wl.SetX509SVIDResponse(&fakeworkloadapi2.X509SVIDResponse{})
 	_, err = c.FetchX509SVID(context.Background())
 	require.Error(t, err)
 	require.Contains(t, err.Error(), `ohno: The system cannot find the file specified`)
