@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.7] - 2024-01-17
+
+### Fixed
+
+- Panic if the Workload API returned a malformed JWT-SVID (#233)
+- Race that causes WaitForUpdate to return immediately after watcher is initialized even if there is no update (#260)
+
 ## [2.1.6] - 2023-06-06
 
 ### Added
