@@ -141,10 +141,10 @@ func (w *watcher) Close() error {
 
 func (w *watcher) OnX509ContextUpdate(x509Context *X509Context) {
 	w.x509ContextFn(x509Context)
+	w.triggerUpdated()
 	w.x509ContextSetOnce.Do(func() {
 		close(w.x509ContextSet)
 	})
-	w.triggerUpdated()
 }
 
 func (w *watcher) OnX509ContextWatchError(err error) {
@@ -154,10 +154,10 @@ func (w *watcher) OnX509ContextWatchError(err error) {
 
 func (w *watcher) OnJWTBundlesUpdate(jwtBundles *jwtbundle.Set) {
 	w.jwtBundlesFn(jwtBundles)
+	w.triggerUpdated()
 	w.jwtBundlesSetOnce.Do(func() {
 		close(w.jwtBundlesSet)
 	})
-	w.triggerUpdated()
 }
 
 func (w *watcher) OnJWTBundlesWatchError(error) {
