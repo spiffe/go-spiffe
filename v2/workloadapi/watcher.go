@@ -129,7 +129,7 @@ func (w *watcher) Close() error {
 		w.cancel()
 		w.wg.Wait()
 
-		// Close() can be called by New() to close a partially intialized source.
+		// Close() can be called by New() to close a partially initialized source.
 		// Only close the client if it has been set and the source owns it.
 		if w.client != nil && w.ownsClient {
 			w.closeErr = w.client.Close()
