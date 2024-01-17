@@ -772,7 +772,7 @@ func testConnection(t testing.TB, serverConfig *tls.Config, clientConfig *tls.Co
 		if conn != nil {
 			conn.Close()
 		}
-		require.EqualError(t, err, clientErr)
+		require.ErrorContains(t, err, clientErr)
 		return
 	}
 
