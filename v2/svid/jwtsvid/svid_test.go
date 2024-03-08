@@ -11,13 +11,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-jose/go-jose/v3"
-	"github.com/go-jose/go-jose/v3/cryptosigner"
-	"github.com/go-jose/go-jose/v3/jwt"
+	"github.com/go-jose/go-jose/v4"
+	"github.com/go-jose/go-jose/v4/cryptosigner"
+	"github.com/go-jose/go-jose/v4/jwt"
+	"github.com/stretchr/testify/require"
+
 	"github.com/spiffe/go-spiffe/v2/bundle/jwtbundle"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/spiffe/go-spiffe/v2/svid/jwtsvid"
-	"github.com/stretchr/testify/require"
 )
 
 const hs256Token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG" +
@@ -86,7 +87,7 @@ func TestParseAndValidate(t *testing.T) {
 			generateToken: func(tb testing.TB) string {
 				return hs256Token
 			},
-			err: `jwtsvid: unsupported token signature algorithm "HS256"`,
+			err: `jwtsvid: unable to parse JWT token`,
 		},
 		{
 			name:   "missing subject",
@@ -313,7 +314,7 @@ func TestParseInsecure(t *testing.T) {
 			generateToken: func(tb testing.TB) string {
 				return hs256Token
 			},
-			err: `jwtsvid: unsupported token signature algorithm "HS256"`,
+			err: `jwtsvid: unable to parse JWT token`,
 		},
 		{
 			name: "missing subject claim",
@@ -450,7 +451,8 @@ func TestMarshal(t *testing.T) {
 }
 
 func parseToken(t testing.TB, token string) map[string]interface{} {
-	tok, err := jwt.ParseSigned(token)
+	supportedSignatureAlgorithms := []jose.SignatureAlgorithm{jose.RS256, jose.RS384, jose.RS512, jose.ES256, jose.ES384, jose.ES512, jose.PS256, jose.PS384, jose.PS512}
+	tok, err := jwt.ParseSigned(token, supportedSignatureAlgorithms)
 	require.NoError(t, err)
 	claimsMap := make(map[string]interface{})
 	err = tok.UnsafeClaimsWithoutVerification(&claimsMap)
@@ -478,7 +480,7 @@ func generateToken(tb testing.TB, claims jwt.Claims, signer crypto.Signer, keyID
 	require.NoError(tb, err)
 
 	// Sign and serialize token
-	token, err := jwt.Signed(jwtSigner).Claims(claims).CompactSerialize()
+	token, err := jwt.Signed(jwtSigner).Claims(claims).Serialize()
 	require.NoError(tb, err)
 
 	return token
