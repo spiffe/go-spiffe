@@ -7,7 +7,7 @@ import (
 	"os"
 	"sync"
 
-	"github.com/go-jose/go-jose/v3"
+	"github.com/go-jose/go-jose/v4"
 	"github.com/spiffe/go-spiffe/v2/internal/jwtutil"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/zeebo/errs"
