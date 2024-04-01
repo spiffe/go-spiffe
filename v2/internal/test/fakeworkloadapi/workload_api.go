@@ -50,7 +50,7 @@ func New(tb testing.TB) *WorkloadAPI {
 		x509BundlesChans: make(map[chan *workload.X509BundlesResponse]struct{}),
 	}
 
-	listener, err := newListener()
+	listener, err := newListener(tb)
 	require.NoError(tb, err)
 
 	server := grpc.NewServer()

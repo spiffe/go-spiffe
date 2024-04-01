@@ -70,7 +70,7 @@ protoc_gen_go_grpc_base_dir := $(build_dir)/protoc-gen-go-grpc
 protoc_gen_go_grpc_dir := $(protoc_gen_go_grpc_base_dir)/$(protoc_gen_go_grpc_version)-go$(go_version)
 protoc_gen_go_grpc_bin := $(protoc_gen_go_grpc_dir)/protoc-gen-go-grpc
 
-golangci_lint_version = v1.50.1
+golangci_lint_version = v1.57.2
 golangci_lint_dir = $(build_dir)/golangci_lint/$(golangci_lint_version)
 golangci_lint_bin = $(golangci_lint_dir)/golangci-lint
 
@@ -81,7 +81,7 @@ apiprotos := \
 # Toolchain
 #############################################################################
 
-go_version_full := 1.19.12
+go_version_full := 1.21.8
 go_version := $(go_version_full:.0=)
 go_dir := $(build_dir)/go/$(go_version)
 
