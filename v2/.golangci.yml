@@ -2,20 +2,9 @@ run:
   # timeout for analysis, e.g. 30s, 5m, default is 1m
   deadline: 10m
 
-  # include examples
-  skip-dirs-use-default: false
-
-  skip-dirs:
-    - testdata$
-    - test/mock
-
-  skip-files:
-    - ".*\\.pb\\.go"
-
 linters:
   enable:
     - bodyclose
-    - depguard
     - goimports
     - revive
     - gosec
@@ -28,6 +17,16 @@ linters:
     - gocritic
 
 issues:
+  # include examples
+  exclude-dirs-use-default: false
+
+  exclude-dirs:
+    - testdata$
+    - test/mock
+
+  exclude-files:
+    - ".*\\.pb\\.go"
+
   exclude-rules:
     # exclude some lints from examples test files
     - path: examples_test.go
@@ -40,3 +39,7 @@ linters-settings:
   golint:
     # minimal confidence for issues, default is 0.8
     min-confidence: 0.0
+  revive:
+    rules:
+      - name: unused-parameter
+        disabled: true # It's useful to name parameters in library code for better readability
