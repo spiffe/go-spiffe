@@ -143,7 +143,7 @@ tidy: | go-check
 
 .PHONY: test
 test: | go-check
-	@cd ./v2; $(go_path) go test ./...
+	@cd ./v2; $(go_path) go test -race ./...
 
 #############################################################################
 # Code Generation
