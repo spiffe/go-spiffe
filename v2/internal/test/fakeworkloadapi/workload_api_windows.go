@@ -4,12 +4,13 @@
 package fakeworkloadapi
 
 import (
+	"crypto/rand"
 	"fmt"
-	"math/rand"
+	"math"
+	"math/big"
 	"net"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/Microsoft/go-winio"
 	"github.com/spiffe/go-spiffe/v2/proto/spiffe/workload"
@@ -17,13 +18,15 @@ import (
 	"google.golang.org/grpc"
 )
 
+var maxUint64 = maxBigUint64()
+
 func NewWithNamedPipeListener(tb testing.TB) *WorkloadAPI {
 	w := &WorkloadAPI{
 		x509Chans:       make(map[chan *workload.X509SVIDResponse]struct{}),
 		jwtBundlesChans: make(map[chan *workload.JWTBundlesResponse]struct{}),
 	}
 
-	listener, err := winio.ListenPipe(fmt.Sprintf(`\\.\pipe\go-spiffe-test-pipe-%x`, rand.Uint64()), nil) //nolint: gosec // not use for crypto
+	listener, err := winio.ListenPipe(fmt.Sprintf(`\\.\pipe\go-spiffe-test-pipe-%x`, randUint64(tb)), nil)
 	require.NoError(tb, err)
 
 	server := grpc.NewServer()
@@ -45,12 +48,22 @@ func GetPipeName(s string) string {
 	return strings.TrimPrefix(s, `\\.\pipe`)
 }
 
-func init() {
-	rand.Seed(time.Now().UnixNano())
+func maxBigUint64() *big.Int {
+	n := big.NewInt(0)
+	return n.SetUint64(math.MaxUint64)
 }
 
-func newListener() (net.Listener, error) {
-	return winio.ListenPipe(fmt.Sprintf(`\\.\pipe\go-spiffe-test-pipe-%x`, rand.Uint64()), nil) //nolint: gosec // not used for crypto
+func randUint64(t testing.TB) uint64 {
+	n, err := rand.Int(rand.Reader, maxUint64)
+	if err != nil {
+		t.Fail()
+	}
+
+	return n.Uint64()
+}
+
+func newListener(tb testing.TB) (net.Listener, error) {
+	return winio.ListenPipe(fmt.Sprintf(`\\.\pipe\go-spiffe-test-pipe-%x`, randUint64(tb)), nil)
 }
 
 func getTargetName(addr net.Addr) string {
