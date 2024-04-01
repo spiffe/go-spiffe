@@ -6,9 +6,10 @@ package fakeworkloadapi
 import (
 	"fmt"
 	"net"
+	"testing"
 )
 
-func newListener() (net.Listener, error) {
+func newListener(_ testing.TB) (net.Listener, error) {
 	return net.Listen("tcp", "localhost:0")
 }
 
