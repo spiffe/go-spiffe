@@ -5,7 +5,7 @@ go 1.19
 require (
 	github.com/Microsoft/go-winio v0.6.1
 	github.com/go-jose/go-jose/v3 v3.0.1
-	github.com/stretchr/testify v1.8.4
+	github.com/stretchr/testify v1.9.0
 	github.com/zeebo/errs v1.3.0
 	google.golang.org/grpc v1.60.1
 	google.golang.org/grpc/examples v0.0.0-20230224211313-3775f633ce20
