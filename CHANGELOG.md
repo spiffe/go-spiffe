@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.2.0] - 2024-04-01
+
+### Changed
+
+- Upgraded to go-jose v4 which has a stronger security posture than v3. Go-spiffe was not impacted by the security weaknesses of v3 due to stringing algorithm checking that is now handled by go-jose v4 (#276)
+
+### Fixed
+
+- Makefile invocation for Apple Silicon-based Macs (#275)
+
+### Added
+
+- Support Ed25519 keys for Workload SVIDs (#248)
+
 ## [2.1.7] - 2024-01-17
 
 ### Fixed
