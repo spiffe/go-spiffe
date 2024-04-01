@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"math"
+	"math/big"
 	"net"
 	"strings"
 	"testing"
@@ -16,6 +17,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 )
+
+var maxUint64 = maxBigUint64()
 
 func NewWithNamedPipeListener(tb testing.TB) *WorkloadAPI {
 	w := &WorkloadAPI{
@@ -45,8 +48,13 @@ func GetPipeName(s string) string {
 	return strings.TrimPrefix(s, `\\.\pipe`)
 }
 
+func maxBigUint64() *big.Int {
+	n := big.NewInt(0)
+	return n.SetUint64(math.MaxUint64)
+}
+
 func randUint64(t testing.TB) uint64 {
-	n, err := rand.Int(rand.Reader, math.MaxUint32)
+	n, err := rand.Int(rand.Reader, maxUint64)
 	if err != nil {
 		t.Fail()
 	}
