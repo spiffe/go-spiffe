@@ -17,13 +17,15 @@ import (
 	"google.golang.org/grpc"
 )
 
+var rs = randSource()
+
 func NewWithNamedPipeListener(tb testing.TB) *WorkloadAPI {
 	w := &WorkloadAPI{
 		x509Chans:       make(map[chan *workload.X509SVIDResponse]struct{}),
 		jwtBundlesChans: make(map[chan *workload.JWTBundlesResponse]struct{}),
 	}
 
-	listener, err := winio.ListenPipe(fmt.Sprintf(`\\.\pipe\go-spiffe-test-pipe-%x`, rand.Uint64()), nil) //nolint: gosec // not use for crypto
+	listener, err := winio.ListenPipe(fmt.Sprintf(`\\.\pipe\go-spiffe-test-pipe-%x`, rs.Uint64()), nil) //nolint: gosec // not use for crypto
 	require.NoError(tb, err)
 
 	server := grpc.NewServer()
@@ -45,12 +47,12 @@ func GetPipeName(s string) string {
 	return strings.TrimPrefix(s, `\\.\pipe`)
 }
 
-func init() {
-	rand.Seed(time.Now().UnixNano())
+func randSource() *rand.Rand {
+	return rand.New(rand.NewSource(time.Now().UnixNano()))
 }
 
 func newListener() (net.Listener, error) {
-	return winio.ListenPipe(fmt.Sprintf(`\\.\pipe\go-spiffe-test-pipe-%x`, rand.Uint64()), nil) //nolint: gosec // not used for crypto
+	return winio.ListenPipe(fmt.Sprintf(`\\.\pipe\go-spiffe-test-pipe-%x`, rs.Uint64()), nil) //nolint: gosec // not used for crypto
 }
 
 func getTargetName(addr net.Addr) string {
