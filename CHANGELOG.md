@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.3.0] - 2024-06-17
+
+### Changed
+
+- Empty bundles are now supported, in alignment with the SPIFFE specification (#288)
+
 ## [2.2.0] - 2024-04-01
 
 ### Changed
