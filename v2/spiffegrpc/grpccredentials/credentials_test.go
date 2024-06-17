@@ -147,7 +147,7 @@ func testCredentials(t *testing.T, clientCreds, serverCreds credentials.Transpor
 		_ = server.Serve(listener)
 	}()
 
-	conn, err := grpc.DialContext(ctx, listener.Addr().String(), grpc.WithTransportCredentials(clientCreds))
+	conn, err := grpc.NewClient(listener.Addr().String(), grpc.WithTransportCredentials(clientCreds))
 	require.NoError(t, err)
 	defer conn.Close()
 
