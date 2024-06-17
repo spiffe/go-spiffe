@@ -318,7 +318,7 @@ func loadRawCertificates(t *testing.T, path string) []byte {
 	require.NoError(t, err)
 
 	if len(certsBytes) == 0 {
-		return []byte{}
+		return nil
 	}
 
 	certs, err := pemutil.ParseCertificates(certsBytes)
