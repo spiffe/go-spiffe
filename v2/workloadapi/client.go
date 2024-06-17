@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/x509"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/spiffe/go-spiffe/v2/bundle/jwtbundle"
@@ -488,9 +487,6 @@ func parseX509Bundle(spiffeID string, bundle []byte) (*x509bundle.Bundle, error)
 	certs, err := x509.ParseCertificates(bundle)
 	if err != nil {
 		return nil, err
-	}
-	if len(certs) == 0 {
-		return nil, fmt.Errorf("empty X.509 bundle for trust domain %q", td)
 	}
 	return x509bundle.FromX509Authorities(td, certs), nil
 }
