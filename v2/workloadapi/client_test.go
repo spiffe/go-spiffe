@@ -190,16 +190,22 @@ func TestFetchX509Context(t *testing.T) {
 	assertX509Bundle(t, x509Ctx.Bundles, td, ca.X509Bundle())
 	assertX509Bundle(t, x509Ctx.Bundles, federatedTD, federatedCA.X509Bundle())
 
-	// Now set the next response without any bundles and assert that the call
-	// fails since the bundle cannot be empty.
+	// Now set the next response with an empty federated bundle and assert that the call
+	// still succeeds.
 	wl.SetX509SVIDResponse(&fakeworkloadapi.X509SVIDResponse{
-		SVIDs: svids,
+		Bundle:           ca.X509Bundle(),
+		SVIDs:            svids,
+		FederatedBundles: []*x509bundle.Bundle{x509bundle.FromX509Authorities(federatedCA.Bundle().TrustDomain(), nil)},
 	})
 
 	x509Ctx, err = c.FetchX509Context(context.Background())
-
-	require.EqualError(t, err, `empty X.509 bundle for trust domain "example.org"`)
-	require.Nil(t, x509Ctx)
+	require.NoError(t, err)
+	// inspect svids
+	require.Len(t, x509Ctx.SVIDs, 4)
+	assertX509SVID(t, x509Ctx.SVIDs[0], fooID, resp.SVIDs[0].Certificates, hintInternal)
+	assertX509SVID(t, x509Ctx.SVIDs[1], barID, resp.SVIDs[1].Certificates, hintExternal)
+	assertX509SVID(t, x509Ctx.SVIDs[2], emptyHintSVID1.ID, resp.SVIDs[3].Certificates, "")
+	assertX509SVID(t, x509Ctx.SVIDs[3], emptyHintSVID2.ID, resp.SVIDs[4].Certificates, "")
 }
 
 func TestWatchX509Context(t *testing.T) {

@@ -96,19 +96,14 @@ func TestParse(t *testing.T) {
 			expNumAuthorities: 1,
 		},
 		{
-			name:           "Parse empty bytes should fail",
-			path:           "testdata/empty.pem",
-			expErrContains: "x509bundle: cannot parse certificate: no PEM blocks found",
+			name:              "Parse empty bytes should result in empty bundle",
+			path:              "testdata/empty.pem",
+			expNumAuthorities: 0,
 		},
 		{
 			name:           "Parse non-PEM bytes should fail",
 			path:           "testdata/not-pem.pem",
 			expErrContains: "x509bundle: cannot parse certificate: no PEM blocks found",
-		},
-		{
-			name:           "Parse should fail if no certificate block is is found",
-			path:           "testdata/key.pem",
-			expErrContains: "x509bundle: no certificates found",
 		},
 		{
 			name:           "Parse a corrupted certificate should fail",
@@ -155,9 +150,9 @@ func TestParseRaw(t *testing.T) {
 			expNumAuthorities: 1,
 		},
 		{
-			name:           "Parse should fail if no certificate block is is found",
-			path:           "testdata/key.pem",
-			expErrContains: "x509bundle: no certificates found",
+			name:              "Parse should not fail if no certificate block is is found",
+			path:              "testdata/empty.pem",
+			expNumAuthorities: 0,
 		},
 	}
 
@@ -321,6 +316,10 @@ func TestClone(t *testing.T) {
 func loadRawCertificates(t *testing.T, path string) []byte {
 	certsBytes, err := os.ReadFile(path)
 	require.NoError(t, err)
+
+	if len(certsBytes) == 0 {
+		return nil
+	}
 
 	certs, err := pemutil.ParseCertificates(certsBytes)
 	require.NoError(t, err)
