@@ -190,7 +190,7 @@ func TestFetchX509Context(t *testing.T) {
 	assertX509Bundle(t, x509Ctx.Bundles, td, ca.X509Bundle())
 	assertX509Bundle(t, x509Ctx.Bundles, federatedTD, federatedCA.X509Bundle())
 
-	// Now set the next response with an empty federated bundles and assert that the call
+	// Now set the next response with an empty federated bundle and assert that the call
 	// still succeeds.
 	wl.SetX509SVIDResponse(&fakeworkloadapi.X509SVIDResponse{
 		Bundle:           ca.X509Bundle(),
