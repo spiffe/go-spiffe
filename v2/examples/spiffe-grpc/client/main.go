@@ -35,7 +35,7 @@ func run(ctx context.Context) error {
 	serverID := spiffeid.RequireFromString("spiffe://example.org/server")
 
 	// Dial the server with credentials that do mTLS and verify that presented certificate has SPIFFE ID `spiffe://example.org/server`
-	conn, err := grpc.DialContext(ctx, "localhost:50051", grpc.WithTransportCredentials(
+	conn, err := grpc.NewClient("dns:///localhost:50051", grpc.WithTransportCredentials(
 		grpccredentials.MTLSClientCredentials(source, source, tlsconfig.AuthorizeID(serverID)),
 	))
 	if err != nil {

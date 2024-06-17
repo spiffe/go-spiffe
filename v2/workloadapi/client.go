@@ -255,7 +255,7 @@ func (c *Client) ValidateJWTSVID(ctx context.Context, token, audience string) (*
 func (c *Client) newConn(ctx context.Context) (*grpc.ClientConn, error) {
 	c.config.dialOptions = append(c.config.dialOptions, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	c.appendDialOptionsOS()
-	return grpc.DialContext(ctx, c.config.address, c.config.dialOptions...)
+	return grpc.DialContext(ctx, c.config.address, c.config.dialOptions...) //nolint:staticcheck // preserve backcompat with WithDialOptions option
 }
 
 func (c *Client) handleWatchError(ctx context.Context, err error, backoff *backoff) error {

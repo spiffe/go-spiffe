@@ -31,7 +31,7 @@ On the other side, the **gRPC client** uses the [workloadapi.X509Source](https:/
 serverID := spiffeid.RequireFromString("spiffe://example.org/server")
 tlsConfig := tlsconfig.MTLSClientConfig(source, source, tlsconfig.AuthorizeID(serverID))
 
-conn, err := grpc.DialContext(ctx, "localhost:50051", grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
+conn, err := grpc.NewClient("dns:///localhost:50051", grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
 ```
 
 The [tlsconfig.Authorizer](https://pkg.go.dev/github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig?tab=doc#Authorizer) is used to authorize the mTLS peer. In this example, both the client and server use it to authorize the specific SPIFFE ID of the other side of the connection.
