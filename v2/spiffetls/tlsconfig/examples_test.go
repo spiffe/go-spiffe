@@ -26,7 +26,9 @@ func ExampleMTLSServerConfig_fileSource() {
 		// TODO: handle error
 	}
 
-	config := tlsconfig.MTLSServerConfig(svid, bundle, tlsconfig.AuthorizeMemberOf(td))
+	config := tlsconfig.MTLSServerConfig(svid, bundle, tlsconfig.AuthorizeMemberOf(td),
+		tlsconfig.WithPQKEMMode(tlsconfig.PQKEMModeAttempt))
+
 	// TODO: use the config
 	config = config
 }
@@ -43,7 +45,8 @@ func ExampleMTLSServerConfig_workloadAPISource() {
 	}
 	defer source.Close()
 
-	config := tlsconfig.MTLSServerConfig(source, source, tlsconfig.AuthorizeMemberOf(td))
+	config := tlsconfig.MTLSServerConfig(source, source, tlsconfig.AuthorizeMemberOf(td),
+		tlsconfig.WithPQKEMMode(tlsconfig.PQKEMModeRequire))
 	// TODO: use the config
 	config = config
 }

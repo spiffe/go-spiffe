@@ -44,6 +44,11 @@ func TestTLSClientConfig(t *testing.T) {
 	assert.Nil(t, config.NameToCertificate) //nolint:staticcheck // setting to nil is OK
 	assert.Nil(t, config.RootCAs)
 	assert.NotNil(t, config.VerifyPeerCertificate)
+	assert.Nil(t, config.CurvePreferences)
+
+	config = tlsconfig.TLSClientConfig(bundle, tlsconfig.AuthorizeAny(),
+		tlsconfig.WithPQKEMMode(tlsconfig.PQKEMModeRequire))
+	assert.Greater(t, len(config.CurvePreferences), 0)
 }
 
 func TestHookTLSClientConfig(t *testing.T) {
@@ -62,7 +67,15 @@ func TestHookTLSClientConfig(t *testing.T) {
 	assert.Nil(t, config.NameToCertificate) //nolint:staticcheck // setting to nil is OK
 	assert.Nil(t, config.RootCAs)
 	assert.NotNil(t, config.VerifyPeerCertificate)
+	assert.Equal(t, []tls.CurveID{tls.CurveP256}, config.CurvePreferences)
 	assertUnrelatedFieldsUntouched(t, base, config)
+
+	base = createBaseTLSConfig()
+	config = createTestTLSConfig(base)
+
+	tlsconfig.HookTLSClientConfig(config, bundle, tlsconfig.AuthorizeAny(),
+		tlsconfig.WithPQKEMMode(tlsconfig.PQKEMModeAttempt))
+	assert.Greater(t, len(config.CurvePreferences), 0)
 }
 
 func TestMTLSClientConfig(t *testing.T) {
@@ -82,6 +95,12 @@ func TestMTLSClientConfig(t *testing.T) {
 	assert.Nil(t, config.NameToCertificate) //nolint:staticcheck // setting to nil is OK
 	assert.Nil(t, config.RootCAs)
 	assert.NotNil(t, config.VerifyPeerCertificate)
+	assert.Nil(t, config.CurvePreferences)
+
+	config = tlsconfig.MTLSClientConfig(svid, bundle, tlsconfig.AuthorizeAny(),
+		tlsconfig.WithTrace(localTrace),
+		tlsconfig.WithPQKEMMode(tlsconfig.PQKEMModeAttempt))
+	assert.Greater(t, len(config.CurvePreferences), 0)
 }
 
 func TestHookMTLSClientConfig(t *testing.T) {
@@ -103,7 +122,16 @@ func TestHookMTLSClientConfig(t *testing.T) {
 	assert.Nil(t, config.NameToCertificate) //nolint:staticcheck // setting to nil is OK
 	assert.Nil(t, config.RootCAs)
 	assert.NotNil(t, config.VerifyPeerCertificate)
+	assert.Equal(t, []tls.CurveID{tls.CurveP256}, config.CurvePreferences)
 	assertUnrelatedFieldsUntouched(t, base, config)
+
+	base = createBaseTLSConfig()
+	config = createTestTLSConfig(base)
+
+	tlsconfig.HookMTLSClientConfig(config, svid, bundle, tlsconfig.AuthorizeAny(),
+		tlsconfig.WithTrace(localTrace),
+		tlsconfig.WithPQKEMMode(tlsconfig.PQKEMModeAttempt))
+	assert.Greater(t, len(config.CurvePreferences), 0)
 }
 
 func TestMTLSWebClientConfig(t *testing.T) {
@@ -122,6 +150,12 @@ func TestMTLSWebClientConfig(t *testing.T) {
 	assert.Nil(t, config.NameToCertificate) //nolint:staticcheck // setting to nil is OK
 	assert.Equal(t, roots, config.RootCAs)
 	assert.Nil(t, config.VerifyPeerCertificate)
+	assert.Nil(t, config.CurvePreferences)
+
+	config = tlsconfig.MTLSWebClientConfig(svid, roots,
+		tlsconfig.WithTrace(localTrace),
+		tlsconfig.WithPQKEMMode(tlsconfig.PQKEMModeAttempt))
+	assert.Greater(t, len(config.CurvePreferences), 0)
 }
 
 func TestHookMTLSWebClientConfig(t *testing.T) {
@@ -143,7 +177,17 @@ func TestHookMTLSWebClientConfig(t *testing.T) {
 	assert.Nil(t, config.NameToCertificate) //nolint:staticcheck // setting to nil is OK
 	assert.Equal(t, roots, config.RootCAs)
 	assert.Nil(t, config.VerifyPeerCertificate)
+	assert.Equal(t, []tls.CurveID{tls.CurveP256}, config.CurvePreferences)
 	assertUnrelatedFieldsUntouched(t, base, config)
+
+	base = createBaseTLSConfig()
+	config = createTestTLSConfig(base)
+	tlsconfig.HookMTLSWebClientConfig(config, svid, roots,
+		tlsconfig.WithTrace(localTrace),
+		tlsconfig.WithPQKEMMode(tlsconfig.PQKEMModeAttempt),
+	)
+
+	assert.Greater(t, len(config.CurvePreferences), 0)
 }
 
 func TestTLSServerConfig(t *testing.T) {
@@ -161,6 +205,13 @@ func TestTLSServerConfig(t *testing.T) {
 	assert.Nil(t, config.NameToCertificate) //nolint:staticcheck // setting to nil is OK
 	assert.Nil(t, config.RootCAs)
 	assert.Nil(t, config.VerifyPeerCertificate)
+	assert.Nil(t, config.CurvePreferences)
+
+	config = tlsconfig.TLSServerConfig(svid,
+		tlsconfig.WithTrace(localTrace),
+		tlsconfig.WithPQKEMMode(tlsconfig.PQKEMModeRequire),
+	)
+	assert.Greater(t, len(config.CurvePreferences), 0)
 }
 
 func TestHookTLSServerConfig(t *testing.T) {
@@ -181,6 +232,16 @@ func TestHookTLSServerConfig(t *testing.T) {
 	assert.Nil(t, config.RootCAs)
 	assert.Nil(t, config.VerifyPeerCertificate)
 	assertUnrelatedFieldsUntouched(t, base, config)
+	assert.Equal(t, []tls.CurveID{tls.CurveP256}, config.CurvePreferences)
+
+	base = createBaseTLSConfig()
+	config = createTestTLSConfig(base)
+
+	tlsconfig.HookTLSServerConfig(config, svid,
+		tlsconfig.WithTrace(localTrace),
+		tlsconfig.WithPQKEMMode(tlsconfig.PQKEMModeAttempt),
+	)
+	assert.Greater(t, len(config.CurvePreferences), 0)
 }
 
 func TestMTLSServerConfig(t *testing.T) {
@@ -200,6 +261,13 @@ func TestMTLSServerConfig(t *testing.T) {
 	assert.Nil(t, config.NameToCertificate) //nolint:staticcheck // setting to nil is OK
 	assert.Nil(t, config.RootCAs)
 	assert.NotNil(t, config.VerifyPeerCertificate)
+	assert.Nil(t, config.CurvePreferences)
+
+	config = tlsconfig.MTLSServerConfig(svid, bundle, tlsconfig.AuthorizeAny(),
+		tlsconfig.WithTrace(localTrace),
+		tlsconfig.WithPQKEMMode(tlsconfig.PQKEMModeRequire),
+	)
+	assert.Greater(t, len(config.CurvePreferences), 0)
 }
 
 func TestHookMTLSServerConfig(t *testing.T) {
@@ -221,7 +289,17 @@ func TestHookMTLSServerConfig(t *testing.T) {
 	assert.Nil(t, config.NameToCertificate) //nolint:staticcheck // setting to nil is OK
 	assert.Nil(t, config.RootCAs)
 	assert.NotNil(t, config.VerifyPeerCertificate)
+	assert.Equal(t, []tls.CurveID{tls.CurveP256}, config.CurvePreferences)
 	assertUnrelatedFieldsUntouched(t, base, config)
+
+	base = createBaseTLSConfig()
+	config = createTestTLSConfig(base)
+
+	tlsconfig.HookMTLSServerConfig(config, svid, bundle, tlsconfig.AuthorizeAny(),
+		tlsconfig.WithTrace(localTrace),
+		tlsconfig.WithPQKEMMode(tlsconfig.PQKEMModeRequire),
+	)
+	assert.Greater(t, len(config.CurvePreferences), 0)
 }
 
 func TestMTLSWebServerConfig(t *testing.T) {
@@ -239,6 +317,11 @@ func TestMTLSWebServerConfig(t *testing.T) {
 	assert.Nil(t, config.NameToCertificate) //nolint:staticcheck // setting to nil is OK
 	assert.Nil(t, config.RootCAs)
 	assert.NotNil(t, config.VerifyPeerCertificate)
+	assert.Nil(t, config.CurvePreferences)
+
+	config = tlsconfig.MTLSWebServerConfig(tlsCert, bundle, tlsconfig.AuthorizeAny(),
+		tlsconfig.WithPQKEMMode(tlsconfig.PQKEMModeRequire))
+	assert.Greater(t, len(config.CurvePreferences), 0)
 }
 
 func TestHookMTLSWebServerConfig(t *testing.T) {
@@ -258,7 +341,15 @@ func TestHookMTLSWebServerConfig(t *testing.T) {
 	assert.Nil(t, config.NameToCertificate) //nolint:staticcheck // setting to nil is OK
 	assert.Nil(t, config.RootCAs)
 	assert.NotNil(t, config.VerifyPeerCertificate)
+	assert.Equal(t, []tls.CurveID{tls.CurveP256}, config.CurvePreferences)
 	assertUnrelatedFieldsUntouched(t, base, config)
+
+	base = createBaseTLSConfig()
+	config = createTestTLSConfig(base)
+
+	tlsconfig.HookMTLSWebServerConfig(config, tlsCert, bundle, tlsconfig.AuthorizeAny(),
+		tlsconfig.WithPQKEMMode(tlsconfig.PQKEMModeRequire))
+	assert.Greater(t, len(config.CurvePreferences), 0)
 }
 
 func hookedTracer(onGetCertificate, onGotCertificate func()) tlsconfig.Trace {
@@ -516,6 +607,10 @@ func TestWrapVerifyPeerCertificate(t *testing.T) {
 	}
 }
 
+func isPQKEMSupported(t *testing.T) bool {
+	return supportsPQKEM
+}
+
 func TestTLSHandshake(t *testing.T) {
 	td := spiffeid.RequireTrustDomainFromString("domain1.test")
 	ca1 := test.NewCA(t, td)
@@ -532,16 +627,41 @@ func TestTLSHandshake(t *testing.T) {
 	bundle3 := ca3.Bundle()
 
 	testCases := []struct {
-		name         string
-		serverConfig *tls.Config
-		clientConfig *tls.Config
-		clientErr    string
-		serverErr    string
+		name          string
+		serverConfig  *tls.Config
+		clientConfig  *tls.Config
+		clientErr     string
+		serverErr     string
+		shouldRunFunc func(t *testing.T) bool
 	}{
 		{
 			name:         "success",
 			serverConfig: tlsconfig.TLSServerConfig(serverSVID),
 			clientConfig: tlsconfig.TLSClientConfig(bundle1, tlsconfig.AuthorizeAny()),
+		},
+		{
+			name:          "success (PQ KEM attempted)",
+			serverConfig:  tlsconfig.TLSServerConfig(serverSVID, tlsconfig.WithPQKEMMode(tlsconfig.PQKEMModeAttempt)),
+			clientConfig:  tlsconfig.TLSClientConfig(bundle1, tlsconfig.AuthorizeAny(), tlsconfig.WithPQKEMMode(tlsconfig.PQKEMModeAttempt)),
+			shouldRunFunc: isPQKEMSupported,
+		},
+		{
+			name:          "success (PQ KEM required by client)",
+			serverConfig:  tlsconfig.TLSServerConfig(serverSVID, tlsconfig.WithPQKEMMode(tlsconfig.PQKEMModeAttempt)),
+			clientConfig:  tlsconfig.TLSClientConfig(bundle1, tlsconfig.AuthorizeAny(), tlsconfig.WithPQKEMMode(tlsconfig.PQKEMModeRequire)),
+			shouldRunFunc: isPQKEMSupported,
+		},
+		{
+			name:          "success (PQ KEM required by server)",
+			serverConfig:  tlsconfig.TLSServerConfig(serverSVID, tlsconfig.WithPQKEMMode(tlsconfig.PQKEMModeRequire)),
+			clientConfig:  tlsconfig.TLSClientConfig(bundle1, tlsconfig.AuthorizeAny(), tlsconfig.WithPQKEMMode(tlsconfig.PQKEMModeAttempt)),
+			shouldRunFunc: isPQKEMSupported,
+		},
+		{
+			name:          "success (PQ KEM mutually required)",
+			serverConfig:  tlsconfig.TLSServerConfig(serverSVID, tlsconfig.WithPQKEMMode(tlsconfig.PQKEMModeRequire)),
+			clientConfig:  tlsconfig.TLSClientConfig(bundle1, tlsconfig.AuthorizeAny(), tlsconfig.WithPQKEMMode(tlsconfig.PQKEMModeRequire)),
+			shouldRunFunc: isPQKEMSupported,
 		},
 		{
 			name:         "authentication fails",
@@ -569,7 +689,9 @@ func TestTLSHandshake(t *testing.T) {
 	for _, testCase := range testCases {
 		testCase := testCase
 		t.Run(testCase.name, func(t *testing.T) {
-			testConnection(t, testCase.serverConfig, testCase.clientConfig, testCase.serverErr, testCase.clientErr)
+			if testCase.shouldRunFunc == nil || testCase.shouldRunFunc(t) {
+				testConnection(t, testCase.serverConfig, testCase.clientConfig, testCase.serverErr, testCase.clientErr)
+			}
 		})
 	}
 }

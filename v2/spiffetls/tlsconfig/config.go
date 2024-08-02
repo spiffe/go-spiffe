@@ -24,6 +24,7 @@ func HookTLSClientConfig(config *tls.Config, bundle x509bundle.Source, authorize
 	resetAuthFields(config)
 	config.InsecureSkipVerify = true
 	config.VerifyPeerCertificate = WrapVerifyPeerCertificate(config.VerifyPeerCertificate, bundle, authorizer, opts...)
+	applyOptions(config, opts)
 }
 
 // A Option changes the defaults used to by mTLS ClientConfig functions.
@@ -36,7 +37,8 @@ type option func(*options)
 func (fn option) apply(o *options) { fn(o) }
 
 type options struct {
-	trace Trace
+	trace     Trace
+	pqKemMode PQKEMMode
 }
 
 func newOptions(opts []Option) *options {
@@ -52,6 +54,38 @@ func newOptions(opts []Option) *options {
 func WithTrace(trace Trace) Option {
 	return option(func(opts *options) {
 		opts.trace = trace
+	})
+}
+
+// Post-quantum TLS KEM mode. Determines whether a post-quantum safe KEM should
+// be used when establishing a TLS connection.
+type PQKEMMode int
+
+const (
+	// Do not require use of a post-quantum KEM when establishing a TLS
+	// connection. Whether a post-quantum KEM is attempted depends on
+	// environmental configuration (e.g. GODEBUG setting tlskyber) and the target
+	// Go version at build time.
+	PQKEMModeDefault PQKEMMode = iota
+
+	// Attempt use of a post-quantum KEM as the most preferred key exchange
+	// method when establishing a TLS connection.
+	// Support for this requires Go 1.23 or later.
+	// Configuring this will cause connections to fail if support is not available.
+	PQKEMModeAttempt
+
+	// Require use of a post-quantum KEM when establishing a TLS connection.
+	// Attempts to initiate a connection with a key exchange method which is not
+	// post-quantum safe will fail. Support for this requires Go 1.23 or later.
+	// Configuring this will cause connections to fail if support is not available.
+	PQKEMModeRequire
+)
+
+// WithPQKEMMode configures whether a post-quantum safe KEM should be used when
+// establishing a TLS connection.
+func WithPQKEMMode(mode PQKEMMode) Option {
+	return option(func(opts *options) {
+		opts.pqKemMode = mode
 	})
 }
 
@@ -72,6 +106,7 @@ func HookMTLSClientConfig(config *tls.Config, svid x509svid.Source, bundle x509b
 	config.GetClientCertificate = GetClientCertificate(svid, opts...)
 	config.InsecureSkipVerify = true
 	config.VerifyPeerCertificate = WrapVerifyPeerCertificate(config.VerifyPeerCertificate, bundle, authorizer, opts...)
+	applyOptions(config, opts)
 }
 
 // MTLSWebClientConfig returns a TLS configuration which presents an X509-SVID
@@ -90,6 +125,7 @@ func HookMTLSWebClientConfig(config *tls.Config, svid x509svid.Source, roots *x5
 	resetAuthFields(config)
 	config.GetClientCertificate = GetClientCertificate(svid, opts...)
 	config.RootCAs = roots
+	applyOptions(config, opts)
 }
 
 // TLSServerConfig returns a TLS configuration which presents an X509-SVID
@@ -105,6 +141,7 @@ func TLSServerConfig(svid x509svid.Source, opts ...Option) *tls.Config {
 func HookTLSServerConfig(config *tls.Config, svid x509svid.Source, opts ...Option) {
 	resetAuthFields(config)
 	config.GetCertificate = GetCertificate(svid, opts...)
+	applyOptions(config, opts)
 }
 
 // MTLSServerConfig returns a TLS configuration which presents an X509-SVID
@@ -125,6 +162,7 @@ func HookMTLSServerConfig(config *tls.Config, svid x509svid.Source, bundle x509b
 	config.ClientAuth = tls.RequireAnyClientCert
 	config.GetCertificate = GetCertificate(svid, opts...)
 	config.VerifyPeerCertificate = WrapVerifyPeerCertificate(config.VerifyPeerCertificate, bundle, authorizer, opts...)
+	applyOptions(config, opts)
 }
 
 // MTLSWebServerConfig returns a TLS configuration which presents a web
@@ -146,6 +184,7 @@ func HookMTLSWebServerConfig(config *tls.Config, cert *tls.Certificate, bundle x
 	config.ClientAuth = tls.RequireAnyClientCert
 	config.Certificates = []tls.Certificate{*cert}
 	config.VerifyPeerCertificate = WrapVerifyPeerCertificate(config.VerifyPeerCertificate, bundle, authorizer, opts...)
+	applyOptions(config, opts)
 }
 
 // GetCertificate returns a GetCertificate callback for tls.Config. It uses the
@@ -251,4 +290,46 @@ func resetAuthFields(config *tls.Config) {
 	config.InsecureSkipVerify = false
 	config.NameToCertificate = nil //nolint:staticcheck // setting to nil is OK
 	config.RootCAs = nil
+}
+
+// Not exported by crypto/tls, so we define it here from the I-D.
+const x25519Kyber768Draft00 tls.CurveID = 0x6399
+
+func applyOptions(config *tls.Config, opts []Option) {
+	o := newOptions(opts)
+
+	// Apply post-quantum KEM mode option.
+	switch o.pqKemMode {
+	case PQKEMModeDefault:
+		// Nothing to do - allow default curve preferences.
+
+	case PQKEMModeAttempt:
+		if len(config.CurvePreferences) == 0 {
+			// This is copied from the crypto/tls default curve list.
+			config.CurvePreferences = []tls.CurveID{
+				x25519Kyber768Draft00,
+				tls.X25519,
+				tls.CurveP256,
+				tls.CurveP384,
+				tls.CurveP521,
+			}
+		} else if config.CurvePreferences[0] != x25519Kyber768Draft00 {
+			// Prepend X25519Kyber768Draft00 to the list, making it most preferred.
+			curves := make([]tls.CurveID, 0, len(config.CurvePreferences)+1)
+			curves = append(curves, x25519Kyber768Draft00)
+			curves = append(curves, config.CurvePreferences...)
+			config.CurvePreferences = curves
+		}
+
+	case PQKEMModeRequire:
+		// List only known PQ-safe KEMs as valid curves.
+		config.CurvePreferences = []tls.CurveID{
+			x25519Kyber768Draft00,
+		}
+
+		// Require TLS 1.3, as all PQ-safe KEMs require it anyway.
+		if config.MinVersion < tls.VersionTLS13 {
+			config.MinVersion = tls.VersionTLS13
+		}
+	}
 }
