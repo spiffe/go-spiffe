@@ -1,12 +1,17 @@
 name: PR Build
 on:
+  push: {}
   pull_request: {}
   workflow_dispatch: {}
+env:
+  GOTOOLCHAIN: local
 jobs:
   lint-linux:
     strategy:
       matrix:
-        GO_VERSION: ["1.21", "1.23rc2"]
+        go-version:
+          - setup: "1.21"
+            makeArgs: ""
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -16,14 +21,18 @@ jobs:
         with:
           cache: true
           cache-dependency-path: v2/go.sum
-          go-version: ${{ matrix.GO_VERSION }}
+          go-version: ${{ matrix.go-version.setup }}
       - name: Lint
-        run: make lint
+        run: make lint ${{ matrix.go-version.makeArgs }}
 
   test-linux:
     strategy:
       matrix:
-        GO_VERSION: ["1.21", "1.23rc2"]
+        go-version:
+          - setup: "1.21"
+            makeArgs: ""
+          - setup: "1.23.0-rc.2"
+            makeArgs: "go_version_full=1.23rc2"
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -33,14 +42,16 @@ jobs:
         with:
           cache: true
           cache-dependency-path: v2/go.sum
-          go-version: ${{ matrix.GO_VERSION }}
+          go-version: ${{ matrix.go-version.setup }}
       - name: Test
-        run: make test
+        run: make test ${{ matrix.go-version.makeArgs }}
 
   lint-windows:
     strategy:
       matrix:
-        GO_VERSION: ["1.21", "1.23rc2"]
+        go-version:
+          - setup: "1.21"
+            makeArgs: ""
     runs-on: windows-2022
     defaults:
       run:
@@ -53,7 +64,7 @@ jobs:
         with:
           cache: true
           cache-dependency-path: v2/go.sum
-          go-version: ${{ matrix.GO_VERSION }}
+          go-version: ${{ matrix.go-version.setup }}
       - name: Install msys2
         uses: msys2/setup-msys2@v2
         with:
@@ -65,12 +76,16 @@ jobs:
             mingw-w64-x86_64-toolchain 
             unzip 
       - name: Lint
-        run: make lint
+        run: make lint ${{ matrix.go-version.makeArgs }}
 
   test-windows:
     strategy:
       matrix:
-        GO_VERSION: ["1.21", "1.23rc2"]
+        go-version:
+          - setup: "1.21"
+            makeArgs: ""
+          - setup: "1.23.0-rc.2"
+            makeArgs: "go_version_full=1.23rc2"
     runs-on: windows-2022
     defaults:
       run:
@@ -83,7 +98,7 @@ jobs:
         with:
           cache: true
           cache-dependency-path: v2/go.sum
-          go-version: ${{ matrix.GO_VERSION }}
+          go-version: ${{ matrix.go-version.setup }}
       - name: Install msys2
         uses: msys2/setup-msys2@v2
         with:
@@ -95,7 +110,7 @@ jobs:
             mingw-w64-x86_64-toolchain 
             unzip 
       - name: Test
-        run: make test
+        run: make test ${{ matrix.go-version.makeArgs }}
 
   # This job is just here to make sure that the other jobs have completed
   # and is used as a single job to block PR merge from. GH doesn't have a
