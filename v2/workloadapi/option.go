@@ -35,6 +35,14 @@ func WithLogger(logger logger.Logger) ClientOption {
 	})
 }
 
+// WithBackoff provides a custom backoff strategy that replaces the
+// default backoff strategy (linear backoff).
+func WithBackoffStrategy(backoffStrategy BackoffStrategy) ClientOption {
+	return clientOption(func(c *clientConfig) {
+		c.backoffStrategy = backoffStrategy
+	})
+}
+
 // SourceOption are options that are shared among all option types.
 type SourceOption interface {
 	configureX509Source(*x509SourceConfig)
@@ -81,10 +89,11 @@ type BundleSourceOption interface {
 }
 
 type clientConfig struct {
-	address       string
-	namedPipeName string
-	dialOptions   []grpc.DialOption
-	log           logger.Logger
+	address         string
+	namedPipeName   string
+	dialOptions     []grpc.DialOption
+	log             logger.Logger
+	backoffStrategy BackoffStrategy
 }
 
 type clientOption func(*clientConfig)
