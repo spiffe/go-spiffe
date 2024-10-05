@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/x509"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -103,7 +104,10 @@ func TestFetchX509Bundles(t *testing.T) {
 func TestWatchX509Bundles(t *testing.T) {
 	wl := fakeworkloadapi.New(t)
 	defer wl.Stop()
-	c, err := New(context.Background(), WithAddr(wl.Addr()))
+
+	backoffStrategy := &testBackoffStrategy{}
+
+	c, err := New(context.Background(), WithAddr(wl.Addr()), WithBackoffStrategy(backoffStrategy))
 	require.NoError(t, err)
 	defer c.Close()
 
@@ -149,6 +153,9 @@ func TestWatchX509Bundles(t *testing.T) {
 	wl.Stop()
 	tw.WaitForUpdates(1)
 	assert.Len(t, tw.Errors(), 2)
+
+	// Assert that there was the expected number of backoffs.
+	assert.Equal(t, 2, backoffStrategy.BackedOff())
 }
 
 func TestFetchX509Context(t *testing.T) {
@@ -213,7 +220,10 @@ func TestWatchX509Context(t *testing.T) {
 	federatedCA := test.NewCA(t, federatedTD)
 	wl := fakeworkloadapi.New(t)
 	defer wl.Stop()
-	c, err := New(context.Background(), WithAddr(wl.Addr()))
+
+	backoffStrategy := &testBackoffStrategy{}
+
+	c, err := New(context.Background(), WithAddr(wl.Addr()), WithBackoffStrategy(backoffStrategy))
 	require.NoError(t, err)
 	defer c.Close()
 
@@ -291,6 +301,9 @@ func TestWatchX509Context(t *testing.T) {
 
 	cancel()
 	wg.Wait()
+
+	// Assert that there was the expected number of backoffs.
+	assert.Equal(t, 2, backoffStrategy.BackedOff())
 }
 
 func TestFetchJWTSVID(t *testing.T) {
@@ -375,7 +388,10 @@ func TestFetchJWTBundles(t *testing.T) {
 func TestWatchJWTBundles(t *testing.T) {
 	wl := fakeworkloadapi.New(t)
 	defer wl.Stop()
-	c, err := New(context.Background(), WithAddr(wl.Addr()))
+
+	backoffStrategy := &testBackoffStrategy{}
+
+	c, err := New(context.Background(), WithAddr(wl.Addr()), WithBackoffStrategy(backoffStrategy))
 	require.NoError(t, err)
 	defer c.Close()
 
@@ -421,6 +437,9 @@ func TestWatchJWTBundles(t *testing.T) {
 	wl.Stop()
 	tw.WaitForUpdates(1)
 	assert.Len(t, tw.Errors(), 2)
+
+	// Assert that there was the expected number of backoffs.
+	assert.Equal(t, 2, backoffStrategy.BackedOff())
 }
 
 func TestValidateJWTSVID(t *testing.T) {
@@ -605,3 +624,26 @@ func (w *testWatcher) WaitForUpdates(expectedNumUpdates int) {
 		}
 	}
 }
+
+type testBackoffStrategy struct {
+	backedOff int32
+}
+
+func (s *testBackoffStrategy) NewBackoff() Backoff {
+	return testBackoff{backedOff: &s.backedOff}
+}
+
+func (s *testBackoffStrategy) BackedOff() int {
+	return int(atomic.LoadInt32(&s.backedOff))
+}
+
+type testBackoff struct {
+	backedOff *int32
+}
+
+func (b testBackoff) Next() time.Duration {
+	atomic.AddInt32(b.backedOff, 1)
+	return time.Millisecond * 200
+}
+
+func (b testBackoff) Reset() {}
