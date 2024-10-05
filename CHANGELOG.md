@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.4.0] - 2024-10-05
+
+### Added
+
+- Support for using a custom backoff strategy in the Workload API client (#302)
+- Support for a default JWT-SVID picker (#301)
+
 ## [2.3.0] - 2024-06-17
 
 ### Changed

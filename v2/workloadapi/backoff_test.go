@@ -7,34 +7,27 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestBackoff(t *testing.T) {
-	new := func() *backoff { //nolint:all
-		b := newBackoff()
-		b.InitialDelay = time.Second
-		b.MaxDelay = 30 * time.Second
-		return b
-	}
-
-	testUntilMax := func(t *testing.T, b *backoff) {
+func TestLinearBackoff(t *testing.T) {
+	testUntilMax := func(t *testing.T, b *linearBackoff) {
 		for i := 1; i < 30; i++ {
-			require.Equal(t, time.Duration(i)*time.Second, b.Duration())
+			require.Equal(t, time.Duration(i)*time.Second, b.Next())
 		}
-		require.Equal(t, 30*time.Second, b.Duration())
-		require.Equal(t, 30*time.Second, b.Duration())
-		require.Equal(t, 30*time.Second, b.Duration())
+		require.Equal(t, 30*time.Second, b.Next())
+		require.Equal(t, 30*time.Second, b.Next())
+		require.Equal(t, 30*time.Second, b.Next())
 	}
 
 	t.Run("test max", func(t *testing.T) {
 		t.Parallel()
 
-		b := new()
+		b := newLinearBackoff()
 		testUntilMax(t, b)
 	})
 
 	t.Run("test reset", func(t *testing.T) {
 		t.Parallel()
 
-		b := new()
+		b := newLinearBackoff()
 		testUntilMax(t, b)
 
 		b.Reset()
