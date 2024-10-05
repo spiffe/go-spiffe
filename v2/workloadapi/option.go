@@ -2,6 +2,7 @@ package workloadapi
 
 import (
 	"github.com/spiffe/go-spiffe/v2/logger"
+	"github.com/spiffe/go-spiffe/v2/svid/jwtsvid"
 	"github.com/spiffe/go-spiffe/v2/svid/x509svid"
 	"google.golang.org/grpc"
 )
@@ -68,18 +69,26 @@ type X509SourceOption interface {
 	configureX509Source(*x509SourceConfig)
 }
 
-// WithDefaultX509SVIDPicker provides a function that is used to determine the
-// default X509-SVID when more than one is provided by the Workload API. By
-// default, the first X509-SVID in the list returned by the Workload API is
+// WithDefaultJWTSVIDPicker provides a function that is used to determine the
+// default JWT-SVID when more than one is provided by the Workload API. By
+// default, the first JWT-SVID in the list returned by the Workload API is
 // used.
-func WithDefaultX509SVIDPicker(picker func([]*x509svid.SVID) *x509svid.SVID) X509SourceOption {
-	return withDefaultX509SVIDPicker{picker: picker}
+func WithDefaultJWTSVIDPicker(picker func([]*jwtsvid.SVID) *jwtsvid.SVID) JWTSourceOption {
+	return withDefaultJWTSVIDPicker{picker: picker}
 }
 
 // JWTSourceOption is an option for the JWTSource. A SourceOption is also a
 // JWTSourceOption.
 type JWTSourceOption interface {
 	configureJWTSource(*jwtSourceConfig)
+}
+
+// WithDefaultX509SVIDPicker provides a function that is used to determine the
+// default X509-SVID when more than one is provided by the Workload API. By
+// default, the first X509-SVID in the list returned by the Workload API is
+// used.
+func WithDefaultX509SVIDPicker(picker func([]*x509svid.SVID) *x509svid.SVID) X509SourceOption {
+	return withDefaultX509SVIDPicker{picker: picker}
 }
 
 // BundleSourceOption is an option for the BundleSource. A SourceOption is also
@@ -109,6 +118,7 @@ type x509SourceConfig struct {
 
 type jwtSourceConfig struct {
 	watcher watcherConfig
+	picker  func([]*jwtsvid.SVID) *jwtsvid.SVID
 }
 
 type bundleSourceConfig struct {
@@ -152,5 +162,13 @@ type withDefaultX509SVIDPicker struct {
 }
 
 func (o withDefaultX509SVIDPicker) configureX509Source(config *x509SourceConfig) {
+	config.picker = o.picker
+}
+
+type withDefaultJWTSVIDPicker struct {
+	picker func([]*jwtsvid.SVID) *jwtsvid.SVID
+}
+
+func (o withDefaultJWTSVIDPicker) configureJWTSource(config *jwtSourceConfig) {
 	config.picker = o.picker
 }
