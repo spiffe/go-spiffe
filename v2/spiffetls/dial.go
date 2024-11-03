@@ -3,6 +3,7 @@ package spiffetls
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"io"
 	"net"
 
@@ -31,7 +32,7 @@ func DialWithMode(ctx context.Context, network, addr string, mode DialMode, opti
 		if source == nil {
 			source, err = workloadapi.NewX509Source(ctx, m.options...)
 			if err != nil {
-				return nil, spiffetlsErr.New("cannot create X.509 source: %w", err)
+				return nil, wrapSpiffetlsErr(fmt.Errorf("cannot create X.509 source: %w", err))
 			}
 			// Close source if there is a failure after this point
 			defer func() {
@@ -63,7 +64,7 @@ func DialWithMode(ctx context.Context, network, addr string, mode DialMode, opti
 	case mtlsWebClientMode:
 		tlsconfig.HookMTLSWebClientConfig(tlsConfig, m.svid, m.roots, opt.tlsOptions...)
 	default:
-		return nil, spiffetlsErr.New("unknown client mode: %v", m.mode)
+		return nil, wrapSpiffetlsErr(fmt.Errorf("unknown client mode: %v", m.mode))
 	}
 
 	var conn *tls.Conn
@@ -73,7 +74,7 @@ func DialWithMode(ctx context.Context, network, addr string, mode DialMode, opti
 		conn, err = tls.Dial(network, addr, tlsConfig)
 	}
 	if err != nil {
-		return nil, spiffetlsErr.New("unable to dial: %w", err)
+		return nil, wrapSpiffetlsErr(fmt.Errorf("unable to dial: %w", err))
 	}
 
 	return &clientConn{
@@ -93,7 +94,7 @@ func (c *clientConn) Close() error {
 		group.Add(c.sourceCloser.Close())
 	}
 	if err := c.Conn.Close(); err != nil {
-		group.Add(spiffetlsErr.New("unable to close TLS connection: %w", err))
+		group.Add(wrapSpiffetlsErr(fmt.Errorf("unable to close TLS connection: %w", err)))
 	}
 	return group.Err()
 }
