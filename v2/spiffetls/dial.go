@@ -3,6 +3,7 @@ package spiffetls
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -10,7 +11,6 @@ import (
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
-	"github.com/zeebo/errs"
 )
 
 // Dial creates an mTLS connection using an X509-SVID obtained from the
@@ -89,14 +89,14 @@ type clientConn struct {
 }
 
 func (c *clientConn) Close() error {
-	var group errs.Group
+	var group []error
 	if c.sourceCloser != nil {
-		group.Add(c.sourceCloser.Close())
+		group = append(group, c.sourceCloser.Close())
 	}
 	if err := c.Conn.Close(); err != nil {
-		group.Add(wrapSpiffetlsErr(fmt.Errorf("unable to close TLS connection: %w", err)))
+		group = append(group, wrapSpiffetlsErr(fmt.Errorf("unable to close TLS connection: %w", err)))
 	}
-	return group.Err()
+	return errors.Join(group...)
 }
 
 // PeerID returns the peer SPIFFE ID on the connection. The handshake must have

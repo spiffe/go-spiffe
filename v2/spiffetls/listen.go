@@ -3,6 +3,7 @@ package spiffetls
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -10,7 +11,6 @@ import (
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
-	"github.com/zeebo/errs"
 )
 
 // Listen creates an mTLS listener accepting connections on the given network
@@ -129,14 +129,14 @@ func (l *listener) Addr() net.Addr {
 }
 
 func (l *listener) Close() error {
-	var group errs.Group
+	var group []error
 	if l.sourceCloser != nil {
-		group.Add(l.sourceCloser.Close())
+		group = append(group, l.sourceCloser.Close())
 	}
 	if err := l.inner.Close(); err != nil {
-		group.Add(wrapSpiffetlsErr(fmt.Errorf("unable to close TLS connection: %w", err)))
+		group = append(group, wrapSpiffetlsErr(fmt.Errorf("unable to close TLS connection: %w", err)))
 	}
-	return group.Err()
+	return errors.Join(group...)
 }
 
 type serverConn struct {
