@@ -2,6 +2,7 @@ package federation
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/spiffe/go-spiffe/v2/bundle/spiffebundle"
@@ -36,7 +37,7 @@ type BundleWatcher interface {
 // context is canceled, returning ctx.Err().
 func WatchBundle(ctx context.Context, trustDomain spiffeid.TrustDomain, url string, watcher BundleWatcher, options ...FetchOption) error {
 	if watcher == nil {
-		return federationErr.New("watcher cannot be nil")
+		return wrapFederationErr(errors.New("watcher cannot be nil"))
 	}
 
 	latestBundle := &spiffebundle.Bundle{}

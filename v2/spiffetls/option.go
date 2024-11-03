@@ -2,13 +2,11 @@ package spiffetls
 
 import (
 	"crypto/tls"
+	"fmt"
 	"net"
 
 	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
-	"github.com/zeebo/errs"
 )
-
-var spiffetlsErr = errs.Class("spiffetls")
 
 // DialOption is an option for dialing. Option's are also DialOption's.
 type DialOption interface {
@@ -81,4 +79,8 @@ func WithListenTLSOptions(opts ...tlsconfig.Option) ListenOption {
 	return listenOption(func(c *listenConfig) {
 		c.tlsOptions = opts
 	})
+}
+
+func wrapSpiffetlsErr(err error) error {
+	return fmt.Errorf("spiffetls: %w", err)
 }
