@@ -75,7 +75,7 @@ func TestParseAndValidate(t *testing.T) {
 					IssuedAt: issuedAt,
 				}
 
-				return generateToken(tb, claims, key1, "authority1")
+				return generateToken(tb, claims, key1, "authority1", "")
 			},
 			svid: &jwtsvid.SVID{
 				ID:       spiffeid.RequireFromPath(trustDomain1, "/host"),
@@ -110,7 +110,7 @@ func TestParseAndValidate(t *testing.T) {
 					IssuedAt: issuedAt,
 				}
 
-				return generateToken(tb, claims, key1, "authority1")
+				return generateToken(tb, claims, key1, "authority1", "")
 			},
 			err: "jwtsvid: token missing subject claim",
 		},
@@ -125,7 +125,7 @@ func TestParseAndValidate(t *testing.T) {
 					IssuedAt: issuedAt,
 				}
 
-				return generateToken(tb, claims, key1, "authority1")
+				return generateToken(tb, claims, key1, "authority1", "")
 			},
 			err: "jwtsvid: token missing exp claim",
 		},
@@ -142,7 +142,7 @@ func TestParseAndValidate(t *testing.T) {
 					IssuedAt: issuedAt,
 				}
 
-				return generateToken(tb, claims, key1, "authority1")
+				return generateToken(tb, claims, key1, "authority1", "")
 			},
 			err: "jwtsvid: token has expired",
 		},
@@ -159,7 +159,7 @@ func TestParseAndValidate(t *testing.T) {
 					IssuedAt: issuedAt,
 				}
 
-				return generateToken(tb, claims, key1, "authority1")
+				return generateToken(tb, claims, key1, "authority1", "")
 			},
 			err: `jwtsvid: expected audience in ["another"] (audience=["audience"])`,
 		},
@@ -176,7 +176,7 @@ func TestParseAndValidate(t *testing.T) {
 					IssuedAt: issuedAt,
 				}
 
-				return generateToken(tb, claims, key1, "authority1")
+				return generateToken(tb, claims, key1, "authority1", "")
 			},
 			err: `jwtsvid: token has an invalid subject claim: scheme is missing or invalid`,
 		},
@@ -193,7 +193,7 @@ func TestParseAndValidate(t *testing.T) {
 					IssuedAt: issuedAt,
 				}
 
-				return generateToken(tb, claims, key1, "")
+				return generateToken(tb, claims, key1, "", "")
 			},
 			err: "jwtsvid: token header missing key id",
 		},
@@ -210,7 +210,7 @@ func TestParseAndValidate(t *testing.T) {
 					IssuedAt: issuedAt,
 				}
 
-				return generateToken(tb, claims, key1, "noAuthority")
+				return generateToken(tb, claims, key1, "noAuthority", "")
 			},
 			err: `jwtsvid: no bundle found for trust domain "another.domain"`,
 		},
@@ -227,7 +227,7 @@ func TestParseAndValidate(t *testing.T) {
 					IssuedAt: issuedAt,
 				}
 
-				return generateToken(tb, claims, key1, "noKey")
+				return generateToken(tb, claims, key1, "noKey", "")
 			},
 			err: `jwtsvid: no JWT authority "noKey" found for trust domain "trustdomain"`,
 		},
@@ -244,9 +244,25 @@ func TestParseAndValidate(t *testing.T) {
 					IssuedAt: issuedAt,
 				}
 
-				return generateToken(tb, claims, key2, "authority1")
+				return generateToken(tb, claims, key2, "authority1", "")
 			},
 			err: "jwtsvid: unable to get claims from token: go-jose/go-jose: error in cryptographic primitive",
+		},
+		{
+			name:   "invalid typ",
+			bundle: bundle1,
+			generateToken: func(tb testing.TB) string {
+				claims := jwt.Claims{
+					Subject:  spiffeid.RequireFromPath(trustDomain1, "/host").String(),
+					Issuer:   "issuer",
+					Expiry:   expires,
+					Audience: []string{"audience"},
+					IssuedAt: issuedAt,
+				}
+
+				return generateToken(tb, claims, key1, "authority1", "invalid")
+			},
+			err: "jwtsvid: token header type not equal to either JWT or JOSE",
 		},
 	}
 
@@ -303,7 +319,7 @@ func TestParseInsecure(t *testing.T) {
 					IssuedAt: issuedAt,
 				}
 
-				return generateToken(tb, claims, key1, "key1")
+				return generateToken(tb, claims, key1, "key1", "")
 			},
 			svid: &jwtsvid.SVID{
 				ID:       spiffeid.RequireFromPath(trustDomain1, "/host"),
@@ -335,7 +351,7 @@ func TestParseInsecure(t *testing.T) {
 					IssuedAt: issuedAt,
 				}
 
-				return generateToken(tb, claims, key1, "key1")
+				return generateToken(tb, claims, key1, "key1", "")
 			},
 			err: "jwtsvid: token missing subject claim",
 		},
@@ -349,7 +365,7 @@ func TestParseInsecure(t *testing.T) {
 					IssuedAt: issuedAt,
 				}
 
-				return generateToken(tb, claims, key1, "key1")
+				return generateToken(tb, claims, key1, "key1", "")
 			},
 			err: "jwtsvid: token missing exp claim",
 		},
@@ -365,7 +381,7 @@ func TestParseInsecure(t *testing.T) {
 					IssuedAt: issuedAt,
 				}
 
-				return generateToken(tb, claims, key1, "key1")
+				return generateToken(tb, claims, key1, "key1", "")
 			},
 			err: "jwtsvid: token has expired",
 		},
@@ -381,7 +397,7 @@ func TestParseInsecure(t *testing.T) {
 					IssuedAt: issuedAt,
 				}
 
-				return generateToken(tb, claims, key1, "key1")
+				return generateToken(tb, claims, key1, "key1", "")
 			},
 			err: `jwtsvid: expected audience in ["another"] (audience=["audience"])`,
 		},
@@ -397,9 +413,24 @@ func TestParseInsecure(t *testing.T) {
 					IssuedAt: issuedAt,
 				}
 
-				return generateToken(tb, claims, key1, "key1")
+				return generateToken(tb, claims, key1, "key1", "")
 			},
 			err: `jwtsvid: token has an invalid subject claim: scheme is missing or invalid`,
+		},
+		{
+			name: "success",
+			generateToken: func(tb testing.TB) string {
+				claims := jwt.Claims{
+					Subject:  spiffeid.RequireFromPath(trustDomain1, "/host").String(),
+					Issuer:   "issuer",
+					Expiry:   expires,
+					Audience: []string{"audience"},
+					IssuedAt: issuedAt,
+				}
+
+				return generateToken(tb, claims, key1, "key1", "invalid")
+			},
+			err: `jwtsvid: token header type not equal to either JWT or JOSE`,
 		},
 	}
 
@@ -441,7 +472,7 @@ func TestMarshal(t *testing.T) {
 		Audience: []string{"audience"},
 		IssuedAt: jwt.NewNumericDate(time.Now().Add(time.Minute)),
 	}
-	token := generateToken(t, claims, key1, "key1")
+	token := generateToken(t, claims, key1, "key1", "")
 
 	// Create SVID
 	svid, err := jwtsvid.ParseInsecure(token, []string{"audience"})
@@ -468,10 +499,15 @@ func parseToken(t testing.TB, token string) map[string]interface{} {
 }
 
 // Generate generates a signed string token
-func generateToken(tb testing.TB, claims jwt.Claims, signer crypto.Signer, keyID string) string {
+func generateToken(tb testing.TB, claims jwt.Claims, signer crypto.Signer, keyID string, typ string) string {
 	// Get signer algorithm
 	alg, err := getSignerAlgorithm(signer)
 	require.NoError(tb, err)
+
+	options := new(jose.SignerOptions).WithType("JWT")
+	if typ != "" {
+		options = options.WithHeader(jose.HeaderType, typ)
+	}
 
 	// Create signer using crypto.Signer and its algorithm along with provided key ID
 	jwtSigner, err := jose.NewSigner(
@@ -482,7 +518,7 @@ func generateToken(tb testing.TB, claims jwt.Claims, signer crypto.Signer, keyID
 				KeyID: keyID,
 			},
 		},
-		new(jose.SignerOptions).WithType("JWT"),
+		options,
 	)
 	require.NoError(tb, err)
 
