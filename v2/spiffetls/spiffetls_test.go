@@ -248,8 +248,6 @@ func TestListenAndDial(t *testing.T) {
 	tests = append(tests, listenAndDialCasesOS()...)
 
 	for _, test := range tests {
-		test := test
-
 		if test.defaultWlAPIAddr != "" {
 			require.NoError(t, os.Setenv("SPIFFE_ENDPOINT_SOCKET", test.defaultWlAPIAddr))
 		} else {

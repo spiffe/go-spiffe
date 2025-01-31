@@ -10,7 +10,7 @@ linters:
     - gosec
     - misspell
     - nakedret
-    - exportloopref
+    - copyloopvar
     - unconvert
     - unparam
     - whitespace

@@ -307,7 +307,6 @@ func TestGetCertificate(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		testCase := testCase
 		t.Run(testCase.name, func(t *testing.T) {
 			getCertificateCalls := 0
 			tracer := hookedTracer(
@@ -361,7 +360,6 @@ func TestGetClientCertificate(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		testCase := testCase
 		t.Run(testCase.name, func(t *testing.T) {
 			getCertificateCalls := 0
 			tracer := hookedTracer(
@@ -427,7 +425,6 @@ func TestVerifyPeerCertificate(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		testCase := testCase
 		t.Run(testCase.name, func(t *testing.T) {
 			verifyPeerCertificate := tlsconfig.VerifyPeerCertificate(testCase.bundle, testCase.authorizer)
 			require.NotNil(t, verifyPeerCertificate)
@@ -500,7 +497,6 @@ func TestWrapVerifyPeerCertificate(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		testCase := testCase
 		t.Run(testCase.name, func(t *testing.T) {
 			verifyPeerCertificate := tlsconfig.WrapVerifyPeerCertificate(testCase.wrapped, testCase.bundle, testCase.authorizer)
 			require.NotNil(t, verifyPeerCertificate)
@@ -567,7 +563,6 @@ func TestTLSHandshake(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		testCase := testCase
 		t.Run(testCase.name, func(t *testing.T) {
 			testConnection(t, testCase.serverConfig, testCase.clientConfig, testCase.serverErr, testCase.clientErr)
 		})
@@ -647,7 +642,6 @@ func TestMTLSHandshake(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		testCase := testCase
 		t.Run(testCase.name, func(t *testing.T) {
 			testConnection(t, testCase.serverConfig, testCase.clientConfig, testCase.serverErr, testCase.clientErr)
 		})
@@ -722,7 +716,6 @@ func TestMTLSWebHandshake(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		testCase := testCase
 		t.Run(testCase.name, func(t *testing.T) {
 			testConnection(t, testCase.serverConfig, testCase.clientConfig, testCase.serverErr, testCase.clientErr)
 		})

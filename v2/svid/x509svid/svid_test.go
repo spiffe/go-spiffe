@@ -181,7 +181,6 @@ func TestParse(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			certBytes, err := os.ReadFile(test.certsPath)
 			require.NoError(t, err)
@@ -251,7 +250,6 @@ func TestMarshal(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			s, err := x509svid.Load(test.certsPath, test.keyPath)
 			require.NoError(t, err)
@@ -322,7 +320,6 @@ func TestMarshalRaw(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			s, err := x509svid.Load(test.certsPath, test.keyPath)
 			require.NoError(t, err)
@@ -389,7 +386,6 @@ func TestParseRaw(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			svid, err := x509svid.ParseRaw(test.rawCerts, test.rawKey)
 			if test.expErrContains != "" {

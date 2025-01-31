@@ -113,7 +113,6 @@ func TestParse(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			fileBytes, err := os.ReadFile(test.path)
 			require.NoError(t, err)
@@ -157,7 +156,6 @@ func TestParseRaw(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			certsBytes := loadRawCertificates(t, test.path)
 			bundle, err := x509bundle.ParseRaw(td, certsBytes)
@@ -297,7 +295,6 @@ func TestEqual(t *testing.T) {
 			expectEqual: false,
 		},
 	} {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			require.Equal(t, tt.expectEqual, tt.a.Equal(tt.b))
 		})
