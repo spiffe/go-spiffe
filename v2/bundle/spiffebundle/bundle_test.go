@@ -73,7 +73,6 @@ func TestLoad(t *testing.T) {
 	testCases[0].err = "spiffebundle: unable to read SPIFFE bundle: open testdata/does-not-exist.json: " + errstrings.FileNotFound
 
 	for _, testCase := range testCases {
-		testCase := testCase
 		t.Run(testCase.filePath, func(t *testing.T) {
 			bundle, err := spiffebundle.Load(td, testCase.filePath)
 			checkBundleProperties(t, err, testCase, bundle)
@@ -85,7 +84,6 @@ func TestRead(t *testing.T) {
 	testCases[0].err = "spiffebundle: unable to read: invalid argument"
 
 	for _, testCase := range testCases {
-		testCase := testCase
 		t.Run(testCase.filePath, func(t *testing.T) {
 			// we expect the Open call to fail in some cases
 			file, _ := os.Open(testCase.filePath)
@@ -101,7 +99,6 @@ func TestParse(t *testing.T) {
 	testCases[0].err = "spiffebundle: unable to parse JWKS: unexpected end of JSON input"
 
 	for _, testCase := range testCases {
-		testCase := testCase
 		t.Run(testCase.filePath, func(t *testing.T) {
 			// we expect the ReadFile call to fail in some cases
 			bundleBytes, _ := os.ReadFile(testCase.filePath)
@@ -447,7 +444,6 @@ func TestEqual(t *testing.T) {
 			expectEqual: false,
 		},
 	} {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			require.Equal(t, tt.expectEqual, tt.a.Equal(tt.b))
 		})

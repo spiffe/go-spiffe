@@ -251,7 +251,6 @@ func TestParseAndValidate(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		testCase := testCase
 		t.Run(testCase.name, func(t *testing.T) {
 			// Generate token
 			token := testCase.generateToken(t)
@@ -405,7 +404,6 @@ func TestParseInsecure(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		testCase := testCase
 		t.Run(testCase.name, func(t *testing.T) {
 			// Create token
 			token := testCase.generateToken(t)
