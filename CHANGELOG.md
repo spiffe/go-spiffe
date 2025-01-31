@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.5.0] - 2025-01-31
+
+### Added
+
+- workloadapi.TargetFromAddress function to parse out a gRPC target from a SPIFFE_ENDPOINT_SOCKET compatible address (#321)
+
+### Changed
+
+- Minimum Go version is now go1.22.11, matching our downstream dependencies (#325)
+
 ## [2.4.0] - 2024-10-05
 
 ### Added
