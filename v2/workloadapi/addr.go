@@ -22,7 +22,7 @@ func GetDefaultAddress() (string, bool) {
 // a Workload API endpoint exposed as either a Unix
 // Domain Socket or TCP socket.
 func ValidateAddress(addr string) error {
-	_, err := parseTargetFromStringAddr(addr)
+	_, err := TargetFromAddress(addr)
 	return err
 }
 
