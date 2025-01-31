@@ -1,6 +1,6 @@
 module github.com/spiffe/go-spiffe/v2
 
-go 1.21
+go 1.22.11
 
 require (
 	github.com/Microsoft/go-winio v0.6.2

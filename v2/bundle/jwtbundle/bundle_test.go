@@ -77,7 +77,6 @@ func TestLoad(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		testCase := testCase
 		t.Run(testCase.tf.filePath, func(t *testing.T) {
 			bundle, err := jwtbundle.Load(td, testCase.tf.filePath)
 			if testCase.err != "" {
@@ -113,7 +112,6 @@ func TestRead(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		testCase := testCase
 		t.Run(testCase.tf.filePath, func(t *testing.T) {
 			// we expect the Open call to fail in some cases
 			file, _ := os.Open(testCase.tf.filePath)
@@ -153,7 +151,6 @@ func TestParse(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		testCase := testCase
 		t.Run(testCase.tf.filePath, func(t *testing.T) {
 			// we expect the ReadFile call to fail in some cases
 			bundleBytes, _ := os.ReadFile(testCase.tf.filePath)
@@ -306,7 +303,6 @@ func TestEqual(t *testing.T) {
 			expectEqual: false,
 		},
 	} {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			require.Equal(t, tt.expectEqual, tt.a.Equal(tt.b))
 		})

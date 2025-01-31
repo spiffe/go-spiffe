@@ -127,7 +127,6 @@ func TestVerify(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		testCase := testCase // alias loop var as it is used in the closure
 		t.Run(testCase.name, func(t *testing.T) {
 			_, verifiedChains, err := x509svid.Verify(testCase.chain, testCase.bundle, testCase.opts...)
 			if testCase.err != "" {
