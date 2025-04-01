@@ -2,6 +2,8 @@ package spiffetls
 
 import (
 	"crypto/tls"
+	"errors"
+	"fmt"
 	"net"
 
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
@@ -19,7 +21,7 @@ func PeerIDFromConn(conn net.Conn) (spiffeid.ID, error) {
 	if getter, ok := conn.(PeerIDGetter); ok {
 		return getter.PeerID()
 	}
-	return spiffeid.ID{}, spiffetlsErr.New("connection does not expose peer ID")
+	return spiffeid.ID{}, wrapSpiffetlsErr(errors.New("connection does not expose peer ID"))
 }
 
 func PeerIDFromConnectionState(state tls.ConnectionState) (spiffeid.ID, error) {
@@ -28,11 +30,11 @@ func PeerIDFromConnectionState(state tls.ConnectionState) (spiffeid.ID, error) {
 	// sets VerifiedChains if it is the one to verify the chain of trust. The
 	// SPIFFE ID must be extracted from the peer certificates.
 	if len(state.PeerCertificates) == 0 {
-		return spiffeid.ID{}, spiffetlsErr.New("no peer certificates")
+		return spiffeid.ID{}, wrapSpiffetlsErr(errors.New("no peer certificates"))
 	}
 	id, err := x509svid.IDFromCert(state.PeerCertificates[0])
 	if err != nil {
-		return spiffeid.ID{}, spiffetlsErr.New("invalid peer certificate: %w", err)
+		return spiffeid.ID{}, wrapSpiffetlsErr(fmt.Errorf("invalid peer certificate: %w", err))
 	}
 	return id, nil
 }

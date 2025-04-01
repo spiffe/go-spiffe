@@ -4,16 +4,15 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/spiffe/go-spiffe/v2/bundle/spiffebundle"
 	"github.com/spiffe/go-spiffe/v2/bundle/x509bundle"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
-	"github.com/zeebo/errs"
 )
-
-var federationErr = errs.Class("federation")
 
 // FetchOption is an option used when dialing the bundle endpoint.
 type FetchOption interface {
@@ -32,7 +31,7 @@ type fetchOptions struct {
 func WithSPIFFEAuth(bundleSource x509bundle.Source, endpointID spiffeid.ID) FetchOption {
 	return fetchOption(func(o *fetchOptions) error {
 		if o.authMethod != authMethodDefault {
-			return federationErr.New("cannot use both SPIFFE and Web PKI authentication")
+			return wrapFederationErr(errors.New("cannot use both SPIFFE and Web PKI authentication"))
 		}
 		o.transport.TLSClientConfig = tlsconfig.TLSClientConfig(bundleSource, tlsconfig.AuthorizeID(endpointID))
 		o.authMethod = authMethodSPIFFE
@@ -46,7 +45,7 @@ func WithSPIFFEAuth(bundleSource x509bundle.Source, endpointID spiffeid.ID) Fetc
 func WithWebPKIRoots(rootCAs *x509.CertPool) FetchOption {
 	return fetchOption(func(o *fetchOptions) error {
 		if o.authMethod != authMethodDefault {
-			return federationErr.New("cannot use both SPIFFE and Web PKI authentication")
+			return wrapFederationErr(errors.New("cannot use both SPIFFE and Web PKI authentication"))
 		}
 		o.transport.TLSClientConfig = &tls.Config{
 			RootCAs:    rootCAs,
@@ -73,20 +72,24 @@ func FetchBundle(ctx context.Context, trustDomain spiffeid.TrustDomain, url stri
 	}
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 	if err != nil {
-		return nil, federationErr.New("could not create request: %w", err)
+		return nil, wrapFederationErr(fmt.Errorf("could not create request: %w", err))
 	}
 	response, err := client.Do(request)
 	if err != nil {
-		return nil, federationErr.New("could not GET bundle: %w", err)
+		return nil, wrapFederationErr(fmt.Errorf("could not GET bundle: %w", err))
 	}
 	defer response.Body.Close()
 
 	bundle, err := spiffebundle.Read(trustDomain, response.Body)
 	if err != nil {
-		return nil, federationErr.Wrap(err)
+		return nil, wrapFederationErr(err)
 	}
 
 	return bundle, nil
+}
+
+func wrapFederationErr(err error) error {
+	return fmt.Errorf("federation: %w", err)
 }
 
 type fetchOption func(*fetchOptions) error

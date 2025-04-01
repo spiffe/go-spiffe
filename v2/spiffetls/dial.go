@@ -3,13 +3,14 @@ package spiffetls
 import (
 	"context"
 	"crypto/tls"
+	"errors"
+	"fmt"
 	"io"
 	"net"
 
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
-	"github.com/zeebo/errs"
 )
 
 // Dial creates an mTLS connection using an X509-SVID obtained from the
@@ -31,7 +32,7 @@ func DialWithMode(ctx context.Context, network, addr string, mode DialMode, opti
 		if source == nil {
 			source, err = workloadapi.NewX509Source(ctx, m.options...)
 			if err != nil {
-				return nil, spiffetlsErr.New("cannot create X.509 source: %w", err)
+				return nil, wrapSpiffetlsErr(fmt.Errorf("cannot create X.509 source: %w", err))
 			}
 			// Close source if there is a failure after this point
 			defer func() {
@@ -63,7 +64,7 @@ func DialWithMode(ctx context.Context, network, addr string, mode DialMode, opti
 	case mtlsWebClientMode:
 		tlsconfig.HookMTLSWebClientConfig(tlsConfig, m.svid, m.roots, opt.tlsOptions...)
 	default:
-		return nil, spiffetlsErr.New("unknown client mode: %v", m.mode)
+		return nil, wrapSpiffetlsErr(fmt.Errorf("unknown client mode: %v", m.mode))
 	}
 
 	var conn *tls.Conn
@@ -73,7 +74,7 @@ func DialWithMode(ctx context.Context, network, addr string, mode DialMode, opti
 		conn, err = tls.Dial(network, addr, tlsConfig)
 	}
 	if err != nil {
-		return nil, spiffetlsErr.New("unable to dial: %w", err)
+		return nil, wrapSpiffetlsErr(fmt.Errorf("unable to dial: %w", err))
 	}
 
 	return &clientConn{
@@ -88,14 +89,14 @@ type clientConn struct {
 }
 
 func (c *clientConn) Close() error {
-	var group errs.Group
+	var group []error
 	if c.sourceCloser != nil {
-		group.Add(c.sourceCloser.Close())
+		group = append(group, c.sourceCloser.Close())
 	}
 	if err := c.Conn.Close(); err != nil {
-		group.Add(spiffetlsErr.New("unable to close TLS connection: %w", err))
+		group = append(group, wrapSpiffetlsErr(fmt.Errorf("unable to close TLS connection: %w", err)))
 	}
-	return group.Err()
+	return errors.Join(group...)
 }
 
 // PeerID returns the peer SPIFFE ID on the connection. The handshake must have
