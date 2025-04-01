@@ -3,13 +3,14 @@ package spiffetls
 import (
 	"context"
 	"crypto/tls"
+	"errors"
+	"fmt"
 	"io"
 	"net"
 
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
-	"github.com/zeebo/errs"
 )
 
 // Listen creates an mTLS listener accepting connections on the given network
@@ -63,7 +64,7 @@ func NewListenerWithMode(ctx context.Context, inner net.Listener, mode ListenMod
 		if source == nil {
 			source, err = workloadapi.NewX509Source(ctx, m.options...)
 			if err != nil {
-				return nil, spiffetlsErr.New("cannot create X.509 source: %w", err)
+				return nil, wrapSpiffetlsErr(fmt.Errorf("cannot create X.509 source: %w", err))
 			}
 			// Close source if there is a failure after this point
 			defer func() {
@@ -95,7 +96,7 @@ func NewListenerWithMode(ctx context.Context, inner net.Listener, mode ListenMod
 	case mtlsWebServerMode:
 		tlsconfig.HookMTLSWebServerConfig(tlsConfig, m.cert, m.bundle, m.authorizer)
 	default:
-		return nil, spiffetlsErr.New("unknown server mode: %v", m.mode)
+		return nil, wrapSpiffetlsErr(fmt.Errorf("unknown server mode: %v", m.mode))
 	}
 
 	return &listener{
@@ -118,7 +119,7 @@ func (l *listener) Accept() (net.Conn, error) {
 	if !ok {
 		// This is purely defensive. The TLS listeners return tls.Conn's by contract.
 		conn.Close()
-		return nil, spiffetlsErr.New("unexpected conn type %T returned by TLS listener", conn)
+		return nil, wrapSpiffetlsErr(fmt.Errorf("unexpected conn type %T returned by TLS listener", conn))
 	}
 	return &serverConn{Conn: tlsConn}, nil
 }
@@ -128,14 +129,14 @@ func (l *listener) Addr() net.Addr {
 }
 
 func (l *listener) Close() error {
-	var group errs.Group
+	var group []error
 	if l.sourceCloser != nil {
-		group.Add(l.sourceCloser.Close())
+		group = append(group, l.sourceCloser.Close())
 	}
 	if err := l.inner.Close(); err != nil {
-		group.Add(spiffetlsErr.New("unable to close TLS connection: %w", err))
+		group = append(group, wrapSpiffetlsErr(fmt.Errorf("unable to close TLS connection: %w", err)))
 	}
-	return group.Err()
+	return errors.Join(group...)
 }
 
 type serverConn struct {
