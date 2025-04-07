@@ -88,7 +88,7 @@ func ParseAndValidate(token string, bundles jwtbundle.Source, audience []string)
 func ParseInsecure(token string, audience []string) (*SVID, error) {
 	return parse(token, audience, func(tok *jwt.JSONWebToken, td spiffeid.TrustDomain) (map[string]interface{}, error) {
 		// forbid tokens which have the `typ` header, which is not either "JOSE" or "JWT"
-		if typ := tok.Headers[0].ExtraHeaders[jose.HeaderType]; typ != "JOSE" && typ != "JWT" {
+		if typ, present := tok.Headers[0].ExtraHeaders[jose.HeaderType]; present && typ != "JOSE" && typ != "JWT" {
 			return nil, jwtsvidErr.New("token header type not equal to either JWT or JOSE")
 		}
 
