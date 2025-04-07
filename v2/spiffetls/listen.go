@@ -147,5 +147,5 @@ type serverConn struct {
 // been completed. Note that in Go's TLS stack, the TLS 1.3 handshake may not
 // complete until the first read from the connection.
 func (c *serverConn) PeerID() (spiffeid.ID, error) {
-	return PeerIDFromConnectionState(c.Conn.ConnectionState())
+	return PeerIDFromConnectionState(c.ConnectionState())
 }

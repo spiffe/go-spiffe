@@ -1,45 +1,44 @@
-run:
-  # timeout for analysis, e.g. 30s, 5m, default is 1m
-  deadline: 10m
-
+version: "2"
 linters:
   enable:
     - bodyclose
-    - goimports
-    - revive
+    - copyloopvar
+    - gocritic
     - gosec
     - misspell
     - nakedret
-    - copyloopvar
+    - revive
     - unconvert
     - unparam
     - whitespace
-    - gocritic
-
-issues:
-  # include examples
-  exclude-dirs-use-default: false
-
-  exclude-dirs:
-    - testdata$
-    - test/mock
-
-  exclude-files:
-    - ".*\\.pb\\.go"
-
-  exclude-rules:
-    # exclude some lints from examples test files
-    - path: examples_test.go
-      linters:
-        - staticcheck
-        - ineffassign
-        - govet
-
-linters-settings:
-  golint:
-    # minimal confidence for issues, default is 0.8
-    min-confidence: 0.0
-  revive:
+  settings:
+    revive:
+      rules:
+        - name: unused-parameter
+          disabled: true
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
     rules:
-      - name: unused-parameter
-        disabled: true # It's useful to name parameters in library code for better readability
+      - linters:
+          - govet
+          - ineffassign
+          - staticcheck
+        path: examples_test.go
+    paths:
+      - .*\.pb\.go
+      - testdata$
+      - test/mock
+formatters:
+  enable:
+    - goimports
+  exclusions:
+    generated: lax
+    paths:
+      - .*\.pb\.go
+      - testdata$
+      - test/mock
