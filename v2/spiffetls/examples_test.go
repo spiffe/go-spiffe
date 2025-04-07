@@ -9,7 +9,7 @@ import (
 	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
 )
 
-func ExampleListenMTLS() {
+func ExampleListen_mTLS() {
 	td := spiffeid.RequireTrustDomainFromString("example.org")
 
 	listener, err := spiffetls.Listen(context.TODO(), "tcp", ":8443", tlsconfig.AuthorizeMemberOf(td))
@@ -19,7 +19,7 @@ func ExampleListenMTLS() {
 	defer listener.Close()
 }
 
-func ExampleListenMTLS_customTLSConfigBase() {
+func ExampleListen_mTLSCustomTLSConfigBase() {
 	td := spiffeid.RequireTrustDomainFromString("example.org")
 
 	baseConfig := &tls.Config{

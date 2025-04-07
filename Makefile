@@ -51,9 +51,11 @@ endif
 
 build_dir := ${CURDIR}/.build/$(os1)-$(arch1)
 
-protoc_version = 3.14.0
+protoc_version = 30.2
 ifeq ($(os1),windows)
 protoc_url = https://github.com/protocolbuffers/protobuf/releases/download/v$(protoc_version)/protoc-$(protoc_version)-win64.zip
+else ifeq ($(arch1),arm64)
+protoc_url = https://github.com/protocolbuffers/protobuf/releases/download/v$(protoc_version)/protoc-$(protoc_version)-$(os2)-aarch_64.zip
 else ifeq ($(arch1),aarch64)
 protoc_url = https://github.com/protocolbuffers/protobuf/releases/download/v$(protoc_version)/protoc-$(protoc_version)-$(os2)-aarch_64.zip
 else
@@ -67,12 +69,12 @@ protoc_gen_go_base_dir := $(build_dir)/protoc-gen-go
 protoc_gen_go_dir := $(protoc_gen_go_base_dir)/$(protoc_gen_go_version)-go$(go_version)
 protoc_gen_go_bin := $(protoc_gen_go_dir)/protoc-gen-go
 
-protoc_gen_go_grpc_version := v1.0.1
+protoc_gen_go_grpc_version := v1.5.1
 protoc_gen_go_grpc_base_dir := $(build_dir)/protoc-gen-go-grpc
 protoc_gen_go_grpc_dir := $(protoc_gen_go_grpc_base_dir)/$(protoc_gen_go_grpc_version)-go$(go_version)
 protoc_gen_go_grpc_bin := $(protoc_gen_go_grpc_dir)/protoc-gen-go-grpc
 
-golangci_lint_version = v1.63.4
+golangci_lint_version = v2.0.2
 golangci_lint_dir = $(build_dir)/golangci_lint/$(golangci_lint_version)
 golangci_lint_bin = $(golangci_lint_dir)/golangci-lint
 
