@@ -225,7 +225,6 @@ func getTLSCertificate(svid x509svid.Source, trace Trace) (*tls.Certificate, err
 	}
 
 	for _, svidCert := range s.Certificates {
-
 		cert.Certificate = append(cert.Certificate, svidCert.Raw)
 	}
 
