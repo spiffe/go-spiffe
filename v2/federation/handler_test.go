@@ -128,8 +128,8 @@ func TestHandler(t *testing.T) {
 			actual, err := io.ReadAll(res.Body)
 			require.NoError(t, err)
 
-			switch {
-			case res.StatusCode == http.StatusOK:
+			switch res.StatusCode {
+			case http.StatusOK:
 				require.Equal(t, []string{"application/json"}, res.Header["Content-Type"])
 				require.JSONEq(t, testCase.response, string(actual))
 			default:
