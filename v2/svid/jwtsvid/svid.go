@@ -105,6 +105,11 @@ func parse(token string, audience []string, getClaims tokenValidator) (*SVID, er
 		return nil, wrapJwtsvidErr(errors.New("unable to parse JWT token"))
 	}
 
+	// forbid tokens which have the `typ` header, which is not either "JOSE" or "JWT"
+	if typ, present := tok.Headers[0].ExtraHeaders[jose.HeaderType]; present && typ != "JOSE" && typ != "JWT" {
+		return nil, wrapJwtsvidErr(errors.New("token header type not equal to either JWT or JOSE"))
+	}
+
 	// Parse out the unverified claims. We need to look up the key by the trust
 	// domain of the SPIFFE ID.
 	var claims jwt.Claims
