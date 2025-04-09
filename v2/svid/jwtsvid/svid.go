@@ -56,11 +56,6 @@ func ParseAndValidate(token string, bundles jwtbundle.Source, audience []string)
 			return nil, wrapJwtsvidErr(errors.New("token header missing key id"))
 		}
 
-		// forbid tokens which have the `typ` header, which is not either "JOSE" or "JWT"
-		if typ, present := tok.Headers[0].ExtraHeaders[jose.HeaderType]; present && typ != "JOSE" && typ != "JWT" {
-			return nil, jwtsvidErr.New("token header type not equal to either JWT or JOSE")
-		}
-
 		// Get JWT Bundle
 		bundle, err := bundles.GetJWTBundleForTrustDomain(trustDomain)
 		if err != nil {
@@ -87,11 +82,6 @@ func ParseAndValidate(token string, bundles jwtbundle.Source, audience []string)
 // JWT-SVID. The JWT-SVID signature is not verified.
 func ParseInsecure(token string, audience []string) (*SVID, error) {
 	return parse(token, audience, func(tok *jwt.JSONWebToken, td spiffeid.TrustDomain) (map[string]interface{}, error) {
-		// forbid tokens which have the `typ` header, which is not either "JOSE" or "JWT"
-		if typ, present := tok.Headers[0].ExtraHeaders[jose.HeaderType]; present && typ != "JOSE" && typ != "JWT" {
-			return nil, jwtsvidErr.New("token header type not equal to either JWT or JOSE")
-		}
-
 		// Obtain the token claims insecurely, i.e. without signature verification
 		claimsMap := make(map[string]interface{})
 		if err := tok.UnsafeClaimsWithoutVerification(&claimsMap); err != nil {
@@ -113,6 +103,11 @@ func parse(token string, audience []string, getClaims tokenValidator) (*SVID, er
 	tok, err := jwt.ParseSigned(token, allowedSignatureAlgorithms)
 	if err != nil {
 		return nil, wrapJwtsvidErr(errors.New("unable to parse JWT token"))
+	}
+
+	// forbid tokens which have the `typ` header, which is not either "JOSE" or "JWT"
+	if typ, present := tok.Headers[0].ExtraHeaders[jose.HeaderType]; present && typ != "JOSE" && typ != "JWT" {
+		return nil, wrapJwtsvidErr(errors.New("token header type not equal to either JWT or JOSE"))
 	}
 
 	// Parse out the unverified claims. We need to look up the key by the trust
