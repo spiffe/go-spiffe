@@ -1,0 +1,17 @@
+name: DCO
+on:
+  pull_request:
+  merge_group:
+jobs:
+  check_dco:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    name: Check DCO
+    steps:
+      - name: Run dco-check
+        uses: christophebedard/dco-check@7b0205d25ead0f898e0b706b58227dd5fa7e3f55 # 0.5.0
+        with:
+          args: --exclude-pattern 'dependabot\[bot\]@users\.noreply\.github\.com'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
