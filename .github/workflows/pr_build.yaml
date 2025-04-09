@@ -12,8 +12,8 @@ jobs:
         uses: actions/setup-go@v5
         with:
           cache: true
-          cache-dependency-path: v2/go.sum
-          go-version-file: v2/go.mod
+          cache-dependency-path: go.sum
+          go-version-file: go.mod
       - name: Lint
         run: make lint
 
@@ -26,8 +26,8 @@ jobs:
         uses: actions/setup-go@v5
         with:
           cache: true
-          cache-dependency-path: v2/go.sum
-          go-version-file: v2/go.mod
+          cache-dependency-path: go.sum
+          go-version-file: go.mod
       - name: Test
         run: make test
 
@@ -43,8 +43,8 @@ jobs:
         uses: actions/setup-go@v5
         with:
           cache: true
-          cache-dependency-path: v2/go.sum
-          go-version-file: v2/go.mod
+          cache-dependency-path: go.sum
+          go-version-file: go.mod
       - name: Install msys2
         uses: msys2/setup-msys2@v2
         with:
@@ -70,8 +70,8 @@ jobs:
         uses: actions/setup-go@v5
         with:
           cache: true
-          cache-dependency-path: v2/go.sum
-          go-version-file: v2/go.mod
+          cache-dependency-path: go.sum
+          go-version-file: go.mod
       - name: Install msys2
         uses: msys2/setup-msys2@v2
         with:

@@ -64,7 +64,7 @@ endif
 protoc_dir = $(build_dir)/protoc/$(protoc_version)
 protoc_bin = $(protoc_dir)/bin/protoc
 
-protoc_gen_go_version := $(shell grep google.golang.org/protobuf v2/go.mod | awk '{print $$2}')
+protoc_gen_go_version := $(shell grep google.golang.org/protobuf go.mod | awk '{print $$2}')
 protoc_gen_go_base_dir := $(build_dir)/protoc-gen-go
 protoc_gen_go_dir := $(protoc_gen_go_base_dir)/$(protoc_gen_go_version)-go$(go_version)
 protoc_gen_go_bin := $(protoc_gen_go_dir)/protoc-gen-go
@@ -79,13 +79,13 @@ golangci_lint_dir = $(build_dir)/golangci_lint/$(golangci_lint_version)
 golangci_lint_bin = $(golangci_lint_dir)/golangci-lint
 
 apiprotos := \
-	v2/proto/spiffe/workload/workload.proto \
+	proto/spiffe/workload/workload.proto \
 
 #############################################################################
 # Toolchain
 #############################################################################
 
-go_version_full := 1.21.8
+go_version_full := 1.23.8
 go_version := $(go_version_full:.0=)
 go_dir := $(build_dir)/go/$(go_version)
 
@@ -123,7 +123,7 @@ endif
 
 .PHONY: lint
 lint: $(golangci_lint_bin) | go-check
-	@cd ./v2; PATH="$(go_bin_dir):$(PATH)" $(golangci_lint_bin) run ./...
+	@PATH="$(go_bin_dir):$(PATH)" $(golangci_lint_bin) run ./...
 
 $(golangci_lint_bin):
 	@echo "Installing golangci-lint $(golangci_lint_version)..."
@@ -137,7 +137,7 @@ $(golangci_lint_bin):
 
 .PHONY: test
 tidy: | go-check
-	@cd ./v2; $(go_path) go mod tidy
+	@$(go_path) go mod tidy
 
 #############################################################################
 # Testing
@@ -145,7 +145,7 @@ tidy: | go-check
 
 .PHONY: test
 test: | go-check
-	@cd ./v2; $(go_path) go test -race ./...
+	@$(go_path) go test -race ./...
 
 #############################################################################
 # Code Generation
