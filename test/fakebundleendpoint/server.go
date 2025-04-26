@@ -1,15 +1,12 @@
 package fakebundleendpoint
 
 import (
-	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"net"
 	"net/http"
-	"sync"
+	"net/http/httptest"
 	"testing"
-	"time"
 
 	"github.com/spiffe/go-spiffe/v2/bundle/spiffebundle"
 	"github.com/spiffe/go-spiffe/v2/internal/test"
@@ -21,9 +18,7 @@ import (
 
 type Server struct {
 	tb         testing.TB
-	wg         sync.WaitGroup
-	addr       net.Addr
-	httpServer *http.Server
+	httpServer *httptest.Server
 	// Root certificates used by clients to verify server certificates.
 	rootCAs *x509.CertPool
 	// TLS configuration used by the server.
@@ -55,52 +50,35 @@ func New(tb testing.TB, option ...ServerOption) *Server {
 
 	sm := http.NewServeMux()
 	sm.HandleFunc("/test-bundle", s.testbundle)
-	s.httpServer = &http.Server{
-		Handler:           sm,
-		TLSConfig:         s.tlscfg,
-		ReadHeaderTimeout: time.Second * 10,
+
+	server := httptest.NewUnstartedServer(sm)
+	server.TLS = s.tlscfg
+
+	if s.tlscfg.GetCertificate != nil {
+		c, err := s.tlscfg.GetCertificate(&tls.ClientHelloInfo{
+			ServerName: server.URL,
+		})
+		if err != nil {
+			tb.Fatalf("TLS config error: %v", err)
+		}
+		server.TLS.Certificates = append(server.TLS.Certificates, *c)
 	}
-	err := s.start()
-	if err != nil {
-		tb.Fatalf("Failed to start: %v", err)
-	}
+	server.StartTLS()
+
+	s.httpServer = server
 	return s
 }
 
 func (s *Server) Shutdown() {
-	err := s.httpServer.Shutdown(context.Background())
-	assert.NoError(s.tb, err)
-	s.wg.Wait()
-}
-
-func (s *Server) Addr() string {
-	return s.addr.String()
+	s.httpServer.Close()
 }
 
 func (s *Server) FetchBundleURL() string {
-	return fmt.Sprintf("https://%s/test-bundle", s.Addr())
+	return fmt.Sprintf("%s/test-bundle", s.httpServer.URL)
 }
 
 func (s *Server) RootCAs() *x509.CertPool {
 	return s.rootCAs
-}
-
-func (s *Server) start() error {
-	ln, err := net.Listen("tcp", "127.0.0.1:")
-	if err != nil {
-		return err
-	}
-
-	s.addr = ln.Addr()
-
-	s.wg.Add(1)
-	go func() {
-		err := s.httpServer.ServeTLS(ln, "", "")
-		assert.EqualError(s.tb, err, http.ErrServerClosed.Error())
-		s.wg.Done()
-		ln.Close()
-	}()
-	return nil
 }
 
 func (s *Server) testbundle(w http.ResponseWriter, r *http.Request) {
