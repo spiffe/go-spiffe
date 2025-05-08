@@ -43,4 +43,4 @@ streamed from the Workload API (e.g. secret rotation).
 
 ## Examples
 
-The [examples](./v2/examples) directory contains rich examples for a variety of circumstances.
+The [examples](./examples) directory contains rich examples for a variety of circumstances.
