@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.6.0] - 2025-08-21
+
+### Changed
+
+- Minimum Go version is now go1.24.0, following our support policy.
+- Other dependency updates.
+
+
 ## [2.5.0] - 2025-01-31
 
 ### Added
