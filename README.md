@@ -44,3 +44,15 @@ streamed from the Workload API (e.g. secret rotation).
 ## Examples
 
 The [examples](./examples) directory contains rich examples for a variety of circumstances.
+
+## Supported Go Versions
+
+This library tracks the minimum officially supported Go version (i.e. N-1). The
+only exception to this policy will be in response to a security issue affecting
+a dependency that forces a premature upgrade. This action is expected to be rare, 
+will not be taken lightly, and not until reasonable efforts to mitigate the
+security issue while maintaining this policy are pursued.
+
+## Reporting Security Vulnerabilities
+
+If you've found a vulnerability or a potential vulnerability in go-spiffe, please let us know at <security@spiffe.io>. We'll send a confirmation email to acknowledge your report, and we'll send an additional email when we've identified the issue positively or negatively.
