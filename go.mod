@@ -8,7 +8,7 @@ require (
 	github.com/stretchr/testify v1.10.0
 	google.golang.org/grpc v1.75.0
 	google.golang.org/grpc/examples v0.0.0-20250407062114-b368379ef8f6
-	google.golang.org/protobuf v1.36.7
+	google.golang.org/protobuf v1.36.8
 )
 
 require (
