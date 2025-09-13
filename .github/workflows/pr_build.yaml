@@ -10,7 +10,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
       - name: Setup go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           cache: true
           cache-dependency-path: go.sum
@@ -24,7 +24,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
       - name: Setup go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           cache: true
           cache-dependency-path: go.sum
@@ -41,7 +41,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
       - name: Setup go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           cache: true
           cache-dependency-path: go.sum
@@ -68,7 +68,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
       - name: Setup go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           cache: true
           cache-dependency-path: go.sum
