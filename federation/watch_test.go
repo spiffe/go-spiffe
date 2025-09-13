@@ -8,7 +8,7 @@ import (
 	"github.com/spiffe/go-spiffe/v2/bundle/spiffebundle"
 	"github.com/spiffe/go-spiffe/v2/federation"
 	"github.com/spiffe/go-spiffe/v2/internal/test"
-	"github.com/spiffe/go-spiffe/v2/internal/test/fakebundleendpoint"
+	"github.com/spiffe/go-spiffe/v2/test/fakebundleendpoint"
 	"github.com/stretchr/testify/assert"
 )
 
