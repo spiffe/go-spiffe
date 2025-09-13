@@ -58,7 +58,7 @@ func DialWithMode(ctx context.Context, network, addr string, mode DialMode, opti
 
 	switch m.mode {
 	case tlsClientMode:
-		tlsconfig.HookTLSClientConfig(tlsConfig, m.bundle, m.authorizer)
+		tlsconfig.HookTLSClientConfig(tlsConfig, m.bundle, m.authorizer, opt.tlsOptions...)
 	case mtlsClientMode:
 		tlsconfig.HookMTLSClientConfig(tlsConfig, m.svid, m.bundle, m.authorizer, opt.tlsOptions...)
 	case mtlsWebClientMode:

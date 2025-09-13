@@ -3,6 +3,7 @@ package tlsconfig
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"time"
 
 	"github.com/spiffe/go-spiffe/v2/bundle/x509bundle"
 	"github.com/spiffe/go-spiffe/v2/svid/x509svid"
@@ -36,7 +37,9 @@ type option func(*options)
 func (fn option) apply(o *options) { fn(o) }
 
 type options struct {
-	trace Trace
+	trace  Trace
+	hasNow bool
+	now    time.Time
 }
 
 func newOptions(opts []Option) *options {
@@ -52,6 +55,15 @@ func newOptions(opts []Option) *options {
 func WithTrace(trace Trace) Option {
 	return option(func(opts *options) {
 		opts.trace = trace
+	})
+}
+
+// WithTime sets the time used when verifying validity periods on X509 SVIDs.
+// If not used, the current time will be used.
+func WithTime(now time.Time) Option {
+	return option(func(opts *options) {
+		opts.hasNow = true
+		opts.now = now
 	})
 }
 
@@ -167,12 +179,22 @@ func GetClientCertificate(svid x509svid.Source, opts ...Option) func(*tls.Certif
 	}
 }
 
+func optionsToSVIDOptions(opts []Option) []x509svid.VerifyOption {
+	opt := newOptions(opts)
+	var svidopt []x509svid.VerifyOption
+	if opt.hasNow {
+		svidopt = append(svidopt, x509svid.WithTime(opt.now))
+	}
+	return svidopt
+}
+
 // VerifyPeerCertificate returns a VerifyPeerCertificate callback for
 // tls.Config. It uses the given bundle source and authorizer to verify and
 // authorize X509-SVIDs provided by peers during the TLS handshake.
 func VerifyPeerCertificate(bundle x509bundle.Source, authorizer Authorizer, opts ...Option) func([][]byte, [][]*x509.Certificate) error {
+	svidopt := optionsToSVIDOptions(opts)
 	return func(raw [][]byte, _ [][]*x509.Certificate) error {
-		id, certs, err := x509svid.ParseAndVerify(raw, bundle)
+		id, certs, err := x509svid.ParseAndVerify(raw, bundle, svidopt...)
 		if err != nil {
 			return err
 		}
@@ -190,8 +212,9 @@ func WrapVerifyPeerCertificate(wrapped func([][]byte, [][]*x509.Certificate) err
 		return VerifyPeerCertificate(bundle, authorizer, opts...)
 	}
 
+	svidopt := optionsToSVIDOptions(opts)
 	return func(raw [][]byte, _ [][]*x509.Certificate) error {
-		id, certs, err := x509svid.ParseAndVerify(raw, bundle)
+		id, certs, err := x509svid.ParseAndVerify(raw, bundle, svidopt...)
 		if err != nil {
 			return err
 		}
