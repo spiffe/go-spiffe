@@ -140,7 +140,7 @@ func (b *Bundle) SetWITAuthorities(witAuthorities map[string]crypto.PublicKey) {
 	b.witAuthorities = witutil.CopyWITAuthorities(witAuthorities)
 }
 
-// Empty returns true if the bundle has no JWT authorities.
+// Empty returns true if the bundle has no WIT authorities.
 func (b *Bundle) Empty() bool {
 	b.mtx.RLock()
 	defer b.mtx.RUnlock()

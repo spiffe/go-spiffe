@@ -44,10 +44,10 @@ func TestHas(t *testing.T) {
 	require.True(t, s.Has(td))
 }
 
-func TestSetGetJWTBundleForTrustDomain(t *testing.T) {
+func TestSetGetWITBundleForTrustDomain(t *testing.T) {
 	s := witbundle.NewSet(b1)
 	_, err := s.GetWITBundleForTrustDomain(td2)
-	require.EqualError(t, err, `witbundle: no JWT bundle for trust domain "example-2.org"`)
+	require.EqualError(t, err, `witbundle: no WIT bundle for trust domain "example-2.org"`)
 
 	b, err := s.GetWITBundleForTrustDomain(td)
 	require.NoError(t, err)

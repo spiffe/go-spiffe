@@ -6,7 +6,7 @@ import (
 
 // Source represents a source of WIT bundles keyed by trust domain.
 type Source interface {
-	// GetWITBundleForTrustDomain returns the JWT bundle for the given trust
+	// GetWITBundleForTrustDomain returns the WIT bundle for the given trust
 	// domain.
 	GetWITBundleForTrustDomain(trustDomain spiffeid.TrustDomain) (*Bundle, error)
 }

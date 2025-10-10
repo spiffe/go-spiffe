@@ -5,7 +5,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/spiffe/go-spiffe/v2/bundle/jwtbundle"
 	"github.com/spiffe/go-spiffe/v2/bundle/witbundle"
 	"github.com/spiffe/go-spiffe/v2/internal/test"
 	"github.com/spiffe/go-spiffe/v2/internal/test/errstrings"
@@ -313,7 +312,7 @@ func TestEqual(t *testing.T) {
 
 func TestClone(t *testing.T) {
 	// Load a bundle to clone
-	original, err := jwtbundle.Load(td, "testdata/jwks_valid_2.json")
+	original, err := witbundle.Load(td, "testdata/jwks_valid_2.json")
 	require.NoError(t, err)
 
 	cloned := original.Clone()
