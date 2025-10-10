@@ -263,9 +263,8 @@ func TestEqual(t *testing.T) {
 	empty := witbundle.New(td)
 	empty2 := witbundle.New(td2)
 
-	// TODO: Use witAuthorities with WITs
-	jwtAuthorities1 := witbundle.FromWITAuthorities(td, ca1.JWTAuthorities())
-	jwtAuthorities2 := witbundle.FromWITAuthorities(td, ca2.JWTAuthorities())
+	witAuthorities1 := witbundle.FromWITAuthorities(td, ca1.WITAuthorities())
+	witAuthorities2 := witbundle.FromWITAuthorities(td, ca2.WITAuthorities())
 
 	for _, tt := range []struct {
 		name        string
@@ -287,20 +286,20 @@ func TestEqual(t *testing.T) {
 		},
 		{
 			name:        "WIT authorities equal",
-			a:           jwtAuthorities1,
-			b:           jwtAuthorities1,
+			a:           witAuthorities1,
+			b:           witAuthorities1,
 			expectEqual: true,
 		},
 		{
 			name:        "WIT authorities empty and not empty",
 			a:           empty,
-			b:           jwtAuthorities1,
+			b:           witAuthorities1,
 			expectEqual: false,
 		},
 		{
 			name:        "WIT authorities not empty but not equal",
-			a:           jwtAuthorities1,
-			b:           jwtAuthorities2,
+			a:           witAuthorities1,
+			b:           witAuthorities2,
 			expectEqual: false,
 		},
 	} {

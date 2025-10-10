@@ -36,6 +36,8 @@ type CA struct {
 	key    crypto.Signer
 	jwtKey crypto.Signer
 	jwtKid string
+	witKey crypto.Signer
+	witKid string
 }
 
 func NewCA(tb testing.TB, td spiffeid.TrustDomain) *CA {
@@ -47,6 +49,8 @@ func NewCA(tb testing.TB, td spiffeid.TrustDomain) *CA {
 		key:    key,
 		jwtKey: NewEC256Key(tb),
 		jwtKid: NewKeyID(tb),
+		witKey: NewEC256Key(tb),
+		witKid: NewKeyID(tb),
 	}
 }
 
@@ -59,6 +63,8 @@ func (ca *CA) ChildCA(options ...SVIDOption) *CA {
 		key:    key,
 		jwtKey: NewEC256Key(ca.tb),
 		jwtKid: NewKeyID(ca.tb),
+		witKey: NewEC256Key(ca.tb),
+		witKid: NewKeyID(ca.tb),
 	}
 }
 
@@ -121,6 +127,12 @@ func (ca *CA) X509Authorities() []*x509.Certificate {
 func (ca *CA) JWTAuthorities() map[string]crypto.PublicKey {
 	return map[string]crypto.PublicKey{
 		ca.jwtKid: ca.jwtKey.Public(),
+	}
+}
+
+func (ca *CA) WITAuthorities() map[string]crypto.PublicKey {
+	return map[string]crypto.PublicKey{
+		ca.witKid: ca.witKey.Public(),
 	}
 }
 
