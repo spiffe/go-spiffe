@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/spiffe/go-spiffe/v2/bundle/witbundle"
+	"github.com/spiffe/go-spiffe/v2/exp/witbundle"
 	"github.com/spiffe/go-spiffe/v2/internal/test"
 	"github.com/spiffe/go-spiffe/v2/internal/test/errstrings"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
