@@ -53,6 +53,11 @@ func TestTrustDomainFromString(t *testing.T) {
 		assertFail(t, "spiffe://%F0%9F%A4%AF/path", "trust domain characters are limited to lowercase letters, numbers, dots, dashes, and underscores")
 		assertFail(t, "spiffe://trustdomain/%F0%9F%A4%AF", "path segment characters are limited to letters, numbers, dots, dashes, and underscores")
 	})
+	t.Run("allow case-insensitive scheme and normalize trust domain", func(t *testing.T) {
+		assertOK(t, "SpIfFe://trustdomain/path", td)
+		assertOK(t, "spiffe://TrUsTdOmAiN/path", td)
+		assertOK(t, "TrUsTdOmAiN", td)
+	})
 
 	// Go all the way through 255, which ensures we reject UTF-8 appropriately
 	for i := 0; i < 256; i++ {
@@ -91,9 +96,10 @@ func TestTrustDomainFromURI(t *testing.T) {
 
 	assertOK("spiffe://trustdomain")
 	assertOK("spiffe://trustdomain/path")
+	assertOK("SpIfFe://trustdomain/path")
+	assertOK("spiffe://TrUsTdOmAiN/path")
 
 	assertFail(&url.URL{}, `cannot be empty`)
-	assertFail(&url.URL{Scheme: "SPIFFE", Host: "trustdomain"}, `scheme is missing or invalid`)
 	assertFail(parseURI("spiffe://trust$domain"), `trust domain characters are limited to lowercase letters, numbers, dots, dashes, and underscores`)
 	assertFail(parseURI("spiffe://trustdomain/path$"), `path segment characters are limited to letters, numbers, dots, dashes, and underscores`)
 }
@@ -158,7 +164,7 @@ func TestTrustDomainTextUnmarshaler(t *testing.T) {
 	require.NoError(t, err)
 	require.Zero(t, s.TrustDomain)
 
-	err = json.Unmarshal([]byte(`{"trustDomain": "BAD"}`), &s)
+	err = json.Unmarshal([]byte(`{"trustDomain": "bad$"}`), &s)
 	require.EqualError(t, err, "trust domain characters are limited to lowercase letters, numbers, dots, dashes, and underscores")
 	require.Zero(t, s.TrustDomain)
 
