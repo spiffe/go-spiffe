@@ -91,11 +91,11 @@ go_dir := $(build_dir)/go/$(go_version)
 
 ifeq ($(os1),windows)
 	go_bin_dir = $(go_dir)/go/bin
-	go_url = https://storage.googleapis.com/golang/go$(go_version).$(os1)-$(arch2).zip
+	go_url = https://dl.google.com/go/go$(go_version_full).$(os1)-$(arch2).zip
 	exe=".exe"
 else
 	go_bin_dir = $(go_dir)/bin
-	go_url = https://storage.googleapis.com/golang/go$(go_version).$(os1)-$(arch2).tar.gz
+	go_url = https://dl.google.com/go/go$(go_version_full).$(os1)-$(arch2).tar.gz
 	exe=
 endif
 
