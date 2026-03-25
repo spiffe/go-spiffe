@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- Minimum Go version is now go1.25.8, following our support policy.
+
 ## [2.6.0] - 2025-08-21
 
 ### Changed
