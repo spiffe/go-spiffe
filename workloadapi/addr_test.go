@@ -58,7 +58,7 @@ func TestValidateAddress(t *testing.T) {
 			err:  "workload endpoint tcp socket URI must not include a fragment",
 		},
 		{
-			addr: "tcp://john:doe@1.2.3.4:5/path",
+			addr: "tcp://john@1.2.3.4:5/path",
 			err:  "workload endpoint tcp socket URI must not include user info",
 		},
 		{

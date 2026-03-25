@@ -43,7 +43,8 @@ func TestTLSClientConfig(t *testing.T) {
 	assert.True(t, config.InsecureSkipVerify)
 	assert.Nil(t, config.NameToCertificate) //nolint:staticcheck // setting to nil is OK
 	assert.Nil(t, config.RootCAs)
-	assert.NotNil(t, config.VerifyPeerCertificate)
+	assert.Nil(t, config.VerifyPeerCertificate)
+	assert.NotNil(t, config.VerifyConnection)
 }
 
 func TestHookTLSClientConfig(t *testing.T) {
@@ -61,7 +62,8 @@ func TestHookTLSClientConfig(t *testing.T) {
 	assert.True(t, config.InsecureSkipVerify)
 	assert.Nil(t, config.NameToCertificate) //nolint:staticcheck // setting to nil is OK
 	assert.Nil(t, config.RootCAs)
-	assert.NotNil(t, config.VerifyPeerCertificate)
+	assert.Nil(t, config.VerifyPeerCertificate)
+	assert.NotNil(t, config.VerifyConnection)
 	assertUnrelatedFieldsUntouched(t, base, config)
 }
 
@@ -81,7 +83,8 @@ func TestMTLSClientConfig(t *testing.T) {
 	assert.True(t, config.InsecureSkipVerify)
 	assert.Nil(t, config.NameToCertificate) //nolint:staticcheck // setting to nil is OK
 	assert.Nil(t, config.RootCAs)
-	assert.NotNil(t, config.VerifyPeerCertificate)
+	assert.Nil(t, config.VerifyPeerCertificate)
+	assert.NotNil(t, config.VerifyConnection)
 }
 
 func TestHookMTLSClientConfig(t *testing.T) {
@@ -102,7 +105,8 @@ func TestHookMTLSClientConfig(t *testing.T) {
 	assert.True(t, config.InsecureSkipVerify)
 	assert.Nil(t, config.NameToCertificate) //nolint:staticcheck // setting to nil is OK
 	assert.Nil(t, config.RootCAs)
-	assert.NotNil(t, config.VerifyPeerCertificate)
+	assert.Nil(t, config.VerifyPeerCertificate)
+	assert.NotNil(t, config.VerifyConnection)
 	assertUnrelatedFieldsUntouched(t, base, config)
 }
 
@@ -199,7 +203,8 @@ func TestMTLSServerConfig(t *testing.T) {
 	assert.False(t, config.InsecureSkipVerify)
 	assert.Nil(t, config.NameToCertificate) //nolint:staticcheck // setting to nil is OK
 	assert.Nil(t, config.RootCAs)
-	assert.NotNil(t, config.VerifyPeerCertificate)
+	assert.Nil(t, config.VerifyPeerCertificate)
+	assert.NotNil(t, config.VerifyConnection)
 }
 
 func TestHookMTLSServerConfig(t *testing.T) {
@@ -220,7 +225,8 @@ func TestHookMTLSServerConfig(t *testing.T) {
 	assert.False(t, config.InsecureSkipVerify)
 	assert.Nil(t, config.NameToCertificate) //nolint:staticcheck // setting to nil is OK
 	assert.Nil(t, config.RootCAs)
-	assert.NotNil(t, config.VerifyPeerCertificate)
+	assert.Nil(t, config.VerifyPeerCertificate)
+	assert.NotNil(t, config.VerifyConnection)
 	assertUnrelatedFieldsUntouched(t, base, config)
 }
 
@@ -238,7 +244,8 @@ func TestMTLSWebServerConfig(t *testing.T) {
 	assert.False(t, config.InsecureSkipVerify)
 	assert.Nil(t, config.NameToCertificate) //nolint:staticcheck // setting to nil is OK
 	assert.Nil(t, config.RootCAs)
-	assert.NotNil(t, config.VerifyPeerCertificate)
+	assert.Nil(t, config.VerifyPeerCertificate)
+	assert.NotNil(t, config.VerifyConnection)
 }
 
 func TestHookMTLSWebServerConfig(t *testing.T) {
@@ -257,7 +264,8 @@ func TestHookMTLSWebServerConfig(t *testing.T) {
 	assert.False(t, config.InsecureSkipVerify)
 	assert.Nil(t, config.NameToCertificate) //nolint:staticcheck // setting to nil is OK
 	assert.Nil(t, config.RootCAs)
-	assert.NotNil(t, config.VerifyPeerCertificate)
+	assert.Nil(t, config.VerifyPeerCertificate)
+	assert.NotNil(t, config.VerifyConnection)
 	assertUnrelatedFieldsUntouched(t, base, config)
 }
 
