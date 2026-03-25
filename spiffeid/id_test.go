@@ -154,6 +154,34 @@ func TestFromString(t *testing.T) {
 		assertFail(t, "spiffe://%62%61%64/path", "trust domain characters are limited to lowercase letters, numbers, dots, dashes, and underscores")
 		assertFail(t, "spiffe://trustdomain/%62%61%64", "path segment characters are limited to letters, numbers, dots, dashes, and underscores")
 	})
+
+	t.Run("reject query and fragment", func(t *testing.T) {
+		assertFail(t, "spiffe://trustdomain/path?x=1", "path segment characters are limited to letters, numbers, dots, dashes, and underscores")
+		assertFail(t, "spiffe://trustdomain/path#frag", "path segment characters are limited to letters, numbers, dots, dashes, and underscores")
+		assertFail(t, "spiffe://trustdomain?x=1", "trust domain characters are limited to lowercase letters, numbers, dots, dashes, and underscores")
+		assertFail(t, "spiffe://trustdomain#frag", "trust domain characters are limited to lowercase letters, numbers, dots, dashes, and underscores")
+	})
+
+	t.Run("reject userinfo and port", func(t *testing.T) {
+		assertFail(t, "spiffe://user@trustdomain/path", "trust domain characters are limited to lowercase letters, numbers, dots, dashes, and underscores")
+		assertFail(t, "spiffe://user:pass@trustdomain/path", "trust domain characters are limited to lowercase letters, numbers, dots, dashes, and underscores")
+		assertFail(t, "spiffe://trustdomain:8080/path", "trust domain characters are limited to lowercase letters, numbers, dots, dashes, and underscores")
+		assertFail(t, "spiffe://1.2.3.4:443/path", "trust domain characters are limited to lowercase letters, numbers, dots, dashes, and underscores")
+	})
+
+	t.Run("allow ipv4 and reject ipv6 trust domain authorities", func(t *testing.T) {
+		assertOK(t, "spiffe://1.2.3.4/service", spiffeid.RequireTrustDomainFromString("1.2.3.4"), "/service")
+		assertFail(t, "spiffe://[::1]/service", "trust domain characters are limited to lowercase letters, numbers, dots, dashes, and underscores")
+		assertFail(t, "spiffe://[2001:db8::1]/service", "trust domain characters are limited to lowercase letters, numbers, dots, dashes, and underscores")
+	})
+
+	t.Run("allow non-DNS-shaped trust domains", func(t *testing.T) {
+		assertOK(t, "spiffe://example..org/service", spiffeid.RequireTrustDomainFromString("example..org"), "/service")
+		assertOK(t, "spiffe://.example.org/service", spiffeid.RequireTrustDomainFromString(".example.org"), "/service")
+		assertOK(t, "spiffe://example.org./service", spiffeid.RequireTrustDomainFromString("example.org."), "/service")
+		assertOK(t, "spiffe://-example.org/service", spiffeid.RequireTrustDomainFromString("-example.org"), "/service")
+		assertOK(t, "spiffe://example-.org/service", spiffeid.RequireTrustDomainFromString("example-.org"), "/service")
+	})
 }
 
 func TestFromURI(t *testing.T) {
@@ -467,6 +495,30 @@ func TestIDTextUnmarshaler(t *testing.T) {
 	err = json.Unmarshal([]byte(`{"id": "spiffe://trustdomain/path"}`), &s)
 	require.NoError(t, err)
 	require.Equal(t, "spiffe://trustdomain/path", s.ID.String())
+}
+
+func TestIDCanonicalizationAndEquality(t *testing.T) {
+	t.Run("scheme and trust domain are canonicalized", func(t *testing.T) {
+		mixedCase := spiffeid.RequireFromString("SPIFFE://EXAMPLE.ORG/MyService")
+		require.Equal(t, "spiffe://example.org/MyService", mixedCase.String())
+	})
+
+	t.Run("scheme and trust domain case variants compare equal", func(t *testing.T) {
+		base := spiffeid.RequireFromString("spiffe://example.org/service")
+		for _, variant := range []string{
+			"SPIFFE://example.org/service",
+			"spiffe://EXAMPLE.ORG/service",
+			"SPIFFE://EXAMPLE.ORG/service",
+		} {
+			require.Equal(t, base, spiffeid.RequireFromString(variant))
+		}
+	})
+
+	t.Run("path remains case sensitive", func(t *testing.T) {
+		lower := spiffeid.RequireFromString("spiffe://example.org/service")
+		upper := spiffeid.RequireFromString("spiffe://example.org/Service")
+		require.NotEqual(t, lower, upper)
+	})
 }
 
 func BenchmarkIDFromString(b *testing.B) {

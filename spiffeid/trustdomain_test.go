@@ -59,6 +59,28 @@ func TestTrustDomainFromString(t *testing.T) {
 		assertOK(t, "TrUsTdOmAiN", td)
 	})
 
+	t.Run("allow ipv4 trust domain", func(t *testing.T) {
+		expected := spiffeid.RequireTrustDomainFromString("1.2.3.4")
+		assertOK(t, "1.2.3.4", expected)
+		assertOK(t, "spiffe://1.2.3.4/service", expected)
+	})
+
+	t.Run("reject userinfo, port, and ipv6 in authority", func(t *testing.T) {
+		assertFail(t, "spiffe://user@trustdomain/path", "trust domain characters are limited to lowercase letters, numbers, dots, dashes, and underscores")
+		assertFail(t, "spiffe://user:pass@trustdomain/path", "trust domain characters are limited to lowercase letters, numbers, dots, dashes, and underscores")
+		assertFail(t, "spiffe://trustdomain:8080/path", "trust domain characters are limited to lowercase letters, numbers, dots, dashes, and underscores")
+		assertFail(t, "spiffe://[::1]/service", "trust domain characters are limited to lowercase letters, numbers, dots, dashes, and underscores")
+		assertFail(t, "spiffe://[2001:db8::1]/service", "trust domain characters are limited to lowercase letters, numbers, dots, dashes, and underscores")
+	})
+
+	t.Run("allow non-DNS-shaped trust domains", func(t *testing.T) {
+		assertOK(t, "example..org", spiffeid.RequireTrustDomainFromString("example..org"))
+		assertOK(t, ".example.org", spiffeid.RequireTrustDomainFromString(".example.org"))
+		assertOK(t, "example.org.", spiffeid.RequireTrustDomainFromString("example.org."))
+		assertOK(t, "-example.org", spiffeid.RequireTrustDomainFromString("-example.org"))
+		assertOK(t, "example-.org", spiffeid.RequireTrustDomainFromString("example-.org"))
+	})
+
 	// Go all the way through 255, which ensures we reject UTF-8 appropriately
 	for i := 0; i < 256; i++ {
 		s := string(rune(i))
