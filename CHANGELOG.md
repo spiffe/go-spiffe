@@ -5,6 +5,8 @@
 ### Changed
 
 - Minimum Go version is now go1.25.8, following our support policy.
+- SPIFFE TLS config hooks now use `VerifyConnection` instead of `VerifyPeerCertificate`, so authorization also runs on resumed TLS sessions. Callers that previously extended a returned config by wrapping `VerifyPeerCertificate` must now extend `VerifyConnection` using manual chaining.
+
 
 ## [2.6.0] - 2025-08-21
 
