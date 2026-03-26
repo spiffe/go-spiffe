@@ -22,7 +22,7 @@ func validateAddressCasesOS() []validateAddressCase {
 			err:  "workload endpoint unix socket URI must not include a fragment",
 		},
 		{
-			addr: "unix://john:doe@foo/path",
+			addr: "unix://john@foo/path",
 			err:  "workload endpoint unix socket URI must not include user info",
 		},
 		{

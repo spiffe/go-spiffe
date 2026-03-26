@@ -72,7 +72,7 @@ func run(ctx context.Context) error {
 
 func handler(p *httputil.ReverseProxy) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("%s %s", r.Method, r.URL)
+		log.Printf("%q %q", r.Method, r.URL.String()) //nolint:gosec // intentional request logging; values are quoted to avoid log forging
 		p.ServeHTTP(w, r)
 	}
 }
