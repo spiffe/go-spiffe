@@ -8,6 +8,7 @@ import (
 	"github.com/spiffe/go-spiffe/v2/bundle/jwtbundle"
 	"github.com/spiffe/go-spiffe/v2/bundle/spiffebundle"
 	"github.com/spiffe/go-spiffe/v2/bundle/x509bundle"
+	"github.com/spiffe/go-spiffe/v2/exp/bundle/witbundle"
 	"github.com/stretchr/testify/require"
 )
 
@@ -82,4 +83,20 @@ func TestSetGetJWTBundleForTrustDomain(t *testing.T) {
 	jb2, err := s.GetJWTBundleForTrustDomain(td)
 	require.NoError(t, err)
 	require.Equal(t, jb1, jb2)
+}
+
+func TestSetGetWITBundleForTrustDomain(t *testing.T) {
+	witAuthorities := map[string]crypto.PublicKey{
+		"key-1": "test-1",
+		"key-2": "test-2",
+	}
+	wb1 := witbundle.FromJWTAuthorities(td, witAuthorities)
+	b := spiffebundle.FromWITBundle(wb1)
+	s := spiffebundle.NewSet(b)
+	_, err := s.GetWITBundleForTrustDomain(td2)
+	require.EqualError(t, err, `spiffebundle: no WIT bundle for trust domain "domain2.test"`)
+
+	wb2, err := s.GetWITBundleForTrustDomain(td)
+	require.NoError(t, err)
+	require.Equal(t, wb1, wb2)
 }
