@@ -10,6 +10,7 @@ import (
 	"github.com/spiffe/go-spiffe/v2/bundle/jwtbundle"
 	"github.com/spiffe/go-spiffe/v2/bundle/spiffebundle"
 	"github.com/spiffe/go-spiffe/v2/bundle/x509bundle"
+	"github.com/spiffe/go-spiffe/v2/exp/bundle/witbundle"
 	"github.com/spiffe/go-spiffe/v2/internal/test"
 	"github.com/spiffe/go-spiffe/v2/internal/test/errstrings"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
@@ -22,6 +23,7 @@ type testCase struct {
 	refreshHint    time.Duration
 	sequenceNumber uint64
 	keysCount      int
+	witKeysCount   int
 }
 
 var (
@@ -59,6 +61,13 @@ var (
 			filePath: "testdata/spiffebundle_multiple_x509.json",
 			err:      "spiffebundle: expected a single certificate in x509-svid entry 0; got 2",
 		},
+		{
+			filePath:       "testdata/spiffebundle_valid_with_wit.json",
+			keysCount:      2,
+			witKeysCount:   2,
+			refreshHint:    60 * time.Second,
+			sequenceNumber: 1,
+		},
 	}
 )
 
@@ -66,6 +75,7 @@ func TestNew(t *testing.T) {
 	b := spiffebundle.New(td)
 	require.NotNil(t, b)
 	require.Len(t, b.JWTAuthorities(), 0)
+	require.Len(t, b.WITAuthorities(), 0)
 	require.Equal(t, td, b.TrustDomain())
 }
 
@@ -467,6 +477,7 @@ func checkBundleProperties(t *testing.T, err error, tc testCase, b *spiffebundle
 	require.NoError(t, err)
 	require.NotNil(t, b)
 	assert.Len(t, b.JWTAuthorities(), tc.keysCount)
+	assert.Len(t, b.WITAuthorities(), tc.witKeysCount)
 	rh, ok := b.RefreshHint()
 	if tc.refreshHint > 0 {
 		assert.Equal(t, true, ok)
@@ -477,4 +488,152 @@ func checkBundleProperties(t *testing.T, err error, tc testCase, b *spiffebundle
 		assert.Equal(t, true, ok)
 		assert.Equal(t, tc.sequenceNumber, sn)
 	}
+}
+
+func TestFromWITAuthorities(t *testing.T) {
+	witAuthorities := map[string]crypto.PublicKey{
+		"key-1": "test-1",
+		"key-2": "test-2",
+	}
+	b := spiffebundle.FromWITAuthorities(td, witAuthorities)
+	require.NotNil(t, b)
+	assert.Equal(t, witAuthorities, b.WITAuthorities())
+}
+
+func TestFromWITBundle(t *testing.T) {
+	witAuthorities := map[string]crypto.PublicKey{
+		"key-1": "test-1",
+	}
+	wb := witbundle.FromWITAuthorities(td, witAuthorities)
+	sb := spiffebundle.FromWITBundle(wb)
+	require.NotNil(t, sb)
+	assert.Equal(t, witAuthorities, sb.WITAuthorities())
+}
+
+func TestWITAuthoritiesCRUD(t *testing.T) {
+	// Test AddWITAuthority (missing key ID)
+	b := spiffebundle.New(td)
+	err := b.AddWITAuthority("", "test-1")
+	require.EqualError(t, err, "spiffebundle: keyID cannot be empty")
+
+	// Test AddWITAuthority (new authority)
+	err = b.AddWITAuthority("key-1", "test-1")
+	require.NoError(t, err)
+
+	// Test WITAuthorities
+	witAuthorities := b.WITAuthorities()
+	require.Equal(t, map[string]crypto.PublicKey{"key-1": "test-1"}, witAuthorities)
+
+	err = b.AddWITAuthority("key-2", "test-2")
+	require.NoError(t, err)
+
+	witAuthorities = b.WITAuthorities()
+	require.Equal(t, map[string]crypto.PublicKey{
+		"key-1": "test-1",
+		"key-2": "test-2",
+	}, witAuthorities)
+
+	// Test FindWITAuthority
+	witAuthority, ok := b.FindWITAuthority("key-1")
+	require.True(t, ok)
+	require.Equal(t, "test-1", witAuthority)
+
+	witAuthority, ok = b.FindWITAuthority("key-3")
+	require.Nil(t, witAuthority)
+	require.False(t, ok)
+
+	require.True(t, b.HasWITAuthority("key-1"))
+	b.RemoveWITAuthority("key-3") // no-op
+
+	require.Equal(t, 2, len(b.WITAuthorities()))
+	require.True(t, b.HasWITAuthority("key-1"))
+	require.True(t, b.HasWITAuthority("key-2"))
+
+	// Test RemoveWITAuthority
+	b.RemoveWITAuthority("key-2")
+	require.Equal(t, 1, len(b.WITAuthorities()))
+	require.True(t, b.HasWITAuthority("key-1"))
+
+	// Test AddWITAuthority (update authority)
+	err = b.AddWITAuthority("key-1", "test-1-updated")
+	require.NoError(t, err)
+	witAuthorities = b.WITAuthorities()
+	require.Equal(t, map[string]crypto.PublicKey{
+		"key-1": "test-1-updated",
+	}, witAuthorities)
+
+	// Test SetWITAuthorities
+	b.SetWITAuthorities(map[string]crypto.PublicKey{"key-3": "test-3"})
+	require.Equal(t, map[string]crypto.PublicKey{"key-3": "test-3"}, b.WITAuthorities())
+}
+
+func TestMarshalWithWIT(t *testing.T) {
+	bundle, err := spiffebundle.Load(td, "testdata/spiffebundle_valid_with_wit.json")
+	require.NoError(t, err)
+
+	bundleBytesMarshal, err := bundle.Marshal()
+	require.NoError(t, err)
+
+	bundleParsed, err := spiffebundle.Parse(td, bundleBytesMarshal)
+	require.NoError(t, err)
+
+	assert.Equal(t, bundle.WITAuthorities(), bundleParsed.WITAuthorities())
+}
+
+func TestEmptyWithWIT(t *testing.T) {
+	b := spiffebundle.New(td)
+	require.True(t, b.Empty())
+
+	err := b.AddWITAuthority("key-1", "test-1")
+	require.NoError(t, err)
+	require.False(t, b.Empty())
+}
+
+func TestEqualWithWIT(t *testing.T) {
+	ca1 := test.NewCA(t, td)
+	ca2 := test.NewCA(t, td2)
+
+	witAuthorities1 := spiffebundle.FromWITAuthorities(td, ca1.JWTAuthorities())
+	witAuthorities2 := spiffebundle.FromWITAuthorities(td, ca2.JWTAuthorities())
+	empty := spiffebundle.New(td)
+
+	require.Equal(t, td, witAuthorities1.TrustDomain())
+	// Verify reflexivity and symmetry of equality
+	require.True(t, witAuthorities1.Equal(witAuthorities1.Clone()))
+	require.False(t, witAuthorities1.Equal(witAuthorities2))
+	require.False(t, empty.Equal(witAuthorities1))
+}
+
+func TestCloneWithWIT(t *testing.T) {
+	ca1 := test.NewCA(t, td)
+	b := spiffebundle.FromWITAuthorities(td, ca1.JWTAuthorities())
+	cloned := b.Clone()
+	require.True(t, b.Equal(cloned))
+	// Verify independence: modifying original doesn't affect clone
+	err := b.AddWITAuthority("key-extra", "does-not-matter")
+	require.NoError(t, err)
+	require.False(t, cloned.HasWITAuthority("key-extra"))
+}
+
+func TestWITBundle(t *testing.T) {
+	sb := spiffebundle.New(td)
+	err := sb.AddWITAuthority("key-1", "test-1")
+	require.NoError(t, err)
+	wb := sb.WITBundle()
+	require.NotNil(t, wb)
+	_, ok := wb.FindWITAuthority("key-1")
+	require.True(t, ok)
+}
+
+func TestGetWITBundleForTrustDomain(t *testing.T) {
+	witAuthorities := map[string]crypto.PublicKey{"key-1": "test-1"}
+	wb1 := witbundle.FromWITAuthorities(td, witAuthorities)
+	sb := spiffebundle.FromWITBundle(wb1)
+	wb2, err := sb.GetWITBundleForTrustDomain(td)
+	require.NoError(t, err)
+	require.Equal(t, wb1, wb2)
+
+	wb2, err = sb.GetWITBundleForTrustDomain(td2)
+	require.Nil(t, wb2)
+	require.EqualError(t, err, `spiffebundle: no WIT bundle for trust domain "domain2.test"`)
 }
