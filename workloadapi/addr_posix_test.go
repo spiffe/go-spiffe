@@ -21,7 +21,7 @@ func validateAddressCasesOS() []validateAddressCase {
 			addr: "unix://foo#whatever",
 			err:  "workload endpoint unix socket URI must not include a fragment",
 		},
-		{
+		{ //nolint:gosec // G101: intentional userinfo fixture exercising the rejection path
 			addr: "unix://john:doe@foo/path",
 			err:  "workload endpoint unix socket URI must not include user info",
 		},

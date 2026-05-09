@@ -74,7 +74,7 @@ protoc_gen_go_grpc_base_dir := $(build_dir)/protoc-gen-go-grpc
 protoc_gen_go_grpc_dir := $(protoc_gen_go_grpc_base_dir)/$(protoc_gen_go_grpc_version)-go$(go_version)
 protoc_gen_go_grpc_bin := $(protoc_gen_go_grpc_dir)/protoc-gen-go-grpc
 
-golangci_lint_version = v2.0.2
+golangci_lint_version = v2.11.4
 golangci_lint_dir = $(build_dir)/golangci_lint/$(golangci_lint_version)
 golangci_lint_bin = $(golangci_lint_dir)/golangci-lint
 
@@ -85,17 +85,17 @@ apiprotos := \
 # Toolchain
 #############################################################################
 
-go_version_full := 1.24.6
+go_version_full := 1.24.13
 go_version := $(go_version_full:.0=)
 go_dir := $(build_dir)/go/$(go_version)
 
 ifeq ($(os1),windows)
 	go_bin_dir = $(go_dir)/go/bin
-	go_url = https://storage.googleapis.com/golang/go$(go_version).$(os1)-$(arch2).zip
+	go_url = https://go.dev/dl/go$(go_version).$(os1)-$(arch2).zip
 	exe=".exe"
 else
 	go_bin_dir = $(go_dir)/bin
-	go_url = https://storage.googleapis.com/golang/go$(go_version).$(os1)-$(arch2).tar.gz
+	go_url = https://go.dev/dl/go$(go_version).$(os1)-$(arch2).tar.gz
 	exe=
 endif
 
