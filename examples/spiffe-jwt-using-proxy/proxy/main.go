@@ -72,7 +72,7 @@ func run(ctx context.Context) error {
 
 func handler(p *httputil.ReverseProxy) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("%s %s", r.Method, r.URL)
+		log.Printf("%s %s", r.Method, r.URL) //nolint:gosec // G706: example code; log sanitization out of scope
 		p.ServeHTTP(w, r)
 	}
 }

@@ -57,7 +57,7 @@ func TestValidateAddress(t *testing.T) {
 			addr: "tcp://1.2.3.4:5#whatever",
 			err:  "workload endpoint tcp socket URI must not include a fragment",
 		},
-		{
+		{ //nolint:gosec // G101: intentional userinfo fixture exercising the rejection path
 			addr: "tcp://john:doe@1.2.3.4:5/path",
 			err:  "workload endpoint tcp socket URI must not include user info",
 		},

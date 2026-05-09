@@ -496,6 +496,11 @@ func setupTestEnv(t *testing.T) (*testEnv, func()) {
 
 	// Create custom workload API sources for the server
 	wlCtx, wlCancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer func() {
+		if testEnv.err != nil {
+			wlCancel()
+		}
+	}()
 	testEnv.wlCancel = wlCancel
 	testEnv.wlAPIClientA, testEnv.err = workloadapi.New(wlCtx, workloadapi.WithAddr(testEnv.wlAPIServerA.Addr()))
 	if testEnv.err != nil {
