@@ -11,6 +11,7 @@ import (
 
 	"github.com/spiffe/go-spiffe/v2/bundle/jwtbundle"
 	"github.com/spiffe/go-spiffe/v2/bundle/x509bundle"
+	"github.com/spiffe/go-spiffe/v2/exp/bundle/witbundle"
 	"github.com/spiffe/go-spiffe/v2/internal/pemutil"
 	"github.com/spiffe/go-spiffe/v2/internal/x509util"
 	"github.com/spiffe/go-spiffe/v2/proto/spiffe/workload"
@@ -41,13 +42,19 @@ type WorkloadAPI struct {
 	jwtBundlesChans  map[chan *workload.JWTBundlesResponse]struct{}
 	x509BundlesResp  *workload.X509BundlesResponse
 	x509BundlesChans map[chan *workload.X509BundlesResponse]struct{}
+	witResp          *workload.WITSVIDResponse
+	witChans         map[chan *workload.WITSVIDResponse]struct{}
+	witBundlesResp   *workload.WITBundlesResponse
+	witBundlesChans  map[chan *workload.WITBundlesResponse]struct{}
 }
 
 func New(tb testing.TB) *WorkloadAPI {
 	w := &WorkloadAPI{
-		x509Chans:        make(map[chan *workload.X509SVIDResponse]struct{}),
-		jwtBundlesChans:  make(map[chan *workload.JWTBundlesResponse]struct{}),
+		x509Chans:       make(map[chan *workload.X509SVIDResponse]struct{}),
+		jwtBundlesChans: make(map[chan *workload.JWTBundlesResponse]struct{}),
 		x509BundlesChans: make(map[chan *workload.X509BundlesResponse]struct{}),
+		witChans:        make(map[chan *workload.WITSVIDResponse]struct{}),
+		witBundlesChans: make(map[chan *workload.WITBundlesResponse]struct{}),
 	}
 
 	listener, err := newListener(tb)
@@ -161,6 +168,45 @@ func (w *WorkloadAPI) SetX509Bundles(x509Bundles ...*x509bundle.Bundle) {
 	}
 }
 
+func (w *WorkloadAPI) SetWITSVIDResponse(r *workload.WITSVIDResponse) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.witResp = r
+
+	for ch := range w.witChans {
+		select {
+		case ch <- r:
+		default:
+			<-ch
+			ch <- r
+		}
+	}
+}
+
+func (w *WorkloadAPI) SetWITBundles(bundles ...*witbundle.Bundle) {
+	resp := &workload.WITBundlesResponse{
+		Bundles: make(map[string]string),
+	}
+	for _, bundle := range bundles {
+		bundleBytes, err := bundle.Marshal()
+		assert.NoError(w.tb, err)
+		resp.Bundles[bundle.TrustDomain().String()] = string(bundleBytes)
+	}
+
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.witBundlesResp = resp
+
+	for ch := range w.witBundlesChans {
+		select {
+		case ch <- w.witBundlesResp:
+		default:
+			<-ch
+			ch <- w.witBundlesResp
+		}
+	}
+}
+
 type workloadAPIWrapper struct {
 	workload.UnimplementedSpiffeWorkloadAPIServer
 	w *WorkloadAPI
@@ -184,6 +230,14 @@ func (w *workloadAPIWrapper) FetchJWTBundles(req *workload.JWTBundlesRequest, st
 
 func (w *workloadAPIWrapper) ValidateJWTSVID(ctx context.Context, req *workload.ValidateJWTSVIDRequest) (*workload.ValidateJWTSVIDResponse, error) {
 	return w.w.validateJWTSVID(ctx, req)
+}
+
+func (w *workloadAPIWrapper) FetchWITSVID(req *workload.WITSVIDRequest, stream workload.SpiffeWorkloadAPI_FetchWITSVIDServer) error {
+	return w.w.fetchWITSVID(req, stream)
+}
+
+func (w *workloadAPIWrapper) FetchWITBundles(req *workload.WITBundlesRequest, stream workload.SpiffeWorkloadAPI_FetchWITBundlesServer) error {
+	return w.w.fetchWITBundles(req, stream)
 }
 
 type X509SVIDResponse struct {
@@ -330,6 +384,82 @@ func (w *WorkloadAPI) fetchJWTBundles(_ *workload.JWTBundlesRequest, stream work
 	}()
 
 	sendResp := func(resp *workload.JWTBundlesResponse) error {
+		if resp == nil {
+			return noIdentityError
+		}
+		return stream.Send(resp)
+	}
+
+	if err := sendResp(resp); err != nil {
+		return err
+	}
+	for {
+		select {
+		case resp := <-ch:
+			if err := sendResp(resp); err != nil {
+				return err
+			}
+		case <-stream.Context().Done():
+			return stream.Context().Err()
+		}
+	}
+}
+
+func (w *WorkloadAPI) fetchWITSVID(_ *workload.WITSVIDRequest, stream workload.SpiffeWorkloadAPI_FetchWITSVIDServer) error {
+	if err := checkHeader(stream.Context()); err != nil {
+		return err
+	}
+	ch := make(chan *workload.WITSVIDResponse, 1)
+	w.mu.Lock()
+	w.witChans[ch] = struct{}{}
+	resp := w.witResp
+	w.mu.Unlock()
+
+	defer func() {
+		w.mu.Lock()
+		delete(w.witChans, ch)
+		w.mu.Unlock()
+	}()
+
+	sendResp := func(resp *workload.WITSVIDResponse) error {
+		if resp == nil {
+			return noIdentityError
+		}
+		return stream.Send(resp)
+	}
+
+	if err := sendResp(resp); err != nil {
+		return err
+	}
+	for {
+		select {
+		case resp := <-ch:
+			if err := sendResp(resp); err != nil {
+				return err
+			}
+		case <-stream.Context().Done():
+			return stream.Context().Err()
+		}
+	}
+}
+
+func (w *WorkloadAPI) fetchWITBundles(_ *workload.WITBundlesRequest, stream workload.SpiffeWorkloadAPI_FetchWITBundlesServer) error {
+	if err := checkHeader(stream.Context()); err != nil {
+		return err
+	}
+	ch := make(chan *workload.WITBundlesResponse, 1)
+	w.mu.Lock()
+	w.witBundlesChans[ch] = struct{}{}
+	resp := w.witBundlesResp
+	w.mu.Unlock()
+
+	defer func() {
+		w.mu.Lock()
+		delete(w.witBundlesChans, ch)
+		w.mu.Unlock()
+	}()
+
+	sendResp := func(resp *workload.WITBundlesResponse) error {
 		if resp == nil {
 			return noIdentityError
 		}
