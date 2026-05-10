@@ -1,10 +1,18 @@
 package x509svid_test
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
 	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
 	"errors"
+	"math/big"
+	"net/url"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/spiffe/go-spiffe/v2/internal/pemutil"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
@@ -403,6 +411,24 @@ func TestParseRaw(t *testing.T) {
 	}
 }
 
+func TestParseRejectsLeafWithRootPathSPIFFEID(t *testing.T) {
+	certPEM, keyPEM := createLeafWithRootPathSPIFFEID(t)
+
+	svid, err := x509svid.Parse(certPEM, keyPEM)
+	require.Error(t, err)
+	require.Nil(t, svid)
+	assert.Contains(t, err.Error(), "x509svid: certificate validation failed: leaf certificate SPIFFE ID must have a non-root path")
+}
+
+func TestParseRawRejectsLeafWithRootPathSPIFFEID(t *testing.T) {
+	certDER, keyDER := createLeafWithRootPathSPIFFEIDRaw(t)
+
+	svid, err := x509svid.ParseRaw(certDER, keyDER)
+	require.Error(t, err)
+	require.Nil(t, svid)
+	assert.Contains(t, err.Error(), "x509svid: certificate validation failed: leaf certificate SPIFFE ID must have a non-root path")
+}
+
 func loadRawCertificates(t *testing.T, path string) []byte {
 	certsBytes, err := os.ReadFile(path)
 	require.NoError(t, err)
@@ -428,4 +454,39 @@ func loadRawKey(t *testing.T, path string) []byte {
 	require.NoError(t, err)
 
 	return rawKey
+}
+
+func createLeafWithRootPathSPIFFEID(t *testing.T) ([]byte, []byte) {
+	certDER, keyDER := createLeafWithRootPathSPIFFEIDRaw(t)
+	return pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certDER}),
+		pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: keyDER})
+}
+
+func createLeafWithRootPathSPIFFEIDRaw(t *testing.T) ([]byte, []byte) {
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+
+	spiffeURI, err := url.Parse("spiffe://example.org")
+	require.NoError(t, err)
+
+	template := &x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject: pkix.Name{
+			CommonName: "root-path-leaf",
+		},
+		NotBefore:             time.Now().Add(-time.Minute),
+		NotAfter:              time.Now().Add(time.Hour),
+		URIs:                  []*url.URL{spiffeURI},
+		KeyUsage:              x509.KeyUsageDigitalSignature,
+		BasicConstraintsValid: true,
+		IsCA:                  false,
+	}
+
+	certDER, err := x509.CreateCertificate(rand.Reader, template, template, key.Public(), key)
+	require.NoError(t, err)
+
+	keyDER, err := x509.MarshalPKCS8PrivateKey(key)
+	require.NoError(t, err)
+
+	return certDER, keyDER
 }
