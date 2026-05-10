@@ -52,23 +52,26 @@ func FromString(id string) (ID, error) {
 	switch {
 	case id == "":
 		return ID{}, errEmpty
-	case !strings.HasPrefix(id, schemePrefix):
+	case len(id) < schemePrefixLen:
+		return ID{}, errWrongScheme
+	case !strings.EqualFold(id[:schemePrefixLen], schemePrefix):
 		return ID{}, errWrongScheme
 	}
 
 	pathidx := schemePrefixLen
-	for ; pathidx < len(id); pathidx++ {
-		c := id[pathidx]
-		if c == '/' {
-			break
-		}
-		if !isValidTrustDomainChar(c) {
-			return ID{}, errBadTrustDomainChar
-		}
+	for pathidx < len(id) && id[pathidx] != '/' {
+		pathidx++
 	}
 
 	if pathidx == schemePrefixLen {
 		return ID{}, errMissingTrustDomain
+	}
+
+	tdNorm := strings.ToLower(id[schemePrefixLen:pathidx])
+	for i := 0; i < len(tdNorm); i++ {
+		if !isValidTrustDomainChar(tdNorm[i]) {
+			return ID{}, errBadTrustDomainChar
+		}
 	}
 
 	if err := ValidatePath(id[pathidx:]); err != nil {
@@ -76,7 +79,7 @@ func FromString(id string) (ID, error) {
 	}
 
 	return ID{
-		id:      id,
+		id:      schemePrefix + tdNorm + id[pathidx:],
 		pathidx: pathidx,
 	}, nil
 }
