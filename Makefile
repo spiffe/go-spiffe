@@ -80,6 +80,8 @@ golangci_lint_bin = $(golangci_lint_dir)/golangci-lint
 
 apiprotos := \
 	proto/spiffe/workload/workload.proto \
+	proto/spiffe/broker/api.proto \
+	proto/spiffe/reference/reference.proto \
 
 #############################################################################
 # Toolchain
