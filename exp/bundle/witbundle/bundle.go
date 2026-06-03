@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"os"
 	"sync"
 
 	"github.com/go-jose/go-jose/v4"
@@ -37,6 +39,28 @@ func FromWITAuthorities(trustDomain spiffeid.TrustDomain, witAuthorities map[str
 		trustDomain:    trustDomain,
 		witAuthorities: jwtutil.CopyJWTAuthorities(witAuthorities),
 	}
+}
+
+// Load loads a bundle from a file on disk. The file must contain a standard
+// RFC 7517 JWKS document.
+func Load(trustDomain spiffeid.TrustDomain, path string) (*Bundle, error) {
+	bundleBytes, err := os.ReadFile(path)
+	if err != nil {
+		return nil, wrapErr(fmt.Errorf("unable to read WIT bundle: %w", err))
+	}
+
+	return Parse(trustDomain, bundleBytes)
+}
+
+// Read decodes a bundle from a reader. The contents must contain a standard
+// RFC 7517 JWKS document.
+func Read(trustDomain spiffeid.TrustDomain, r io.Reader) (*Bundle, error) {
+	b, err := io.ReadAll(r)
+	if err != nil {
+		return nil, wrapErr(fmt.Errorf("unable to read: %v", err))
+	}
+
+	return Parse(trustDomain, b)
 }
 
 // Parse parses a bundle from a JWK Set JSON document.
@@ -82,6 +106,16 @@ func (b *Bundle) FindWITAuthority(keyID string) (crypto.PublicKey, bool) {
 	return nil, false
 }
 
+// HasWITAuthority returns true if the bundle has a WIT authority with the
+// given key ID.
+func (b *Bundle) HasWITAuthority(keyID string) bool {
+	b.mtx.RLock()
+	defer b.mtx.RUnlock()
+
+	_, ok := b.witAuthorities[keyID]
+	return ok
+}
+
 // AddWITAuthority adds a WIT authority to the bundle. If a WIT authority already
 // exists under the given key ID, it is replaced. A key ID must be specified.
 func (b *Bundle) AddWITAuthority(keyID string, witAuthority crypto.PublicKey) error {
@@ -94,6 +128,31 @@ func (b *Bundle) AddWITAuthority(keyID string, witAuthority crypto.PublicKey) er
 
 	b.witAuthorities[keyID] = witAuthority
 	return nil
+}
+
+// RemoveWITAuthority removes the WIT authority identified by the key ID from
+// the bundle.
+func (b *Bundle) RemoveWITAuthority(keyID string) {
+	b.mtx.Lock()
+	defer b.mtx.Unlock()
+
+	delete(b.witAuthorities, keyID)
+}
+
+// SetWITAuthorities sets the WIT authorities in the bundle.
+func (b *Bundle) SetWITAuthorities(witAuthorities map[string]crypto.PublicKey) {
+	b.mtx.Lock()
+	defer b.mtx.Unlock()
+
+	b.witAuthorities = jwtutil.CopyJWTAuthorities(witAuthorities)
+}
+
+// Empty returns true if the bundle has no WIT authorities.
+func (b *Bundle) Empty() bool {
+	b.mtx.RLock()
+	defer b.mtx.RUnlock()
+
+	return len(b.witAuthorities) == 0
 }
 
 // Marshal marshals the WIT bundle into a standard RFC 7517 JWKS document.
@@ -110,6 +169,24 @@ func (b *Bundle) Marshal() ([]byte, error) {
 	}
 
 	return json.Marshal(jwks)
+}
+
+// Clone clones the bundle.
+func (b *Bundle) Clone() *Bundle {
+	b.mtx.RLock()
+	defer b.mtx.RUnlock()
+
+	return FromWITAuthorities(b.trustDomain, b.witAuthorities)
+}
+
+// Equal compares the bundle for equality against the given bundle.
+func (b *Bundle) Equal(other *Bundle) bool {
+	if b == nil || other == nil {
+		return b == other
+	}
+
+	return b.trustDomain == other.trustDomain &&
+		jwtutil.JWTAuthoritiesEqual(b.witAuthorities, other.witAuthorities)
 }
 
 // GetWITBundleForTrustDomain returns the WIT bundle for the given trust domain.
