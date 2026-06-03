@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.7.0] - 2026-06-03
+
+### Added
+
+- Experimental support for WIT-SVIDs, including the new `exp/svid/witsvid` and `exp/bundle/witbundle` packages and Workload API client support for fetching and watching WIT-SVIDs and WIT bundles (#385, #391)
+
+### Changed
+
+- X509-SVID verification now rejects leaf certificates with a SPIFFE ID that has a root path (#375)
+- Other dependency updates.
+
+
 ## [2.6.0] - 2025-08-21
 
 ### Changed
