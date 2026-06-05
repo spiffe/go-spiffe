@@ -10,6 +10,12 @@ import (
 const (
 	schemePrefix    = "spiffe://"
 	schemePrefixLen = len(schemePrefix)
+
+	// maxIDLen is the maximum length, in bytes, of a SPIFFE ID. The SPIFFE
+	// specification recommends that implementations not generate SPIFFE IDs
+	// longer than 2048 bytes so that they remain interoperable.
+	// See https://github.com/spiffe/spiffe/blob/main/standards/SPIFFE-ID.md#23-maximum-spiffe-id-length
+	maxIDLen = 2048
 )
 
 // FromPath returns a new SPIFFE ID in the given trust domain and with the
@@ -73,6 +79,10 @@ func FromString(id string) (ID, error) {
 
 	if err := ValidatePath(id[pathidx:]); err != nil {
 		return ID{}, err
+	}
+
+	if len(id) > maxIDLen {
+		return ID{}, errIDTooLong
 	}
 
 	return ID{
@@ -154,6 +164,9 @@ func (id ID) AppendPath(path string) (ID, error) {
 		return ID{}, err
 	}
 	id.id += path
+	if len(id.id) > maxIDLen {
+		return ID{}, errIDTooLong
+	}
 	return id, nil
 }
 
@@ -170,6 +183,9 @@ func (id ID) AppendPathf(format string, args ...interface{}) (ID, error) {
 		return ID{}, err
 	}
 	id.id += path
+	if len(id.id) > maxIDLen {
+		return ID{}, errIDTooLong
+	}
 	return id, nil
 }
 
@@ -186,6 +202,9 @@ func (id ID) AppendSegments(segments ...string) (ID, error) {
 		return ID{}, err
 	}
 	id.id += path
+	if len(id.id) > maxIDLen {
+		return ID{}, errIDTooLong
+	}
 	return id, nil
 }
 
@@ -251,8 +270,12 @@ func makeID(td TrustDomain, path string) (ID, error) {
 	if td.IsZero() {
 		return ID{}, errors.New("trust domain is empty")
 	}
+	id := schemePrefix + td.name + path
+	if len(id) > maxIDLen {
+		return ID{}, errIDTooLong
+	}
 	return ID{
-		id:      schemePrefix + td.name + path,
+		id:      id,
 		pathidx: schemePrefixLen + len(td.name),
 	}, nil
 }
