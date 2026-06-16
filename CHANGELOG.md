@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.8.0] - 2026-06-16
+
+### Added
+
+- Experimental SPIFFE Broker API protobuf definitions in the new `exp/proto/spiffe/broker` package (#388)
+
+
 ## [2.7.0] - 2026-06-03
 
 ### Added
