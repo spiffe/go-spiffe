@@ -127,6 +127,45 @@ func TestWITAuthorities_DefensiveCopy(t *testing.T) {
 	assert.Len(t, b.WITAuthorities(), 1)
 }
 
+func TestMarshal(t *testing.T) {
+	t.Run("sets use field on every key", func(t *testing.T) {
+		key1 := test.NewEC256Key(t)
+		key2 := test.NewEC256Key(t)
+		b := witbundle.New(td)
+		require.NoError(t, b.AddWITAuthority("key-1", key1.Public()))
+		require.NoError(t, b.AddWITAuthority("key-2", key2.Public()))
+
+		data, err := b.Marshal()
+		require.NoError(t, err)
+
+		var jwks jose.JSONWebKeySet
+		require.NoError(t, json.Unmarshal(data, &jwks))
+		require.Len(t, jwks.Keys, 2)
+
+		wantKeys := map[string]crypto.PublicKey{
+			"key-1": key1.Public(),
+			"key-2": key2.Public(),
+		}
+		var kids []string
+		for _, k := range jwks.Keys {
+			assert.Equal(t, witbundle.JWKUse, k.Use, "key %q missing expected use field", k.KeyID)
+			assert.Equal(t, wantKeys[k.KeyID], k.Key, "key material mismatch for %q", k.KeyID)
+			kids = append(kids, k.KeyID)
+		}
+		assert.ElementsMatch(t, []string{"key-1", "key-2"}, kids)
+	})
+
+	t.Run("empty bundle produces empty keys array", func(t *testing.T) {
+		b := witbundle.New(td)
+		data, err := b.Marshal()
+		require.NoError(t, err)
+
+		var jwks jose.JSONWebKeySet
+		require.NoError(t, json.Unmarshal(data, &jwks))
+		assert.Empty(t, jwks.Keys)
+	})
+}
+
 func TestParse(t *testing.T) {
 	t.Run("round-trips with Marshal", func(t *testing.T) {
 		key1 := test.NewEC256Key(t)
