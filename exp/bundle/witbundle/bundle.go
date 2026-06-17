@@ -16,8 +16,7 @@ import (
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 )
 
-// JWKUse is the JWK use value for WIT authorities in a JWKS document.
-const JWKUse = "wit-svid"
+const witSVIDUse = "wit-svid"
 
 // Bundle is a collection of trusted WIT authorities for a trust domain.
 type Bundle struct {
@@ -168,7 +167,7 @@ func (b *Bundle) Marshal() ([]byte, error) {
 		jwks.Keys = append(jwks.Keys, jose.JSONWebKey{
 			Key:   witAuthority,
 			KeyID: keyID,
-			Use:   JWKUse,
+			Use:   witSVIDUse,
 		})
 	}
 

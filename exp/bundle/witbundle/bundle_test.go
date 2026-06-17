@@ -148,7 +148,7 @@ func TestMarshal(t *testing.T) {
 		}
 		var kids []string
 		for _, k := range jwks.Keys {
-			assert.Equal(t, witbundle.JWKUse, k.Use, "key %q missing expected use field", k.KeyID)
+			assert.Equal(t, "wit-svid", k.Use, "key %q missing expected use field", k.KeyID)
 			assert.Equal(t, wantKeys[k.KeyID], k.Key, "key material mismatch for %q", k.KeyID)
 			kids = append(kids, k.KeyID)
 		}
