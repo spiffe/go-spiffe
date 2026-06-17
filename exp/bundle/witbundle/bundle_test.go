@@ -160,9 +160,11 @@ func TestMarshal(t *testing.T) {
 		data, err := b.Marshal()
 		require.NoError(t, err)
 
-		var jwks jose.JSONWebKeySet
-		require.NoError(t, json.Unmarshal(data, &jwks))
-		assert.Empty(t, jwks.Keys)
+		var doc map[string]any
+		require.NoError(t, json.Unmarshal(data, &doc))
+		keys, ok := doc["keys"].([]any)
+		require.True(t, ok, "expected 'keys' to be a JSON array, not null")
+		assert.Empty(t, keys)
 	})
 }
 

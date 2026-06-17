@@ -163,7 +163,7 @@ func (b *Bundle) Marshal() ([]byte, error) {
 	b.mtx.RLock()
 	defer b.mtx.RUnlock()
 
-	jwks := jose.JSONWebKeySet{}
+	jwks := jose.JSONWebKeySet{Keys: make([]jose.JSONWebKey, 0, len(b.witAuthorities))}
 	for keyID, witAuthority := range b.witAuthorities {
 		jwks.Keys = append(jwks.Keys, jose.JSONWebKey{
 			Key:   witAuthority,
