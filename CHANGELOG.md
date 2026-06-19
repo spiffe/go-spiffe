@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.8.1] - 2026-06-19
+
+### Changed
+
+- WIT bundle JWKS entries now include `"use": "wit-svid"` as required by the SPIFFE WIT spec (#395)
+
+
 ## [2.8.0] - 2026-06-16
 
 ### Added
