@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
@@ -459,6 +460,80 @@ func TestIDTextUnmarshaler(t *testing.T) {
 	err = json.Unmarshal([]byte(`{"id": "spiffe://trustdomain/path"}`), &s)
 	require.NoError(t, err)
 	require.Equal(t, "spiffe://trustdomain/path", s.ID.String())
+}
+
+func TestIDMaxLength(t *testing.T) {
+	// The SPIFFE specification recommends that implementations not generate
+	// SPIFFE IDs longer than 2048 bytes.
+	// https://github.com/spiffe/spiffe/blob/main/standards/SPIFFE-ID.md#23-maximum-spiffe-id-length
+	const maxIDLen = 2048
+
+	maxTD := spiffeid.RequireTrustDomainFromString("example.org")
+	prefixLen := len(maxTD.IDString()) // "spiffe://example.org"
+
+	// pathForTotal returns a valid path whose bytes make the full ID exactly
+	// total bytes long.
+	pathForTotal := func(total int) string {
+		return "/" + strings.Repeat("a", total-prefixLen-1)
+	}
+
+	t.Run("FromPath at boundary", func(t *testing.T) {
+		// Exactly 2048 bytes is allowed.
+		id, err := spiffeid.FromPath(maxTD, pathForTotal(maxIDLen))
+		require.NoError(t, err)
+		require.Len(t, id.String(), maxIDLen)
+
+		// 2049 bytes is rejected.
+		_, err = spiffeid.FromPath(maxTD, pathForTotal(maxIDLen+1))
+		assertErrorContains(t, err, "ID cannot be longer than 2048 bytes")
+	})
+
+	t.Run("FromString at boundary", func(t *testing.T) {
+		ok := maxTD.IDString() + pathForTotal(maxIDLen)
+		id, err := spiffeid.FromString(ok)
+		require.NoError(t, err)
+		require.Len(t, id.String(), maxIDLen)
+
+		tooLong := maxTD.IDString() + pathForTotal(maxIDLen+1)
+		_, err = spiffeid.FromString(tooLong)
+		assertErrorContains(t, err, "ID cannot be longer than 2048 bytes")
+	})
+
+	t.Run("FromSegments rejects over-length", func(t *testing.T) {
+		_, err := spiffeid.FromSegments(maxTD, strings.Repeat("a", maxIDLen))
+		assertErrorContains(t, err, "ID cannot be longer than 2048 bytes")
+	})
+
+	t.Run("AppendPath rejects over-length", func(t *testing.T) {
+		// Start at exactly the limit, then append past it.
+		base, err := spiffeid.FromPath(maxTD, pathForTotal(maxIDLen))
+		require.NoError(t, err)
+		require.Len(t, base.String(), maxIDLen)
+		_, err = base.AppendPath("/x")
+		assertErrorContains(t, err, "ID cannot be longer than 2048 bytes")
+	})
+
+	t.Run("AppendPathf rejects over-length", func(t *testing.T) {
+		base, err := spiffeid.FromPath(maxTD, pathForTotal(maxIDLen))
+		require.NoError(t, err)
+		require.Len(t, base.String(), maxIDLen)
+		_, err = base.AppendPathf("/%s", "x")
+		assertErrorContains(t, err, "ID cannot be longer than 2048 bytes")
+	})
+
+	t.Run("AppendSegments rejects over-length", func(t *testing.T) {
+		base, err := spiffeid.FromPath(maxTD, pathForTotal(maxIDLen))
+		require.NoError(t, err)
+		require.Len(t, base.String(), maxIDLen)
+		_, err = base.AppendSegments("x")
+		assertErrorContains(t, err, "ID cannot be longer than 2048 bytes")
+	})
+
+	t.Run("normal ID still works", func(t *testing.T) {
+		id, err := spiffeid.FromPath(maxTD, "/workload")
+		require.NoError(t, err)
+		require.Equal(t, "spiffe://example.org/workload", id.String())
+	})
 }
 
 func BenchmarkIDFromString(b *testing.B) {
