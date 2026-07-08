@@ -488,15 +488,20 @@ func TestIDMaxLength(t *testing.T) {
 		assertErrorContains(t, err, "ID cannot be longer than 2048 bytes")
 	})
 
-	t.Run("FromString at boundary", func(t *testing.T) {
+	t.Run("FromString accepts over-length", func(t *testing.T) {
+		// FromString is the acceptance/parse path (it backs FromURI used when
+		// verifying peer SVIDs), so it must not reject a valid ID solely for
+		// exceeding the recommended generation length. A properly formed ID at
+		// the limit and past it both parse without error.
 		ok := maxTD.IDString() + pathForTotal(maxIDLen)
 		id, err := spiffeid.FromString(ok)
 		require.NoError(t, err)
 		require.Len(t, id.String(), maxIDLen)
 
-		tooLong := maxTD.IDString() + pathForTotal(maxIDLen+1)
-		_, err = spiffeid.FromString(tooLong)
-		assertErrorContains(t, err, "ID cannot be longer than 2048 bytes")
+		overLen := maxTD.IDString() + pathForTotal(maxIDLen+1)
+		id, err = spiffeid.FromString(overLen)
+		require.NoError(t, err)
+		require.Len(t, id.String(), maxIDLen+1)
 	})
 
 	t.Run("FromSegments rejects over-length", func(t *testing.T) {

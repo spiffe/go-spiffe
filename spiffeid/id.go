@@ -81,10 +81,6 @@ func FromString(id string) (ID, error) {
 		return ID{}, err
 	}
 
-	if len(id) > maxIDLen {
-		return ID{}, errIDTooLong
-	}
-
 	return ID{
 		id:      id,
 		pathidx: pathidx,
