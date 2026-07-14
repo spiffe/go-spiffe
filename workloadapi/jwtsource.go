@@ -96,6 +96,8 @@ func (s *JWTSource) GetJWTBundleForTrustDomain(trustDomain spiffeid.TrustDomain)
 	if err := s.checkClosed(); err != nil {
 		return nil, err
 	}
+	s.mtx.RLock()
+	defer s.mtx.RUnlock()
 	return s.bundles.GetJWTBundleForTrustDomain(trustDomain)
 }
 
