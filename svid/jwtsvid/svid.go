@@ -99,6 +99,10 @@ func (svid *SVID) Marshal() string {
 }
 
 func parse(token string, audience []string, getClaims tokenValidator) (*SVID, error) {
+	if len(audience) == 0 {
+		return nil, wrapJwtsvidErr(errors.New("audience must be non-empty"))
+	}
+
 	// Parse serialized token
 	tok, err := jwt.ParseSigned(token, allowedSignatureAlgorithms)
 	if err != nil {
@@ -122,6 +126,8 @@ func parse(token string, audience []string, getClaims tokenValidator) (*SVID, er
 		return nil, wrapJwtsvidErr(errors.New("token missing subject claim"))
 	case claims.Expiry == nil:
 		return nil, wrapJwtsvidErr(errors.New("token missing exp claim"))
+	case len(claims.Audience) == 0:
+		return nil, wrapJwtsvidErr(errors.New("token missing aud claim"))
 	}
 
 	spiffeID, err := spiffeid.FromString(claims.Subject)

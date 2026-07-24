@@ -64,8 +64,9 @@ func TestParseAndValidate(t *testing.T) {
 		svid          *jwtsvid.SVID
 	}{
 		{
-			name:   "success",
-			bundle: bundle1,
+			name:     "success",
+			bundle:   bundle1,
+			audience: []string{"audience"},
 			generateToken: func(tb testing.TB) string {
 				claims := jwt.Claims{
 					Subject:  spiffeid.RequireFromPath(trustDomain1, "/host").String(),
@@ -84,24 +85,76 @@ func TestParseAndValidate(t *testing.T) {
 			},
 		},
 		{
-			name:   "malformed",
+			name:   "nil audience argument",
 			bundle: bundle1,
+			generateToken: func(tb testing.TB) string {
+				claims := jwt.Claims{
+					Subject:  spiffeid.RequireFromPath(trustDomain1, "/host").String(),
+					Issuer:   "issuer",
+					Expiry:   expires,
+					Audience: []string{"audience"},
+					IssuedAt: issuedAt,
+				}
+
+				return generateToken(tb, claims, key1, "authority1", "")
+			},
+			err: "jwtsvid: audience must be non-empty",
+		},
+		{
+			name:     "empty audience argument",
+			bundle:   bundle1,
+			audience: []string{},
+			generateToken: func(tb testing.TB) string {
+				claims := jwt.Claims{
+					Subject:  spiffeid.RequireFromPath(trustDomain1, "/host").String(),
+					Issuer:   "issuer",
+					Expiry:   expires,
+					Audience: []string{"audience"},
+					IssuedAt: issuedAt,
+				}
+
+				return generateToken(tb, claims, key1, "authority1", "")
+			},
+			err: "jwtsvid: audience must be non-empty",
+		},
+		{
+			name:     "token missing aud claim",
+			bundle:   bundle1,
+			audience: []string{"audience"},
+			generateToken: func(tb testing.TB) string {
+				claims := jwt.Claims{
+					Subject:  spiffeid.RequireFromPath(trustDomain1, "/host").String(),
+					Issuer:   "issuer",
+					Expiry:   expires,
+					IssuedAt: issuedAt,
+				}
+
+				return generateToken(tb, claims, key1, "authority1", "")
+			},
+			err: "jwtsvid: token missing aud claim",
+		},
+		{
+			name:     "malformed",
+			bundle:   bundle1,
+			audience: []string{"audience"},
 			generateToken: func(tb testing.TB) string {
 				return "invalid token"
 			},
 			err: "jwtsvid: unable to parse JWT token",
 		},
 		{
-			name:   "unsupported algorithm",
-			bundle: bundle1,
+			name:     "unsupported algorithm",
+			bundle:   bundle1,
+			audience: []string{"audience"},
 			generateToken: func(tb testing.TB) string {
 				return hs256Token
 			},
 			err: "jwtsvid: unable to parse JWT token",
 		},
 		{
-			name:   "missing subject",
-			bundle: bundle1,
+			name:     "missing subject",
+			bundle:   bundle1,
+			audience: []string{"audience"},
 			generateToken: func(tb testing.TB) string {
 				claims := jwt.Claims{
 					Issuer:   "issuer",
@@ -115,8 +168,9 @@ func TestParseAndValidate(t *testing.T) {
 			err: "jwtsvid: token missing subject claim",
 		},
 		{
-			name:   "missing expiration claim",
-			bundle: bundle1,
+			name:     "missing expiration claim",
+			bundle:   bundle1,
+			audience: []string{"audience"},
 			generateToken: func(tb testing.TB) string {
 				claims := jwt.Claims{
 					Subject:  spiffeid.RequireFromPath(trustDomain1, "/host").String(),
@@ -249,8 +303,9 @@ func TestParseAndValidate(t *testing.T) {
 			err: "jwtsvid: unable to get claims from token: go-jose/go-jose: error in cryptographic primitive",
 		},
 		{
-			name:   "invalid typ",
-			bundle: bundle1,
+			name:     "invalid typ",
+			bundle:   bundle1,
+			audience: []string{"audience"},
 			generateToken: func(tb testing.TB) string {
 				claims := jwt.Claims{
 					Subject:  spiffeid.RequireFromPath(trustDomain1, "/host").String(),
@@ -309,7 +364,8 @@ func TestParseInsecure(t *testing.T) {
 		svid          *jwtsvid.SVID
 	}{
 		{
-			name: "success",
+			name:     "success",
+			audience: []string{"audience"},
 			generateToken: func(tb testing.TB) string {
 				claims := jwt.Claims{
 					Subject:  spiffeid.RequireFromPath(trustDomain1, "/host").String(),
@@ -328,21 +384,54 @@ func TestParseInsecure(t *testing.T) {
 			},
 		},
 		{
-			name: "malformed",
+			name: "nil audience argument",
+			generateToken: func(tb testing.TB) string {
+				claims := jwt.Claims{
+					Subject:  spiffeid.RequireFromPath(trustDomain1, "/host").String(),
+					Issuer:   "issuer",
+					Expiry:   expires,
+					Audience: []string{"audience"},
+					IssuedAt: issuedAt,
+				}
+
+				return generateToken(tb, claims, key1, "key1", "")
+			},
+			err: "jwtsvid: audience must be non-empty",
+		},
+		{
+			name:     "token missing aud claim",
+			audience: []string{"audience"},
+			generateToken: func(tb testing.TB) string {
+				claims := jwt.Claims{
+					Subject:  spiffeid.RequireFromPath(trustDomain1, "/host").String(),
+					Issuer:   "issuer",
+					Expiry:   expires,
+					IssuedAt: issuedAt,
+				}
+
+				return generateToken(tb, claims, key1, "key1", "")
+			},
+			err: "jwtsvid: token missing aud claim",
+		},
+		{
+			name:     "malformed",
+			audience: []string{"audience"},
 			generateToken: func(tb testing.TB) string {
 				return "invalid token"
 			},
 			err: "jwtsvid: unable to parse JWT token",
 		},
 		{
-			name: "invalid algorithm",
+			name:     "invalid algorithm",
+			audience: []string{"audience"},
 			generateToken: func(tb testing.TB) string {
 				return hs256Token
 			},
 			err: "jwtsvid: unable to parse JWT token",
 		},
 		{
-			name: "missing subject claim",
+			name:     "missing subject claim",
+			audience: []string{"audience"},
 			generateToken: func(tb testing.TB) string {
 				claims := jwt.Claims{
 					Issuer:   "issuer",
@@ -356,7 +445,8 @@ func TestParseInsecure(t *testing.T) {
 			err: "jwtsvid: token missing subject claim",
 		},
 		{
-			name: "missing expiration claim",
+			name:     "missing expiration claim",
+			audience: []string{"audience"},
 			generateToken: func(tb testing.TB) string {
 				claims := jwt.Claims{
 					Subject:  spiffeid.RequireFromPath(trustDomain1, "/host").String(),
@@ -418,7 +508,8 @@ func TestParseInsecure(t *testing.T) {
 			err: `jwtsvid: token has an invalid subject claim: scheme is missing or invalid`,
 		},
 		{
-			name: "success",
+			name:     "invalid typ",
+			audience: []string{"audience"},
 			generateToken: func(tb testing.TB) string {
 				claims := jwt.Claims{
 					Subject:  spiffeid.RequireFromPath(trustDomain1, "/host").String(),
