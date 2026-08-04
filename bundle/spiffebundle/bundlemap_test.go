@@ -108,6 +108,19 @@ func TestParseBundleMap(t *testing.T) {
 	}
 }
 
+func TestParseBundleMapDuplicateTrustDomain(t *testing.T) {
+	// The two keys "domain.test" and "spiffe://domain.test" normalize to the
+	// same trust domain name and must be rejected as duplicates.
+	bundleMapBytes, err := os.ReadFile("testdata/bundlemap_duplicate_td.json")
+	require.NoError(t, err)
+
+	_, err = spiffebundle.ParseBundleMap(bundleMapBytes)
+	require.Error(t, err)
+	// The offending key reported depends on map iteration order, so only assert
+	// on the stable portion of the message.
+	require.Contains(t, err.Error(), "spiffebundle: duplicate entry found for trust domain")
+}
+
 func TestBundleMapMarshal(t *testing.T) {
 	bundleMap, err := spiffebundle.LoadBundleMap("testdata/bundlemap_valid.json")
 	require.NoError(t, err)

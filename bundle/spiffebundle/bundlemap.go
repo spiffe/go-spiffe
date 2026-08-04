@@ -71,11 +71,17 @@ func ParseBundleMap(bundleMapBytes []byte) (*BundleMap, error) {
 	}
 
 	bundleMap := NewBundleMap()
+	seen := map[string]struct{}{}
 	for name, raw := range doc.TrustDomains {
 		trustDomain, err := spiffeid.TrustDomainFromString(name)
 		if err != nil {
 			return nil, wrapSpiffebundleErr(fmt.Errorf("invalid trust domain %q: %w", name, err))
 		}
+
+		if _, ok := seen[trustDomain.Name()]; ok {
+			return nil, wrapSpiffebundleErr(fmt.Errorf("duplicate entry found for trust domain %q", name))
+		}
+		seen[trustDomain.Name()] = struct{}{}
 
 		bundle, err := Parse(trustDomain, raw)
 		if err != nil {
