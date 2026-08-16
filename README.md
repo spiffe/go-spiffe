@@ -12,6 +12,34 @@ It leverages the [SPIFFE Workload API](https://github.com/spiffe/spiffe/blob/mai
 
 See the [Go Package](https://pkg.go.dev/github.com/spiffe/go-spiffe/v2) documentation.
 
+## Which module should I use?
+
+This repository hosts two Go modules:
+
+| Module | Import path | Depends on |
+| --- | --- | --- |
+| Full | `github.com/spiffe/go-spiffe/v2` | gRPC, protobuf, go-jose |
+| Lite | `github.com/spiffe/go-spiffe/lite` | go-jose |
+
+`lite` holds the SPIFFE types and logic that need no gRPC: SPIFFE ID and trust
+domain parsing, X.509/JWT/SPIFFE bundles, X509-SVIDs and JWT-SVIDs, TLS config
+construction, and federation. Reach for it when your workload receives its
+identity some way other than the Workload API — for example from files — and you
+would rather not take on the gRPC dependency tree.
+
+The `v2` module is the full library. It adds the [SPIFFE Workload
+API](https://github.com/spiffe/spiffe/blob/main/standards/SPIFFE_Workload_API.md)
+client, `spiffetls`, and the gRPC credentials helpers on top of `lite`, and
+re-exports every `lite` symbol at its original `v2` import path. Existing code
+importing `github.com/spiffe/go-spiffe/v2/...` needs no changes.
+
+Moving from `v2` to `lite` is an import path rewrite, since the package layout is
+the same:
+
+```
+github.com/spiffe/go-spiffe/v2/spiffeid  ->  github.com/spiffe/go-spiffe/lite/spiffeid
+```
+
 ## Quick Start
 
 Prerequisites:

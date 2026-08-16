@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- New lightweight `github.com/spiffe/go-spiffe/lite` module, hosted in this repository under `lite/`. It provides SPIFFE ID and trust domain handling, X.509/JWT/SPIFFE/WIT bundles, X509-SVIDs, JWT-SVIDs and WIT-SVIDs, `spiffetls/tlsconfig`, `logger` and `federation` while depending only on `go-jose` — no gRPC or protobuf. It suits workloads that obtain their identity somewhere other than the Workload API.
+
+### Changed
+
+- The implementations of the packages listed above now live in the `lite` module. `github.com/spiffe/go-spiffe/v2` depends on it and re-exports every symbol at its original import path using type aliases, so existing code needs no changes. `workloadapi`, `spiffetls`, `spiffegrpc/grpccredentials` and `exp/proto/spiffe/broker` remain in the `v2` module.
+- Godoc examples that require the Workload API now live in the `workloadapi` package rather than alongside `svid/jwtsvid`, `spiffetls/tlsconfig` and `federation`.
+
+
 ## [2.8.1] - 2026-06-19
 
 ### Changed

@@ -13,7 +13,7 @@ jobs:
         uses: actions/setup-go@v6
         with:
           cache: true
-          cache-dependency-path: go.sum
+          cache-dependency-path: "**/go.sum"
           go-version-file: go.mod
       - name: Lint
         run: make lint
@@ -27,10 +27,34 @@ jobs:
         uses: actions/setup-go@v6
         with:
           cache: true
-          cache-dependency-path: go.sum
+          cache-dependency-path: "**/go.sum"
           go-version-file: go.mod
       - name: Test
         run: make test
+
+  checks-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Setup go
+        uses: actions/setup-go@v6
+        with:
+          cache: true
+          cache-dependency-path: "**/go.sum"
+          go-version-file: go.mod
+      # The v2 module cannot import the lite module's internal/ packages, so the
+      # test support code shared by both is copied. Fail if the copy is stale.
+      - name: Check synced test support code
+        run: make sync-check
+      # The lite module exists to be cheap to depend on. Fail if it picks up
+      # anything beyond go-jose.
+      - name: Check lite module dependencies
+        run: make lite-deps-check
+      # go.work makes local builds resolve the lite module from disk. Confirm
+      # the v2 module also builds the way a consumer resolves it.
+      - name: Build outside the workspace
+        run: GOWORK=off go build ./...
 
   lint-windows:
     runs-on: windows-2022
@@ -44,7 +68,7 @@ jobs:
         uses: actions/setup-go@v6
         with:
           cache: true
-          cache-dependency-path: go.sum
+          cache-dependency-path: "**/go.sum"
           go-version-file: go.mod
       - name: Install msys2
         uses: msys2/setup-msys2@v2
@@ -71,7 +95,7 @@ jobs:
         uses: actions/setup-go@v6
         with:
           cache: true
-          cache-dependency-path: go.sum
+          cache-dependency-path: "**/go.sum"
           go-version-file: go.mod
       - name: Install msys2
         uses: msys2/setup-msys2@v2
@@ -90,7 +114,7 @@ jobs:
   # and is used as a single job to block PR merge from. GH doesn't have a
   # way to say "all jobs from this action", which would be ideal.
   success:
-    needs: [lint-linux, test-linux, lint-windows, test-windows]
+    needs: [lint-linux, test-linux, checks-linux, lint-windows, test-windows]
     runs-on: ubuntu-latest
     steps:
       - name: Shout it out

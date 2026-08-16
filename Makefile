@@ -12,6 +12,15 @@ help:
 	@echo "  test             - tests the code"
 	@echo "  generate         - generate protocol buffer and gRPC stub code (default)"
 	@echo "  generate-check   - ensure generated code is up to date"
+	@echo "  sync             - copy shared test support code from lite/ into the v2 module"
+	@echo "  sync-check       - ensure the copied test support code is up to date"
+	@echo "  lite-deps-check  - ensure the lite module stays free of heavyweight dependencies"
+
+# This repository contains two Go modules: the full github.com/spiffe/go-spiffe/v2
+# module rooted here, and the lightweight github.com/spiffe/go-spiffe/lite module
+# under lite/. Neither `go` nor golangci-lint expands ./... across module
+# boundaries, so anything that walks packages has to iterate over both.
+modules := . lite
 
 # Used to force some rules to run every time
 FORCE: ;
@@ -124,7 +133,10 @@ endif
 
 .PHONY: lint
 lint: $(golangci_lint_bin) | go-check
-	@PATH="$(go_bin_dir):$(PATH)" $(golangci_lint_bin) run ./...
+	@for mod in $(modules); do \
+		echo "Linting $$mod..."; \
+		(cd $$mod && PATH="$(go_bin_dir):$(PATH)" $(golangci_lint_bin) run ./...) || exit 1; \
+	done
 
 $(golangci_lint_bin):
 	@echo "Installing golangci-lint $(golangci_lint_version)..."
@@ -136,9 +148,12 @@ $(golangci_lint_bin):
 # Tidy
 #############################################################################
 
-.PHONY: test
+.PHONY: tidy
 tidy: | go-check
-	@$(go_path) go mod tidy
+	@for mod in $(modules); do \
+		echo "Tidying $$mod..."; \
+		(cd $$mod && $(go_path) go mod tidy) || exit 1; \
+	done
 
 #############################################################################
 # Testing
@@ -146,14 +161,26 @@ tidy: | go-check
 
 .PHONY: test
 test: | go-check
-	@$(go_path) go test -race ./...
+	@for mod in $(modules); do \
+		echo "Testing $$mod..."; \
+		(cd $$mod && $(go_path) go test -race ./...) || exit 1; \
+	done
 
 #############################################################################
 # Code Generation
 #############################################################################
 
 .PHONY: generate
-generate: $(apiprotos:.proto=.pb.go) $(apiprotos:.proto=_grpc.pb.go)
+generate: $(apiprotos:.proto=.pb.go) $(apiprotos:.proto=_grpc.pb.go) sync
+
+# Go's internal/ visibility rule is lexical on import paths, so the v2 module
+# cannot import github.com/spiffe/go-spiffe/lite/internal/.... The lite module
+# owns the canonical copy of the test support code shared by both modules and
+# this target regenerates the v2 copy. See sync-check, which guards against
+# drift without needing the protobuf toolchain.
+.PHONY: sync
+sync:
+	@./hack/sync-lite-internal.sh
 
 %_grpc.pb.go: %.proto $(protoc_bin) $(protoc_gen_go_grpc_bin) FORCE
 	@echo "compiling proto $<..."
@@ -200,6 +227,41 @@ ifneq ($(git_dirty),)
 endif
 	@$(MAKE) generate
 	@$(MAKE) git-clean-check
+
+# Unlike generate-check, this needs no protobuf toolchain, so it is cheap enough
+# to run on every PR.
+.PHONY: sync-check
+sync-check:
+ifneq ($(git_dirty),)
+	$(error sync-check must be invoked on a clean repository)
+endif
+	@$(MAKE) sync
+	@$(MAKE) git-clean-check
+
+#############################################################################
+# Lite Module Dependency Check
+#############################################################################
+
+# The entire point of the lite module is that it stays cheap to depend on.
+# Assert that the modules backing its importable packages are exactly these.
+lite_allowed_deps := \
+	github.com/go-jose/go-jose/v4 \
+	github.com/spiffe/go-spiffe/lite
+
+.PHONY: lite-deps-check
+lite-deps-check: | go-check
+	@echo "Checking that the lite module stays lightweight..."
+	@cd lite && \
+		pkgs=$$($(go_path) go list ./... | grep -v '/internal') && \
+		actual=$$($(go_path) go list -deps -f '{{if .Module}}{{.Module.Path}}{{end}}' $$pkgs | sort -u) && \
+		expected=$$(printf '%s\n' $(lite_allowed_deps) | sort -u) && \
+		if [ "$$actual" != "$$expected" ]; then \
+			echo "Unexpected dependency set for the lite module."; \
+			echo "expected:"; echo "$$expected" | sed 's/^/  /'; \
+			echo "actual:"; echo "$$actual" | sed 's/^/  /'; \
+			exit 1; \
+		fi
+	@echo "Lite module dependencies are OK."
 
 .PHONY: git-clean-check
 git-clean-check:
