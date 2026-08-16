@@ -1,0 +1,23 @@
+// This repository contains two Go modules: github.com/spiffe/go-spiffe/v2 at the
+// root and the lightweight github.com/spiffe/go-spiffe/lite under lite/. The
+// workspace makes local builds and tests resolve lite from disk.
+//
+// Releasing is therefore two steps, lite first:
+//
+//  1. Tag the lite module:  lite/vX.Y.Z
+//  2. In the root go.mod, drop the `replace` directive and set the lite
+//     `require` to the version just tagged.
+//  3. Run `GOWORK=off go mod tidy` and confirm `GOWORK=off go build ./...`
+//     succeeds, which is how consumers resolve the dependency.
+//  4. Tag the v2 module:  vX.Y.Z
+//
+// The `replace` directive exists so the repository builds before lite has ever
+// been tagged. Consumers ignore `replace` directives in dependency go.mod files,
+// so the `require` line must point at a real tag by release time.
+
+go 1.24.0
+
+use (
+	.
+	./lite
+)
