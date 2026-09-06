@@ -2,6 +2,7 @@ package jwtbundle_test
 
 import (
 	"crypto"
+	"encoding/json"
 	"os"
 	"testing"
 
@@ -242,6 +243,17 @@ func TestMarshal(t *testing.T) {
 
 	// Assert that the marshaled bundle is equal to the parsed bundle
 	assert.Equal(t, bundleParsed, bundle)
+}
+
+func TestMarshalEmptyBundle(t *testing.T) {
+	data, err := jwtbundle.New(td).Marshal()
+	require.NoError(t, err)
+
+	var doc map[string]any
+	require.NoError(t, json.Unmarshal(data, &doc))
+	keys, ok := doc["keys"].([]any)
+	require.True(t, ok, "expected 'keys' to be a JSON array, not null")
+	assert.Empty(t, keys)
 }
 
 func TestGetJWTBundleForTrustDomain(t *testing.T) {
