@@ -2,6 +2,7 @@ package workloadapi_test
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
@@ -56,6 +57,61 @@ func TestJWTSourceFailsCallsIfClosed(t *testing.T) {
 
 	_, err = source.GetJWTBundleForTrustDomain(td)
 	require.EqualError(t, err, "jwtsource: source is closed")
+}
+
+func TestJWTSourceGetJWTBundleForTrustDomainRace(t *testing.T) {
+	// Time out the test after a minute if something goes wrong.
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+
+	api := fakeworkloadapi.New(t)
+	defer api.Stop()
+
+	td := spiffeid.RequireTrustDomainFromString("domain.test")
+	ca := test.NewCA(t, td)
+
+	// Set the initial response.
+	api.SetJWTBundles(ca.JWTBundle())
+
+	// Create the source. It will wait for the initial response.
+	source, err := workloadapi.NewJWTSource(ctx, withAddr(api))
+	require.NoError(t, err)
+	defer func() {
+		assert.NoError(t, source.Close())
+	}()
+
+	// Call GetJWTBundleForTrustDomain from several goroutines
+	// while repeatedly pushing JWT bundle updates through the fake Workload
+	// API to trigger concurrent access.
+	stop := make(chan struct{})
+	var wg sync.WaitGroup
+	for range 10 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for {
+				select {
+				case <-stop:
+					return
+				default:
+				}
+				_, err := source.GetJWTBundleForTrustDomain(td)
+				assert.NoError(t, err)
+			}
+		}()
+	}
+
+	for range 200 {
+		api.SetJWTBundles(ca.JWTBundle())
+		// Wait for the watcher to consume the update before pushing the
+		// next one, so the fake Workload API's response channel (used to
+		// fan the update out to the watch stream) isn't hammered faster
+		// than its single consumer can drain it.
+		require.NoError(t, source.WaitUntilUpdated(ctx))
+	}
+
+	close(stop)
+	wg.Wait()
 }
 
 func TestJWTSourceGetsUpdates(t *testing.T) {

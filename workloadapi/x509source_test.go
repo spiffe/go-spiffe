@@ -2,6 +2,7 @@ package workloadapi_test
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
@@ -60,6 +61,68 @@ func TestX509SourceFailsCallsIfClosed(t *testing.T) {
 
 	_, err = source.GetX509BundleForTrustDomain(td)
 	require.EqualError(t, err, "x509source: source is closed")
+}
+
+func TestX509SourceGetX509BundleForTrustDomainRace(t *testing.T) {
+	// Time out the test after a minute if something goes wrong.
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+
+	api := fakeworkloadapi.New(t)
+	defer api.Stop()
+
+	td := spiffeid.RequireTrustDomainFromString("domain.test")
+	ca := test.NewCA(t, td)
+	svid := ca.CreateX509SVID(spiffeid.RequireFromPath(td, "/workload"))
+
+	// Set the initial X509SVIDResponse with the X509-SVID and key.
+	api.SetX509SVIDResponse(&fakeworkloadapi.X509SVIDResponse{
+		SVIDs:  []*x509svid.SVID{svid},
+		Bundle: ca.X509Bundle(),
+	})
+
+	// Create the source. It will wait for the initial response.
+	source, err := workloadapi.NewX509Source(ctx, withAddr(api))
+	require.NoError(t, err)
+	defer func() {
+		assert.NoError(t, source.Close())
+	}()
+
+	// Call GetX509BundleForTrustDomain from several goroutines
+	// while repeatedly pushing X509Context updates through the fake
+	// Workload API to trigger concurrent access.
+	stop := make(chan struct{})
+	var wg sync.WaitGroup
+	for range 10 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for {
+				select {
+				case <-stop:
+					return
+				default:
+				}
+				_, err := source.GetX509BundleForTrustDomain(td)
+				assert.NoError(t, err)
+			}
+		}()
+	}
+
+	for range 200 {
+		api.SetX509SVIDResponse(&fakeworkloadapi.X509SVIDResponse{
+			SVIDs:  []*x509svid.SVID{svid},
+			Bundle: ca.X509Bundle(),
+		})
+		// Wait for the watcher to consume the update before pushing the
+		// next one, so the fake Workload API's response channel (used to
+		// fan the update out to the watch stream) isn't hammered faster
+		// than its single consumer can drain it.
+		require.NoError(t, source.WaitUntilUpdated(ctx))
+	}
+
+	close(stop)
+	wg.Wait()
 }
 
 func TestX509SourceGetsUpdates(t *testing.T) {
