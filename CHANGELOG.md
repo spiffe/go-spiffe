@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.8.2] - 2026-09-14
+
+### Fixed
+
+- Data race in `workloadapi.X509Source` and `workloadapi.JWTSource` when reading bundles while the Workload API watcher updates them (#420)
+
+
 ## [2.8.1] - 2026-06-19
 
 ### Changed
