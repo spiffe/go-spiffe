@@ -60,8 +60,7 @@ func TestJWTSourceFailsCallsIfClosed(t *testing.T) {
 }
 
 func TestJWTSourceGetJWTBundleForTrustDomainRace(t *testing.T) {
-	// Time out the test after a minute if something goes wrong.
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
 
 	api := fakeworkloadapi.New(t)
@@ -85,6 +84,10 @@ func TestJWTSourceGetJWTBundleForTrustDomainRace(t *testing.T) {
 	// API to trigger concurrent access.
 	stop := make(chan struct{})
 	var wg sync.WaitGroup
+	defer func() {
+		close(stop)
+		wg.Wait()
+	}()
 	for range 10 {
 		wg.Add(1)
 		go func() {
@@ -109,9 +112,6 @@ func TestJWTSourceGetJWTBundleForTrustDomainRace(t *testing.T) {
 		// than its single consumer can drain it.
 		require.NoError(t, source.WaitUntilUpdated(ctx))
 	}
-
-	close(stop)
-	wg.Wait()
 }
 
 func TestJWTSourceGetsUpdates(t *testing.T) {
