@@ -8,12 +8,14 @@ import (
 )
 
 var (
-	zero = spiffeid.ID{}
-	foo  = spiffeid.RequireFromString("spiffe://foo.test")
-	fooA = spiffeid.RequireFromString("spiffe://foo.test/A")
-	fooB = spiffeid.RequireFromString("spiffe://foo.test/B")
-	fooC = spiffeid.RequireFromString("spiffe://foo.test/sub/C")
-	barA = spiffeid.RequireFromString("spiffe://bar.test/A")
+	zero    = spiffeid.ID{}
+	foo     = spiffeid.RequireFromString("spiffe://foo.test")
+	fooA    = spiffeid.RequireFromString("spiffe://foo.test/A")
+	fooAA   = spiffeid.RequireFromString("spiffe://foo.test/AA")
+	fooASub = spiffeid.RequireFromString("spiffe://foo.test/A/sub")
+	fooB    = spiffeid.RequireFromString("spiffe://foo.test/B")
+	fooC    = spiffeid.RequireFromString("spiffe://foo.test/sub/C")
+	barA    = spiffeid.RequireFromString("spiffe://bar.test/A")
 )
 
 func TestMatchAny(t *testing.T) {
@@ -47,6 +49,34 @@ func TestMatchID_AgainstIDWithoutPath(t *testing.T) {
 		`unexpected ID "spiffe://foo.test/sub/C"`,
 		`unexpected ID "spiffe://bar.test/A"`,
 	)
+}
+
+func TestMatchIDPrefix_AgainstIDWithPath(t *testing.T) {
+	matcher := spiffeid.MatchIDPrefix(fooA)
+	testMatch(t, matcher,
+		`unexpected ID ""`,
+		`unexpected ID "spiffe://foo.test"`,
+		``,
+		`unexpected ID "spiffe://foo.test/B"`,
+		`unexpected ID "spiffe://foo.test/sub/C"`,
+		`unexpected ID "spiffe://bar.test/A"`,
+	)
+	assert.EqualError(t, matcher(fooAA), `unexpected ID "spiffe://foo.test/AA"`)
+	assert.NoError(t, matcher(fooASub))
+}
+
+func TestMatchIDPrefix_AgainstIDWithoutPath(t *testing.T) {
+	matcher := spiffeid.MatchIDPrefix(foo)
+	testMatch(t, matcher,
+		`unexpected ID ""`,
+		``,
+		``,
+		``,
+		``,
+		`unexpected ID "spiffe://bar.test/A"`,
+	)
+	assert.NoError(t, matcher(fooAA))
+	assert.NoError(t, matcher(fooASub))
 }
 
 func TestMatchOneOf_OnAListOfIDs(t *testing.T) {
