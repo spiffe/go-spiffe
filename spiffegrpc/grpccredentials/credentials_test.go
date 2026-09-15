@@ -104,7 +104,7 @@ func TestCredentials(t *testing.T) {
 		// Handshake will fail because client expects server SVID
 		testCredentials(t, clientTLS, serverWeb, expectResult{
 			Code:            codes.Unavailable,
-			MessageContains: `could not get leaf SPIFFE ID: certificate contains no URI SAN`,
+			MessageContains: `cannot get leaf certificate SPIFFE ID: certificate contains no URI SAN`,
 		})
 	})
 
