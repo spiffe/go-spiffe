@@ -15,8 +15,6 @@ type PeerIDGetter interface {
 }
 
 // PeerIDFromConn returns the peer ID from a server or client peer connection.
-// The handshake must have been completed. Note that in Go's TLS stack, the TLS
-// 1.3 handshake may not complete until the first read from the connection.
 func PeerIDFromConn(conn net.Conn) (spiffeid.ID, error) {
 	if getter, ok := conn.(PeerIDGetter); ok {
 		return getter.PeerID()
@@ -24,6 +22,10 @@ func PeerIDFromConn(conn net.Conn) (spiffeid.ID, error) {
 	return spiffeid.ID{}, wrapSpiffetlsErr(errors.New("connection does not expose peer ID"))
 }
 
+// PeerIDFromConnectionState returns the peer ID from a tls.ConnectionState.
+// The handshake must have been completed. Note that in Go's TLS stack, the TLS
+// 1.3 handshake may not complete until the first read from the connection.
+// Call conn.Handshake manually in such cases.
 func PeerIDFromConnectionState(state tls.ConnectionState) (spiffeid.ID, error) {
 	// The connection state unfortunately does not have VerifiedChains set
 	// because SPIFFE TLS does custom verification, i.e., Go's TLS stack only
