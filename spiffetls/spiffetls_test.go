@@ -290,13 +290,6 @@ func TestListenAndDial(t *testing.T) {
 					}
 					defer conn.Close()
 
-					data, err := bufio.NewReader(conn).ReadString('\n')
-					if err != nil {
-						listenErrCh <- err
-						return
-					}
-					listenDataCh <- data
-
 					// Test serverConn.PeerID()
 					spiffeID, err := spiffetls.PeerIDFromConn(conn)
 					if test.serverConnPeerIDErr == "" {
@@ -305,6 +298,13 @@ func TestListenAndDial(t *testing.T) {
 					} else {
 						assert.EqualError(t, err, test.serverConnPeerIDErr)
 					}
+
+					data, err := bufio.NewReader(conn).ReadString('\n')
+					if err != nil {
+						listenErrCh <- err
+						return
+					}
+					listenDataCh <- data
 				}()
 			} else {
 				// Test Listen function
