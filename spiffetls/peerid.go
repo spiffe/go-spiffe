@@ -15,6 +15,7 @@ type PeerIDGetter interface {
 }
 
 // PeerIDFromConn returns the peer ID from a server or client peer connection.
+// Might read/write to the connection: set the deadlines appropriately.
 func PeerIDFromConn(conn net.Conn) (spiffeid.ID, error) {
 	if getter, ok := conn.(PeerIDGetter); ok {
 		return getter.PeerID()

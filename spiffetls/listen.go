@@ -144,12 +144,13 @@ type serverConn struct {
 }
 
 // PeerID returns the peer SPIFFE ID on the connection.
+// Might read/write to the connection: set the deadlines appropriately.
 func (c *serverConn) PeerID() (spiffeid.ID, error) {
 	// The TLS handshake may not be completed until the first read,
 	// but is required to populate the PeerCertificates.
 	// Trigger it manually (like *tls.Conn.Read).
 	if err := c.Handshake(); err != nil {
-		return spiffeid.ID{}, wrapSpiffetlsErr(fmt.Errorf("tls.Handshake: %w", err))
+		return spiffeid.ID{}, wrapSpiffetlsErr(fmt.Errorf("unable to complete TLS handshake: %w", err))
 	}
 	return PeerIDFromConnectionState(c.ConnectionState())
 }
