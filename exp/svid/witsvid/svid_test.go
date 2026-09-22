@@ -68,6 +68,20 @@ func TestParseInsecure(t *testing.T) {
 			}),
 		},
 		{
+			name: "issuer-supplied claims are exposed",
+			token: withClaims(func(c map[string]any) {
+				c["groups"] = []string{"admin", "ops"}
+			}),
+			check: func(t *testing.T, svid *witsvid.SVID) {
+				// Issuer-supplied claims are reachable by a verifier.
+				assert.Equal(t, []any{"admin", "ops"}, svid.Claims["groups"])
+				// Standard and confirmation claims come through untouched.
+				assert.Equal(t, workload.String(), svid.Claims["sub"])
+				assert.Contains(t, svid.Claims, "exp")
+				assert.Contains(t, svid.Claims, "cnf")
+			},
+		},
+		{
 			name:  "malformed",
 			token: func(*testing.T) string { return "not.a.valid.jwt" },
 			err:   "witsvid: unable to parse WIT-SVID token",
