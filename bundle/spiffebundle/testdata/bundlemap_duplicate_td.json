@@ -1,0 +1,28 @@
+{
+    "trust_domains": {
+        "domain.test": {
+            "keys": [
+                {
+                    "use": "jwt-svid",
+                    "kty": "EC",
+                    "kid": "C6vs25welZOx6WksNYfbMfiw9l96pMnD",
+                    "crv": "P-256",
+                    "x": "ngLYQnlfF6GsojUwqtcEE3WgTNG2RUlsGhK73RNEl5k",
+                    "y": "tKbiDSUSsQ3F1P7wteeHNXIcU-cx6CgSbroeQrQHTLM"
+                }
+            ]
+        },
+        "spiffe://domain.test": {
+            "keys": [
+                {
+                    "use": "jwt-svid",
+                    "kty": "EC",
+                    "kid": "IRsID4VIM3T11TsK43Ny1DgCD5UNWhva",
+                    "crv": "P-256",
+                    "x": "64Mm92hnvqSdLxl6XQVu32-3rydodal1S8JgGYg5AGk",
+                    "y": "x5hVyA9Z4OgQxpvkhTXwNsZACk1jz1xyuTDr6JdH3R0"
+                }
+            ]
+        }
+    }
+}

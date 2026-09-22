@@ -56,4 +56,17 @@
 //	// As a jwtbundle.Source...
 //	var source jwtbundle.Source = bundle // or set
 //	jwtBundle, err := source.GetJWTBundleForTrustDomain(td)
+//
+// Bundles can also be serialized as a SPIFFE Bundle Map, a document that
+// carries multiple bundles keyed by trust domain name (see section 5 of the
+// SPIFFE Trust Domain and Bundle specification). A BundleMap embeds Set, so it
+// provides the same collection and Source methods:
+//
+//	m := spiffebundle.NewBundleMap(bundle)
+//	// ... or load one from disk ...
+//	m, err := spiffebundle.LoadBundleMap("bundlemap.json")
+//
+//	// Marshal it back out. The refresh hint is omitted from the bundles in the
+//	// map, as recommended by the specification.
+//	bundleMapBytes, err := m.Marshal()
 package spiffebundle
