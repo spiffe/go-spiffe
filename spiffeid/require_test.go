@@ -73,8 +73,9 @@ func TestRequireTrustDomainFromString(t *testing.T) {
 		td := spiffeid.RequireTrustDomainFromString("spiffe://trustdomain/path")
 		assert.Equal(t, "trustdomain", td.String())
 	})
-	assert.Panics(t, func() {
-		spiffeid.RequireTrustDomainFromString("spiffe://TRUSTDOMAIN/path")
+	assert.NotPanics(t, func() {
+		td := spiffeid.RequireTrustDomainFromString("spiffe://TRUSTDOMAIN/path")
+		assert.Equal(t, "trustdomain", td.String())
 	})
 }
 

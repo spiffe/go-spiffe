@@ -55,4 +55,28 @@ func TestValidatePathSegment(t *testing.T) {
 	t.Run("valid segment", func(t *testing.T) {
 		require.NoError(t, ValidatePathSegment("a"))
 	})
+	t.Run("valid mixed segment charset", func(t *testing.T) {
+		require.NoError(t, ValidatePathSegment("abc-_.Z9"))
+	})
+	t.Run("reject percent-encoded segment text", func(t *testing.T) {
+		require.ErrorIs(t, ValidatePathSegment("%61pi"), errBadPathSegmentChar)
+	})
+}
+
+func TestValidatePath(t *testing.T) {
+	t.Run("reject root path only", func(t *testing.T) {
+		require.ErrorIs(t, ValidatePath("/"), errTrailingSlash)
+	})
+	t.Run("reject trailing slash", func(t *testing.T) {
+		require.ErrorIs(t, ValidatePath("/foo/"), errTrailingSlash)
+	})
+	t.Run("reject empty segment in middle", func(t *testing.T) {
+		require.ErrorIs(t, ValidatePath("/foo//bar"), errEmptySegment)
+	})
+}
+
+func TestJoinPathSegmentsHierarchical(t *testing.T) {
+	path, err := JoinPathSegments("ns", "default", "sa", "web")
+	require.NoError(t, err)
+	require.Equal(t, "/ns/default/sa/web", path)
 }

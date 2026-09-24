@@ -29,12 +29,13 @@ func TrustDomainFromString(idOrName string) (TrustDomain, error) {
 		}
 		return id.TrustDomain(), nil
 	default:
-		for i := 0; i < len(idOrName); i++ {
-			if !isValidTrustDomainChar(idOrName[i]) {
+		name := strings.ToLower(idOrName)
+		for i := 0; i < len(name); i++ {
+			if !isValidTrustDomainChar(name[i]) {
 				return TrustDomain{}, errBadTrustDomainChar
 			}
 		}
-		return TrustDomain{name: idOrName}, nil
+		return TrustDomain{name: name}, nil
 	}
 }
 
