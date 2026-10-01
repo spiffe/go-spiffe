@@ -55,7 +55,7 @@ func TestTrustDomainFromString(t *testing.T) {
 	})
 
 	// Go all the way through 255, which ensures we reject UTF-8 appropriately
-	for i := 0; i < 256; i++ {
+	for i := range 256 {
 		s := string(rune(i))
 		suffix := fmt.Sprintf("%X", i)
 		if _, ok := tdChars[s]; ok {

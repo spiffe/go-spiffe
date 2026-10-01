@@ -489,10 +489,10 @@ func TestMarshal(t *testing.T) {
 	require.Empty(t, svid.Marshal())
 }
 
-func parseToken(t testing.TB, token string) map[string]interface{} {
+func parseToken(t testing.TB, token string) map[string]any {
 	tok, err := jwt.ParseSigned(token, testAllowedSignatureAlgorithms)
 	require.NoError(t, err)
-	claimsMap := make(map[string]interface{})
+	claimsMap := make(map[string]any)
 	err = tok.UnsafeClaimsWithoutVerification(&claimsMap)
 	require.NoError(t, err)
 	return claimsMap
