@@ -48,11 +48,11 @@ func run(ctx context.Context) error {
 	// to a server that presents an X.509-SVID having "spiffe://example.org/server"
 	// as its SPIFFE ID.
 	proxy := httputil.NewSingleHostReverseProxy(remote)
-	transport := *(http.DefaultTransport.(*http.Transport)) //nolint
+	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.TLSClientConfig = tlsconfig.TLSClientConfig(
 		x509Source, tlsconfig.AuthorizeID(spiffeid.RequireFromString("spiffe://example.org/server")),
 	)
-	proxy.Transport = &transport
+	proxy.Transport = transport
 
 	http.HandleFunc("/", handler(proxy))
 
