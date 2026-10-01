@@ -3,6 +3,7 @@ package spiffeid_test
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net/url"
 	"testing"
 
@@ -78,7 +79,7 @@ func TestFromString(t *testing.T) {
 	})
 
 	// Go all the way through 255, which ensures we reject UTF-8 appropriately
-	for i := 0; i < 256; i++ {
+	for i := range 256 {
 		if i == '/' {
 			// Don't test / since it is the delimeter between path segments
 			continue
@@ -504,9 +505,7 @@ func asSet(ss ...string) map[string]struct{} {
 func mergeSets(sets ...map[string]struct{}) map[string]struct{} {
 	merged := make(map[string]struct{})
 	for _, set := range sets {
-		for k, v := range set {
-			merged[k] = v
-		}
+		maps.Copy(merged, set)
 	}
 	return merged
 }
