@@ -9,7 +9,15 @@ jobs:
       contents: read
     name: Check DCO
     steps:
+      # The merge queue squashes the PR into a commit authored by GitHub, and
+      # when the author keeps their email private the squash author does not
+      # match the Signed-off-by trailer. The PR commits were already validated
+      # on the pull_request event, so just satisfy the required check here.
+      - name: Skip DCO check in merge queue
+        if: github.event_name == 'merge_group'
+        run: echo "Skipping DCO check for merge queue - DCO is validated on PR commits before entering the queue"
       - name: Run dco-check
+        if: github.event_name != 'merge_group'
         uses: christophebedard/dco-check@ec8bfc43106afe98b323ace9133650df10497e12 # 0.5.1
         with:
           args: --exclude-pattern 'dependabot\[bot\]@users\.noreply\.github\.com'
