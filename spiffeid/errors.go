@@ -13,4 +13,5 @@ var (
 	errPrefixMissingPath  = errors.New("prefix must have a path")
 	errTrailingSlash      = errors.New("path cannot have a trailing slash")
 	errWrongScheme        = errors.New("scheme is missing or invalid")
+	errIDTooLong          = errors.New("ID cannot be longer than 2048 bytes")
 )
