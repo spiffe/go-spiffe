@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.9.0] - 2026-10-05
+
+### Added
+
+- `spiffeid.MatchIDPrefix` matcher and `tlsconfig.AuthorizeIDPrefix` authorizer, which accept any SPIFFE ID in the same trust domain whose path matches the given prefix's path or extends it on a segment boundary. The prefix must have a nonempty path, otherwise no ID matches (#406)
+
+### Changed
+
+- `PeerID` on connections returned by `spiffetls`, and `spiffetls.PeerIDFromConn`, now complete the TLS handshake if needed, so the peer ID can be retrieved before the first read. When the handshake is still pending, the call performs I/O like a `Read` would and honors the connection deadlines (#422)
+
+
 ## [2.8.2] - 2026-09-18
 
 ### Fixed
