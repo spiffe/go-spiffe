@@ -55,12 +55,12 @@ func (a *authenticator) authenticateClient(next http.Handler) http.Handler {
 
 type svidClaimsKey struct{}
 
-func withSVIDClaims(ctx context.Context, claims map[string]interface{}) context.Context {
+func withSVIDClaims(ctx context.Context, claims map[string]any) context.Context {
 	return context.WithValue(ctx, svidClaimsKey{}, claims)
 }
 
-func svidClaims(ctx context.Context) map[string]interface{} {
-	claims, _ := ctx.Value(svidClaimsKey{}).(map[string]interface{})
+func svidClaims(ctx context.Context) map[string]any {
+	claims, _ := ctx.Value(svidClaimsKey{}).(map[string]any)
 	return claims
 }
 

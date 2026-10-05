@@ -117,7 +117,7 @@ func TestMatchMemberOf_AgainstEmptyTrustDomain(t *testing.T) {
 }
 
 func testMatch(t *testing.T, matcher spiffeid.Matcher, zeroErr, fooErr, fooAErr, fooBErr, fooCErr, barAErr string) {
-	test := func(id spiffeid.ID, expectErr string, msgAndArgs ...interface{}) {
+	test := func(id spiffeid.ID, expectErr string, msgAndArgs ...any) {
 		err := matcher(id)
 		if expectErr != "" {
 			assert.EqualError(t, err, expectErr, msgAndArgs...)
