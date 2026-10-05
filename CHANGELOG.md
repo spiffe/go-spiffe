@@ -8,7 +8,7 @@
 
 ### Changed
 
-- `PeerID` on connections returned by `spiffetls`, and `spiffetls.PeerIDFromConn`, now complete the TLS handshake if needed, so the peer ID can be retrieved before the first read. This may read from and write to the connection, so set deadlines accordingly (#422)
+- `PeerID` on connections returned by `spiffetls`, and `spiffetls.PeerIDFromConn`, now complete the TLS handshake if needed, so the peer ID can be retrieved before the first read. When the handshake is still pending, the call performs I/O like a `Read` would and honors the connection deadlines (#422)
 
 
 ## [2.8.2] - 2026-09-18
