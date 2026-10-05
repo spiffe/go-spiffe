@@ -99,9 +99,14 @@ func (c *clientConn) Close() error {
 	return errors.Join(group...)
 }
 
-// PeerID returns the peer SPIFFE ID on the connection. The handshake must have
-// been completed. Note that in Go's TLS stack, the TLS 1.3 handshake may not
-// complete until the first read from the connection.
+// PeerID returns the peer SPIFFE ID on the connection.
+// Might read/write to the connection: set the deadlines appropriately.
 func (c *clientConn) PeerID() (spiffeid.ID, error) {
+	// The TLS handshake may not be completed until the first read,
+	// but is required to populate the PeerCertificates.
+	// Trigger it manually (like *tls.Conn.Read).
+	if err := c.Handshake(); err != nil {
+		return spiffeid.ID{}, wrapSpiffetlsErr(fmt.Errorf("unable to complete TLS handshake: %w", err))
+	}
 	return PeerIDFromConnectionState(c.ConnectionState())
 }
