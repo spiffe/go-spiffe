@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.9.0] - 2026-10-05
+
+### Added
+
+- `spiffeid.MatchIDPrefix` matcher and `tlsconfig.AuthorizeIDPrefix` authorizer, which accept any SPIFFE ID in the same trust domain whose path matches the given ID's path or extends it on a segment boundary (#406)
+
+
 ## [2.8.2] - 2026-09-18
 
 ### Fixed
