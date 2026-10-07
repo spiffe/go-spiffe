@@ -71,6 +71,41 @@ func TestWITSourceLookup(t *testing.T) {
 	})
 }
 
+func TestWITSourceGetWITSVID(t *testing.T) {
+	t.Run("returns the first SVID as the default identity", func(t *testing.T) {
+		api := fakeworkloadapi.New(t)
+		t.Cleanup(api.Stop)
+
+		key := test.NewEC256Key(t)
+		kid := "key-1"
+		api.SetWITSVIDResponse(&workload.WITSVIDResponse{
+			Svids: []*workload.WITSVID{
+				makeWITSVIDProto(t, witFooID, key, test.NewEC256Key(t), kid, ""),
+				makeWITSVIDProto(t, witBarID, key, test.NewEC256Key(t), kid, ""),
+			},
+		})
+		api.SetWITBundles(makeWITBundle(t, witTD, key, kid))
+
+		src, err := workloadapi.NewWITSource(t.Context(), withAddr(api))
+		require.NoError(t, err)
+		t.Cleanup(func() { src.Close() })
+
+		svid, err := src.GetWITSVID()
+		require.NoError(t, err)
+		assert.Equal(t, witFooID, svid.ID)
+	})
+
+	t.Run("errors when the source holds no SVIDs", func(t *testing.T) {
+		// Not reachable through NewWITSource: parseWITSVIDs rejects an empty
+		// response and watchWITSVIDs routes that to OnWITSVIDsWatchError, so
+		// OnWITSVIDsUpdate never delivers an empty slice. The branch is
+		// defensive; this pins its error rather than a nil SVID.
+		var src workloadapi.WITSource
+		_, err := src.GetWITSVID()
+		require.EqualError(t, err, "witsource: no WIT-SVID available")
+	})
+}
+
 func TestWITSourceClose(t *testing.T) {
 	api := fakeworkloadapi.New(t)
 	t.Cleanup(api.Stop)
@@ -80,6 +115,9 @@ func TestWITSourceClose(t *testing.T) {
 
 	t.Run("post-close calls return error", func(t *testing.T) {
 		_, err := src.GetWITSVIDForID(witFooID)
+		require.EqualError(t, err, "witsource: source is closed")
+
+		_, err = src.GetWITSVID()
 		require.EqualError(t, err, "witsource: source is closed")
 
 		_, err = src.GetWITBundleForTrustDomain(witTD)
