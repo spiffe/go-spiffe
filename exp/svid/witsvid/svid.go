@@ -52,6 +52,9 @@ type SVID struct {
 	// identity should be used by a workload when more than one SVID is returned.
 	Hint string
 
+	// Claims is the parsed claims from the WIT-SVID token.
+	Claims map[string]interface{}
+
 	// token is the serialized JWS compact serialization.
 	token string
 }
@@ -167,6 +170,7 @@ func parse(token string, verify verifyFn) (*SVID, error) {
 		Expiry:    stdClaims.Expiry.Time().UTC(),
 		PublicKey: publicKey,
 		KeyID:     keyID,
+		Claims:    rawClaims,
 		token:     token,
 	}, nil
 }

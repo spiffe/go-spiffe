@@ -125,6 +125,25 @@ func (s *WITSource) Close() error {
 	return s.closeBase(closer)
 }
 
+// GetWITSVID returns the default WIT-SVID, which is the first one in the list
+// returned by the Workload API (see the SPIFFE Workload API specification §8).
+// It implements the witsvid.Source interface.
+//
+// Experimental: subject to change.
+func (s *WITSource) GetWITSVID() (*witsvid.SVID, error) {
+	if err := s.checkClosed(); err != nil {
+		return nil, err
+	}
+
+	s.mtx.RLock()
+	defer s.mtx.RUnlock()
+
+	if len(s.svids) == 0 {
+		return nil, errors.New("witsource: no WIT-SVID available")
+	}
+	return s.svids[0], nil
+}
+
 // GetWITSVIDForID returns the WIT-SVID for the given SPIFFE ID.
 // It implements the witsvid.Source interface.
 //
