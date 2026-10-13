@@ -41,19 +41,11 @@ func Verify(certs []*x509.Certificate, bundleSource x509bundle.Source, opts ...V
 	}
 
 	leaf := certs[0]
-	id, err := IDFromCert(leaf)
+	idPtr, err := validateLeafCertificate(leaf)
 	if err != nil {
-		return spiffeid.ID{}, nil, wrapX509svidErr(fmt.Errorf("could not get leaf SPIFFE ID: %w", err))
+		return spiffeid.ID{}, nil, wrapX509svidErr(err)
 	}
-
-	switch {
-	case leaf.IsCA:
-		return id, nil, wrapX509svidErr(errors.New("leaf certificate with CA flag set to true"))
-	case leaf.KeyUsage&x509.KeyUsageCertSign > 0:
-		return id, nil, wrapX509svidErr(errors.New("leaf certificate with KeyCertSign key usage"))
-	case leaf.KeyUsage&x509.KeyUsageCRLSign > 0:
-		return id, nil, wrapX509svidErr(errors.New("leaf certificate with KeyCrlSign key usage"))
-	}
+	id := *idPtr
 
 	bundle, err := bundleSource.GetX509BundleForTrustDomain(id.TrustDomain())
 	if err != nil {
