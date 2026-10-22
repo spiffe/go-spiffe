@@ -2,6 +2,8 @@ module github.com/spiffe/go-spiffe/v2
 
 go 1.24.0
 
+toolchain go1.26.10
+
 require (
 	github.com/Microsoft/go-winio v0.6.2
 	github.com/go-jose/go-jose/v4 v4.1.5

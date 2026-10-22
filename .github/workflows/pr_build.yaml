@@ -14,7 +14,7 @@ jobs:
         with:
           cache: true
           cache-dependency-path: go.sum
-          go-version: '1.26.10'
+          go-version-file: go.mod
       - name: Lint
         run: make lint
 
@@ -28,7 +28,7 @@ jobs:
         with:
           cache: true
           cache-dependency-path: go.sum
-          go-version: '1.26.10'
+          go-version-file: go.mod
       - name: Test
         run: make test
 
@@ -45,7 +45,7 @@ jobs:
         with:
           cache: true
           cache-dependency-path: go.sum
-          go-version: '1.26.10'
+          go-version-file: go.mod
       - name: Install msys2
         uses: msys2/setup-msys2@v2
         with:
@@ -72,7 +72,7 @@ jobs:
         with:
           cache: true
           cache-dependency-path: go.sum
-          go-version: '1.26.10'
+          go-version-file: go.mod
       - name: Install msys2
         uses: msys2/setup-msys2@v2
         with:
