@@ -22,10 +22,10 @@ import (
 	"github.com/spiffe/go-spiffe/lite/bundle/jwtbundle"
 	"github.com/spiffe/go-spiffe/lite/bundle/spiffebundle"
 	"github.com/spiffe/go-spiffe/lite/bundle/x509bundle"
-	"github.com/spiffe/go-spiffe/v2/internal/x509util"
 	"github.com/spiffe/go-spiffe/lite/spiffeid"
 	"github.com/spiffe/go-spiffe/lite/svid/jwtsvid"
 	"github.com/spiffe/go-spiffe/lite/svid/x509svid"
+	"github.com/spiffe/go-spiffe/v2/internal/x509util"
 	"github.com/stretchr/testify/require"
 )
 

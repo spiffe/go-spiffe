@@ -25,6 +25,7 @@ sync() {
 		echo
 		sed -e 's|github.com/spiffe/go-spiffe/lite/internal/|github.com/spiffe/go-spiffe/v2/internal/|g' "${src}"
 	} >"${dst}"
+	gofmt -w "${dst}"
 	echo "generated ${dst} from ${src}"
 }
 
