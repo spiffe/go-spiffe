@@ -86,7 +86,7 @@ apiprotos := \
 # Toolchain
 #############################################################################
 
-go_version_full := 1.24.13
+go_version_full := 1.26.10
 go_version := $(go_version_full:.0=)
 go_dir := $(build_dir)/go/$(go_version)
 
