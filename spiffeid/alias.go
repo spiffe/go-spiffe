@@ -47,6 +47,9 @@ var (
 	// MatchID matches a specific SPIFFE ID.
 	MatchID = lite.MatchID
 
+	// MatchIDPrefix matches any SPIFFE ID with the given ID prefix. A matching ID must be in the same trust domain and have either the same path as the prefix or a path with the prefix on a segment boundary. If the prefix has no path, no ID matches.
+	MatchIDPrefix = lite.MatchIDPrefix
+
 	// MatchMemberOf matches any SPIFFE ID in the given trust domain.
 	MatchMemberOf = lite.MatchMemberOf
 
@@ -94,7 +97,7 @@ var (
 //
 // This is a function rather than a variable so that go vet's printf
 // analyzer still recognizes it as a printf wrapper.
-func FromPathf(td TrustDomain, format string, args ...interface{}) (ID, error) {
+func FromPathf(td TrustDomain, format string, args ...any) (ID, error) {
 	return lite.FromPathf(td, format, args...)
 }
 
@@ -102,7 +105,7 @@ func FromPathf(td TrustDomain, format string, args ...interface{}) (ID, error) {
 //
 // This is a function rather than a variable so that go vet's printf
 // analyzer still recognizes it as a printf wrapper.
-func FromStringf(format string, args ...interface{}) (ID, error) {
+func FromStringf(format string, args ...any) (ID, error) {
 	return lite.FromStringf(format, args...)
 }
 
@@ -110,7 +113,7 @@ func FromStringf(format string, args ...interface{}) (ID, error) {
 //
 // This is a function rather than a variable so that go vet's printf
 // analyzer still recognizes it as a printf wrapper.
-func RequireFromPathf(td TrustDomain, format string, args ...interface{}) ID {
+func RequireFromPathf(td TrustDomain, format string, args ...any) ID {
 	return lite.RequireFromPathf(td, format, args...)
 }
 
@@ -118,6 +121,6 @@ func RequireFromPathf(td TrustDomain, format string, args ...interface{}) ID {
 //
 // This is a function rather than a variable so that go vet's printf
 // analyzer still recognizes it as a printf wrapper.
-func RequireFromStringf(format string, args ...interface{}) ID {
+func RequireFromStringf(format string, args ...any) ID {
 	return lite.RequireFromStringf(format, args...)
 }

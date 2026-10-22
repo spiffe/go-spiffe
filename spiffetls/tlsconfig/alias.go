@@ -38,6 +38,9 @@ var (
 	// AuthorizeID allows a specific SPIFFE ID.
 	AuthorizeID = lite.AuthorizeID
 
+	// AuthorizeIDPrefix allows any SPIFFE ID with the given ID prefix. A matching ID must be in the same trust domain and have either the same path as the prefix or a path with the prefix on a segment boundary. If the prefix has no path, no ID is authorized.
+	AuthorizeIDPrefix = lite.AuthorizeIDPrefix
+
 	// AuthorizeMemberOf allows any SPIFFE ID in the given trust domain.
 	AuthorizeMemberOf = lite.AuthorizeMemberOf
 
