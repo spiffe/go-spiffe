@@ -3,9 +3,11 @@ package jwtbundle_test
 import (
 	"crypto"
 	"encoding/json"
+	"fmt"
 	"os"
 	"testing"
 
+	"github.com/go-jose/go-jose/v4"
 	"github.com/spiffe/go-spiffe/v2/bundle/jwtbundle"
 	"github.com/spiffe/go-spiffe/v2/internal/test"
 	"github.com/spiffe/go-spiffe/v2/internal/test/errstrings"
@@ -243,6 +245,32 @@ func TestMarshal(t *testing.T) {
 
 	// Assert that the marshaled bundle is equal to the parsed bundle
 	assert.Equal(t, bundleParsed, bundle)
+}
+
+func TestMarshalIsDeterministic(t *testing.T) {
+	bundle := jwtbundle.New(td)
+	var wantKeyIDs []string
+	for i := range 10 {
+		keyID := fmt.Sprintf("key-%d", i)
+		require.NoError(t, bundle.AddJWTAuthority(keyID, test.NewEC256Key(t).Public()))
+		wantKeyIDs = append(wantKeyIDs, keyID)
+	}
+
+	first, err := bundle.Marshal()
+	require.NoError(t, err)
+	for range 10 {
+		next, err := bundle.Marshal()
+		require.NoError(t, err)
+		require.Equal(t, string(first), string(next))
+	}
+
+	var jwks jose.JSONWebKeySet
+	require.NoError(t, json.Unmarshal(first, &jwks))
+	var keyIDs []string
+	for _, key := range jwks.Keys {
+		keyIDs = append(keyIDs, key.KeyID)
+	}
+	assert.Equal(t, wantKeyIDs, keyIDs)
 }
 
 func TestMarshalEmptyBundle(t *testing.T) {

@@ -6,7 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"os"
+	"slices"
 	"sync"
 
 	"github.com/go-jose/go-jose/v4"
@@ -155,7 +157,8 @@ func (b *Bundle) Marshal() ([]byte, error) {
 	defer b.mtx.RUnlock()
 
 	jwks := jose.JSONWebKeySet{Keys: make([]jose.JSONWebKey, 0, len(b.jwtAuthorities))}
-	for keyID, jwtAuthority := range b.jwtAuthorities {
+	for _, keyID := range slices.Sorted(maps.Keys(b.jwtAuthorities)) {
+		jwtAuthority := b.jwtAuthorities[keyID]
 		jwks.Keys = append(jwks.Keys, jose.JSONWebKey{
 			Key:   jwtAuthority,
 			KeyID: keyID,
