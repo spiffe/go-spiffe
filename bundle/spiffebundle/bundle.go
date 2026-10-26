@@ -7,7 +7,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"os"
+	"slices"
 	"sync"
 	"time"
 
@@ -432,7 +434,8 @@ func (b *Bundle) Marshal() ([]byte, error) {
 		})
 	}
 
-	for keyID, jwtAuthority := range b.jwtAuthorities {
+	for _, keyID := range slices.Sorted(maps.Keys(b.jwtAuthorities)) {
+		jwtAuthority := b.jwtAuthorities[keyID]
 		jwks.Keys = append(jwks.Keys, jose.JSONWebKey{
 			Key:   jwtAuthority,
 			KeyID: keyID,
@@ -440,7 +443,8 @@ func (b *Bundle) Marshal() ([]byte, error) {
 		})
 	}
 
-	for keyID, witAuthority := range b.witAuthorities {
+	for _, keyID := range slices.Sorted(maps.Keys(b.witAuthorities)) {
+		witAuthority := b.witAuthorities[keyID]
 		jwks.Keys = append(jwks.Keys, jose.JSONWebKey{
 			Key:   witAuthority,
 			KeyID: keyID,

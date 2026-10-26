@@ -3,6 +3,7 @@ package witbundle_test
 import (
 	"crypto"
 	"encoding/json"
+	"fmt"
 	"os"
 	"testing"
 
@@ -153,6 +154,32 @@ func TestMarshal(t *testing.T) {
 			kids = append(kids, k.KeyID)
 		}
 		assert.ElementsMatch(t, []string{"key-1", "key-2"}, kids)
+	})
+
+	t.Run("is deterministic", func(t *testing.T) {
+		b := witbundle.New(td)
+		var wantKeyIDs []string
+		for i := range 10 {
+			keyID := fmt.Sprintf("key-%d", i)
+			require.NoError(t, b.AddWITAuthority(keyID, test.NewEC256Key(t).Public()))
+			wantKeyIDs = append(wantKeyIDs, keyID)
+		}
+
+		first, err := b.Marshal()
+		require.NoError(t, err)
+		for range 10 {
+			next, err := b.Marshal()
+			require.NoError(t, err)
+			require.Equal(t, string(first), string(next))
+		}
+
+		var jwks jose.JSONWebKeySet
+		require.NoError(t, json.Unmarshal(first, &jwks))
+		var keyIDs []string
+		for _, k := range jwks.Keys {
+			keyIDs = append(keyIDs, k.KeyID)
+		}
+		assert.Equal(t, wantKeyIDs, keyIDs)
 	})
 
 	t.Run("empty bundle produces empty keys array", func(t *testing.T) {

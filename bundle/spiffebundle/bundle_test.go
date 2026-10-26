@@ -3,10 +3,13 @@ package spiffebundle_test
 import (
 	"crypto"
 	"crypto/x509"
+	"encoding/json"
+	"fmt"
 	"os"
 	"testing"
 	"time"
 
+	"github.com/go-jose/go-jose/v4"
 	"github.com/spiffe/go-spiffe/v2/bundle/jwtbundle"
 	"github.com/spiffe/go-spiffe/v2/bundle/spiffebundle"
 	"github.com/spiffe/go-spiffe/v2/bundle/x509bundle"
@@ -578,6 +581,37 @@ func TestMarshalWithWIT(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, bundle.WITAuthorities(), bundleParsed.WITAuthorities())
+}
+
+func TestMarshalIsDeterministic(t *testing.T) {
+	bundle := spiffebundle.New(td)
+	var wantKeys []string
+	for i := range 10 {
+		keyID := fmt.Sprintf("jwt-key-%d", i)
+		require.NoError(t, bundle.AddJWTAuthority(keyID, test.NewEC256Key(t).Public()))
+		wantKeys = append(wantKeys, "jwt-svid/"+keyID)
+	}
+	for i := range 10 {
+		keyID := fmt.Sprintf("wit-key-%d", i)
+		require.NoError(t, bundle.AddWITAuthority(keyID, test.NewEC256Key(t).Public()))
+		wantKeys = append(wantKeys, "wit-svid/"+keyID)
+	}
+
+	first, err := bundle.Marshal()
+	require.NoError(t, err)
+	for range 10 {
+		next, err := bundle.Marshal()
+		require.NoError(t, err)
+		require.Equal(t, string(first), string(next))
+	}
+
+	var jwks jose.JSONWebKeySet
+	require.NoError(t, json.Unmarshal(first, &jwks))
+	var keys []string
+	for _, key := range jwks.Keys {
+		keys = append(keys, key.Use+"/"+key.KeyID)
+	}
+	assert.Equal(t, wantKeys, keys)
 }
 
 func TestEmptyWithWIT(t *testing.T) {
