@@ -134,6 +134,9 @@ func TestHandler(t *testing.T) {
 				require.JSONEq(t, testCase.response, string(actual))
 			default:
 				require.Equal(t, testCase.statusCode, res.StatusCode)
+				if res.StatusCode == http.StatusMethodNotAllowed {
+					require.Equal(t, http.MethodGet, res.Header.Get("Allow"))
+				}
 				require.Equal(t, testCase.response, string(actual))
 
 				if testCase.log != "" {

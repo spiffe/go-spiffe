@@ -39,6 +39,7 @@ func NewHandler(trustDomain spiffeid.TrustDomain, source spiffebundle.Source, op
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
+			w.Header().Set("Allow", http.MethodGet)
 			http.Error(w, "method is not allowed", http.StatusMethodNotAllowed)
 			return
 		}
