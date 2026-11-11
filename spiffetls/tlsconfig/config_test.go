@@ -875,3 +875,41 @@ func (f *fakeSource) GetX509SVID() (*x509svid.SVID, error) {
 	}
 	return f.svid, nil
 }
+
+func TestMTLSHandshakeMLDSA(t *testing.T) {
+	td := spiffeid.RequireTrustDomainFromString("domain1.test")
+	serverID := spiffeid.RequireFromPath(td, "/server")
+	clientID := spiffeid.RequireFromPath(td, "/client")
+
+	for _, params := range test.MLDSAParameters {
+		t.Run(params.String(), func(t *testing.T) {
+			caKey := test.NewMLDSAKey(t, params)
+			caCert, _ := test.CreateCACertificate(t, nil, nil, test.WithKey(caKey))
+			bundle := x509bundle.FromX509Authorities(td, []*x509.Certificate{caCert})
+
+			newSVID := func(id spiffeid.ID) *x509svid.SVID {
+				key := test.NewMLDSAKey(t, params)
+				cert, _ := test.CreateX509SVID(t, caCert, caKey, id, test.WithKey(key))
+				return &x509svid.SVID{ID: id, Certificates: []*x509.Certificate{cert}, PrivateKey: key}
+			}
+
+			// Authorize the expected peer and check that it really
+			// authenticated with an ML-DSA certificate.
+			authorizeMLDSA := func(expected spiffeid.ID) tlsconfig.Authorizer {
+				return func(id spiffeid.ID, chains [][]*x509.Certificate) error {
+					if id != expected {
+						return fmt.Errorf("unexpected peer ID %q", id)
+					}
+					if alg := chains[0][0].PublicKeyAlgorithm; alg != x509.MLDSA {
+						return fmt.Errorf("unexpected peer public key algorithm %s", alg)
+					}
+					return nil
+				}
+			}
+
+			serverConfig := tlsconfig.MTLSServerConfig(newSVID(serverID), bundle, authorizeMLDSA(clientID))
+			clientConfig := tlsconfig.MTLSClientConfig(newSVID(clientID), bundle, authorizeMLDSA(serverID))
+			testConnection(t, serverConfig, clientConfig, "", "")
+		})
+	}
+}

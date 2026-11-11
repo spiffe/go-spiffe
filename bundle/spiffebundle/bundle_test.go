@@ -2,6 +2,7 @@ package spiffebundle_test
 
 import (
 	"crypto"
+	"crypto/mldsa"
 	"crypto/x509"
 	"os"
 	"testing"
@@ -636,4 +637,43 @@ func TestGetWITBundleForTrustDomain(t *testing.T) {
 	wb2, err = sb.GetWITBundleForTrustDomain(td2)
 	require.Nil(t, wb2)
 	require.EqualError(t, err, `spiffebundle: no WIT bundle for trust domain "domain2.test"`)
+}
+
+func TestMLDSAAuthorities(t *testing.T) {
+	var x509Authorities []*x509.Certificate
+	jwtAuthorities := map[string]crypto.PublicKey{}
+	witAuthorities := map[string]crypto.PublicKey{}
+	for _, params := range test.MLDSAParameters {
+		cert, _ := test.CreateCACertificate(t, nil, nil, test.WithKey(test.NewMLDSAKey(t, params)))
+		x509Authorities = append(x509Authorities, cert)
+		jwtAuthorities["jwt-"+params.String()] = test.NewMLDSAKey(t, params).Public()
+		witAuthorities["wit-"+params.String()] = test.NewMLDSAKey(t, params).Public()
+	}
+
+	bundle := spiffebundle.New(td)
+	bundle.SetX509Authorities(x509Authorities)
+	bundle.SetJWTAuthorities(jwtAuthorities)
+	bundle.SetWITAuthorities(witAuthorities)
+
+	data, err := bundle.Marshal()
+	require.NoError(t, err)
+
+	parsed, err := spiffebundle.Parse(td, data)
+	require.NoError(t, err)
+	require.Equal(t, x509Authorities, parsed.X509Authorities())
+	requireMLDSAAuthoritiesEqual(t, jwtAuthorities, parsed.JWTAuthorities())
+	requireMLDSAAuthoritiesEqual(t, witAuthorities, parsed.WITAuthorities())
+	require.True(t, bundle.Equal(parsed))
+}
+
+// requireMLDSAAuthoritiesEqual checks that actual holds the same ML-DSA keys
+// under the same key IDs as expected.
+func requireMLDSAAuthoritiesEqual(t *testing.T, expected, actual map[string]crypto.PublicKey) {
+	t.Helper()
+	require.Len(t, actual, len(expected))
+	for kid, want := range expected {
+		got, ok := actual[kid]
+		require.True(t, ok, "missing authority %q", kid)
+		require.True(t, want.(*mldsa.PublicKey).Equal(got), "authority %q does not match", kid)
+	}
 }

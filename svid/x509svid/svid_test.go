@@ -14,7 +14,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/spiffe/go-spiffe/v2/bundle/x509bundle"
 	"github.com/spiffe/go-spiffe/v2/internal/pemutil"
+	"github.com/spiffe/go-spiffe/v2/internal/test"
+	"github.com/spiffe/go-spiffe/v2/internal/x509util"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/spiffe/go-spiffe/v2/svid/x509svid"
 	"github.com/stretchr/testify/assert"
@@ -489,4 +492,62 @@ func createLeafWithRootPathSPIFFEIDRaw(t *testing.T) ([]byte, []byte) {
 	require.NoError(t, err)
 
 	return certDER, keyDER
+}
+
+func TestMLDSA(t *testing.T) {
+	td := spiffeid.RequireTrustDomainFromString("example.org")
+	id := spiffeid.RequireFromPath(td, "/workload")
+
+	for _, params := range test.MLDSAParameters {
+		t.Run(params.String(), func(t *testing.T) {
+			caKey := test.NewMLDSAKey(t, params)
+			caCert, _ := test.CreateCACertificate(t, nil, nil, test.WithKey(caKey))
+			leafKey := test.NewMLDSAKey(t, params)
+			leafCert, _ := test.CreateX509SVID(t, caCert, caKey, id, test.WithKey(leafKey))
+
+			svid := &x509svid.SVID{
+				ID:           id,
+				Certificates: []*x509.Certificate{leafCert},
+				PrivateKey:   leafKey,
+			}
+
+			t.Run("PEM round trip", func(t *testing.T) {
+				certPEM, keyPEM, err := svid.Marshal()
+				require.NoError(t, err)
+
+				parsed, err := x509svid.Parse(certPEM, keyPEM)
+				require.NoError(t, err)
+				require.Equal(t, id, parsed.ID)
+				require.Equal(t, svid.Certificates, parsed.Certificates)
+				require.True(t, leafKey.Equal(parsed.PrivateKey))
+			})
+
+			t.Run("DER round trip", func(t *testing.T) {
+				certDER, keyDER, err := svid.MarshalRaw()
+				require.NoError(t, err)
+
+				parsed, err := x509svid.ParseRaw(certDER, keyDER)
+				require.NoError(t, err)
+				require.Equal(t, id, parsed.ID)
+				require.True(t, leafKey.Equal(parsed.PrivateKey))
+			})
+
+			t.Run("private key does not match leaf", func(t *testing.T) {
+				otherKey := test.NewMLDSAKey(t, params)
+				keyPEM, err := pemutil.EncodePKCS8PrivateKey(otherKey)
+				require.NoError(t, err)
+
+				_, err = x509svid.Parse(pemutil.EncodeCertificates(svid.Certificates), keyPEM)
+				require.EqualError(t, err, "x509svid: private key validation failed: leaf certificate does not match private key")
+			})
+
+			t.Run("verify", func(t *testing.T) {
+				bundle := x509bundle.FromX509Authorities(td, []*x509.Certificate{caCert})
+				verifiedID, chains, err := x509svid.ParseAndVerify(x509util.RawCertsFromCerts(svid.Certificates), bundle)
+				require.NoError(t, err)
+				require.Equal(t, id, verifiedID)
+				require.Equal(t, [][]*x509.Certificate{{leafCert, caCert}}, chains)
+			})
+		})
+	}
 }

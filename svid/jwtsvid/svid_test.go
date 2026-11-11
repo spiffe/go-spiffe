@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/ed25519"
 	"crypto/elliptic"
+	"crypto/mldsa"
 	"crypto/rand"
 	"crypto/rsa"
 	"fmt"
@@ -15,6 +16,7 @@ import (
 	"github.com/go-jose/go-jose/v4/cryptosigner"
 	"github.com/go-jose/go-jose/v4/jwt"
 	"github.com/spiffe/go-spiffe/v2/bundle/jwtbundle"
+	"github.com/spiffe/go-spiffe/v2/internal/test"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/spiffe/go-spiffe/v2/svid/jwtsvid"
 	"github.com/stretchr/testify/require"
@@ -36,6 +38,9 @@ var (
 		jose.PS256,
 		jose.PS384,
 		jose.PS512,
+		jose.MLDSA44,
+		jose.MLDSA65,
+		jose.MLDSA87,
 	}
 )
 
@@ -550,7 +555,51 @@ func getSignerAlgorithm(signer crypto.Signer) (jose.SignatureAlgorithm, error) {
 		}
 	case ed25519.PublicKey:
 		return jose.EdDSA, nil
+	case *mldsa.PublicKey:
+		switch publicKey.Parameters() {
+		case mldsa.MLDSA44():
+			return jose.MLDSA44, nil
+		case mldsa.MLDSA65():
+			return jose.MLDSA65, nil
+		case mldsa.MLDSA87():
+			return jose.MLDSA87, nil
+		default:
+			return "", fmt.Errorf("unable to determine signature algorithm for ML-DSA parameter set %s", publicKey.Parameters())
+		}
 	default:
 		return "", fmt.Errorf("unable to determine signature algorithm for public key type %T", publicKey)
+	}
+}
+
+func TestParseAndValidateMLDSA(t *testing.T) {
+	td := spiffeid.RequireTrustDomainFromString("trustdomain")
+	id := spiffeid.RequireFromPath(td, "/host")
+
+	for _, params := range test.MLDSAParameters {
+		t.Run(params.String(), func(t *testing.T) {
+			key := test.NewMLDSAKey(t, params)
+			bundle := jwtbundle.New(td)
+			require.NoError(t, bundle.AddJWTAuthority("authority1", key.Public()))
+
+			claims := jwt.Claims{
+				Subject:  id.String(),
+				Issuer:   "issuer",
+				Expiry:   jwt.NewNumericDate(time.Now().Add(time.Minute)),
+				Audience: []string{"audience"},
+				IssuedAt: jwt.NewNumericDate(time.Now()),
+			}
+			token := generateToken(t, claims, key, "authority1", "")
+
+			svid, err := jwtsvid.ParseAndValidate(token, bundle, []string{"audience"})
+			require.NoError(t, err)
+			require.Equal(t, id, svid.ID)
+			require.Equal(t, token, svid.Marshal())
+
+			// A token signed by a different key with the same key ID fails
+			// signature verification.
+			otherToken := generateToken(t, claims, test.NewMLDSAKey(t, params), "authority1", "")
+			_, err = jwtsvid.ParseAndValidate(otherToken, bundle, []string{"audience"})
+			require.EqualError(t, err, "jwtsvid: unable to get claims from token: go-jose/go-jose: error in cryptographic primitive")
+		})
 	}
 }

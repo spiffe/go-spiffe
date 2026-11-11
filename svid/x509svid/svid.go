@@ -4,6 +4,7 @@ import (
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/ed25519"
+	"crypto/mldsa"
 	"crypto/rsa"
 	"crypto/x509"
 	"errors"
@@ -235,6 +236,8 @@ func keyMatches(privateKey crypto.PrivateKey, publicKey crypto.PublicKey) (bool,
 		return privateKey.PublicKey.Equal(publicKey), nil
 	case ed25519.PrivateKey:
 		return privateKey.Public().(ed25519.PublicKey).Equal(publicKey), nil
+	case *mldsa.PrivateKey:
+		return privateKey.PublicKey().Equal(publicKey), nil
 	default:
 		return false, fmt.Errorf("unsupported private key type %T", privateKey)
 	}

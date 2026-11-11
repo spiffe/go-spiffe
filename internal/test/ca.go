@@ -10,6 +10,7 @@ import (
 	"math/big"
 	"net"
 	"net/url"
+	"slices"
 	"testing"
 	"time"
 
@@ -142,7 +143,7 @@ func (ca *CA) JWTBundle() *jwtbundle.Bundle {
 func CreateCACertificate(tb testing.TB, parent *x509.Certificate, parentKey crypto.Signer, options ...SVIDOption) (*x509.Certificate, crypto.Signer) {
 	now := time.Now()
 	serial := NewSerial(tb)
-	key := NewEC256Key(tb)
+	key := keyFromOptions(tb, options)
 	tmpl := &x509.Certificate{
 		SerialNumber: serial,
 		Subject: pkix.Name{
@@ -166,7 +167,7 @@ func CreateCACertificate(tb testing.TB, parent *x509.Certificate, parentKey cryp
 func CreateX509Certificate(tb testing.TB, parent *x509.Certificate, parentKey crypto.Signer, options ...SVIDOption) (*x509.Certificate, crypto.Signer) {
 	now := time.Now()
 	serial := NewSerial(tb)
-	key := NewEC256Key(tb)
+	key := keyFromOptions(tb, options)
 	tmpl := &x509.Certificate{
 		SerialNumber: serial,
 		Subject: pkix.Name{
@@ -227,6 +228,7 @@ type SVIDOption struct {
 	certificateOption func(*x509.Certificate)
 	x509SvidOption    func(*x509svid.SVID)
 	jwtSvidOption     func(*jwtsvid.SVID)
+	key               crypto.Signer
 }
 
 func (s SVIDOption) applyJWTSVIDOption(svid *jwtsvid.SVID) {
@@ -245,6 +247,24 @@ func (s SVIDOption) applyX509SVIDOption(svid *x509svid.SVID) {
 	if s.x509SvidOption != nil {
 		s.x509SvidOption(svid)
 	}
+}
+
+// WithKey sets the key the certificate is issued for, in place of a freshly
+// generated EC P-256 key. The parent key still signs the certificate. It has
+// no effect on JWT-SVIDs.
+func WithKey(key crypto.Signer) SVIDOption {
+	return SVIDOption{key: key}
+}
+
+// keyFromOptions returns the key set by the last WithKey option, or a freshly
+// generated EC P-256 key if there is none.
+func keyFromOptions(tb testing.TB, options []SVIDOption) crypto.Signer {
+	for _, opt := range slices.Backward(options) {
+		if opt.key != nil {
+			return opt.key
+		}
+	}
+	return NewEC256Key(tb)
 }
 
 func WithSerial(serial *big.Int) SVIDOption {
