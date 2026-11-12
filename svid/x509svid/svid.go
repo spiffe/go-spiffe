@@ -2,10 +2,6 @@ package x509svid
 
 import (
 	"crypto"
-	"crypto/ecdsa"
-	"crypto/ed25519"
-	"crypto/mldsa"
-	"crypto/rsa"
 	"crypto/x509"
 	"errors"
 	"fmt"
@@ -229,16 +225,13 @@ func validatePrivateKey(privateKey crypto.PrivateKey, leaf *x509.Certificate) (c
 }
 
 func keyMatches(privateKey crypto.PrivateKey, publicKey crypto.PublicKey) (bool, error) {
-	switch privateKey := privateKey.(type) {
-	case *rsa.PrivateKey:
-		return privateKey.PublicKey.Equal(publicKey), nil
-	case *ecdsa.PrivateKey:
-		return privateKey.PublicKey.Equal(publicKey), nil
-	case ed25519.PrivateKey:
-		return privateKey.Public().(ed25519.PublicKey).Equal(publicKey), nil
-	case *mldsa.PrivateKey:
-		return privateKey.PublicKey().Equal(publicKey), nil
-	default:
+	signer, ok := privateKey.(crypto.Signer)
+	if !ok {
 		return false, fmt.Errorf("unsupported private key type %T", privateKey)
 	}
+	pub, ok := signer.Public().(interface{ Equal(crypto.PublicKey) bool })
+	if !ok {
+		return false, fmt.Errorf("unsupported private key type %T", privateKey)
+	}
+	return pub.Equal(publicKey), nil
 }

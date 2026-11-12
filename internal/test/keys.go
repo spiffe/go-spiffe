@@ -3,7 +3,6 @@ package test
 import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
-	"crypto/mldsa"
 	"crypto/rand"
 	"strings"
 	"testing"
@@ -21,15 +20,8 @@ func NewEC256Key(tb testing.TB) *ecdsa.PrivateKey {
 	return key
 }
 
-// MLDSAParameters lists every ML-DSA parameter set that is supported
-var MLDSAParameters = []mldsa.Parameters{mldsa.MLDSA44(), mldsa.MLDSA65(), mldsa.MLDSA87()}
-
-// NewMLDSAKey returns an ML-DSA key for the given parameter set
-func NewMLDSAKey(tb testing.TB, params mldsa.Parameters) *mldsa.PrivateKey {
-	key, err := mldsa.GenerateKey(params)
-	require.NoError(tb, err)
-	return key
-}
+// MLDSAParameters names every ML-DSA parameter set that is supported
+var MLDSAParameters = []string{"ML-DSA-44", "ML-DSA-65", "ML-DSA-87"}
 
 // NewKeyID returns a random id useful for identifying keys
 func NewKeyID(tb testing.TB) string {

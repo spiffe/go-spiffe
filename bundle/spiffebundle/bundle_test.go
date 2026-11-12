@@ -2,7 +2,6 @@ package spiffebundle_test
 
 import (
 	"crypto"
-	"crypto/mldsa"
 	"crypto/x509"
 	"os"
 	"testing"
@@ -12,6 +11,7 @@ import (
 	"github.com/spiffe/go-spiffe/v2/bundle/spiffebundle"
 	"github.com/spiffe/go-spiffe/v2/bundle/x509bundle"
 	"github.com/spiffe/go-spiffe/v2/exp/bundle/witbundle"
+	"github.com/spiffe/go-spiffe/v2/internal/cryptoutil"
 	"github.com/spiffe/go-spiffe/v2/internal/test"
 	"github.com/spiffe/go-spiffe/v2/internal/test/errstrings"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
@@ -646,8 +646,8 @@ func TestMLDSAAuthorities(t *testing.T) {
 	for _, params := range test.MLDSAParameters {
 		cert, _ := test.CreateCACertificate(t, nil, nil, test.WithKey(test.NewMLDSAKey(t, params)))
 		x509Authorities = append(x509Authorities, cert)
-		jwtAuthorities["jwt-"+params.String()] = test.NewMLDSAKey(t, params).Public()
-		witAuthorities["wit-"+params.String()] = test.NewMLDSAKey(t, params).Public()
+		jwtAuthorities["jwt-"+params] = test.NewMLDSAKey(t, params).Public()
+		witAuthorities["wit-"+params] = test.NewMLDSAKey(t, params).Public()
 	}
 
 	bundle := spiffebundle.New(td)
@@ -674,6 +674,8 @@ func requireMLDSAAuthoritiesEqual(t *testing.T, expected, actual map[string]cryp
 	for kid, want := range expected {
 		got, ok := actual[kid]
 		require.True(t, ok, "missing authority %q", kid)
-		require.True(t, want.(*mldsa.PublicKey).Equal(got), "authority %q does not match", kid)
+		equal, err := cryptoutil.PublicKeyEqual(want, got)
+		require.NoError(t, err)
+		require.True(t, equal, "authority %q does not match", kid)
 	}
 }

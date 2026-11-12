@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/spiffe/go-spiffe/v2/bundle/x509bundle"
+	"github.com/spiffe/go-spiffe/v2/internal/cryptoutil"
 	"github.com/spiffe/go-spiffe/v2/internal/pemutil"
 	"github.com/spiffe/go-spiffe/v2/internal/test"
 	"github.com/spiffe/go-spiffe/v2/internal/x509util"
@@ -499,7 +500,7 @@ func TestMLDSA(t *testing.T) {
 	id := spiffeid.RequireFromPath(td, "/workload")
 
 	for _, params := range test.MLDSAParameters {
-		t.Run(params.String(), func(t *testing.T) {
+		t.Run(params, func(t *testing.T) {
 			caKey := test.NewMLDSAKey(t, params)
 			caCert, _ := test.CreateCACertificate(t, nil, nil, test.WithKey(caKey))
 			leafKey := test.NewMLDSAKey(t, params)
@@ -519,7 +520,9 @@ func TestMLDSA(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, id, parsed.ID)
 				require.Equal(t, svid.Certificates, parsed.Certificates)
-				require.True(t, leafKey.Equal(parsed.PrivateKey))
+				equal, err := cryptoutil.PublicKeyEqual(leafKey.Public(), parsed.PrivateKey.Public())
+				require.NoError(t, err)
+				require.True(t, equal)
 			})
 
 			t.Run("DER round trip", func(t *testing.T) {
@@ -529,7 +532,9 @@ func TestMLDSA(t *testing.T) {
 				parsed, err := x509svid.ParseRaw(certDER, keyDER)
 				require.NoError(t, err)
 				require.Equal(t, id, parsed.ID)
-				require.True(t, leafKey.Equal(parsed.PrivateKey))
+				equal, err := cryptoutil.PublicKeyEqual(leafKey.Public(), parsed.PrivateKey.Public())
+				require.NoError(t, err)
+				require.True(t, equal)
 			})
 
 			t.Run("private key does not match leaf", func(t *testing.T) {

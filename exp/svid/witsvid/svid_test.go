@@ -3,7 +3,6 @@ package witsvid_test
 import (
 	"crypto"
 	"crypto/ecdsa"
-	"crypto/mldsa"
 	"encoding/json"
 	"testing"
 	"time"
@@ -12,6 +11,7 @@ import (
 	"github.com/go-jose/go-jose/v4/jwt"
 	"github.com/spiffe/go-spiffe/v2/exp/bundle/witbundle"
 	"github.com/spiffe/go-spiffe/v2/exp/svid/witsvid"
+	"github.com/spiffe/go-spiffe/v2/internal/cryptoutil"
 	"github.com/spiffe/go-spiffe/v2/internal/test"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/stretchr/testify/assert"
@@ -322,20 +322,13 @@ func makeToken(t *testing.T, signingKey crypto.Signer, kid, typ string, claims m
 // key in these tests.
 func algForKey(t *testing.T, key any) jose.SignatureAlgorithm {
 	t.Helper()
-	switch key := key.(type) {
+	switch key.(type) {
 	case *ecdsa.PrivateKey, *ecdsa.PublicKey:
 		return jose.ES256
-	case *mldsa.PrivateKey:
-		return algForKey(t, key.PublicKey())
-	case *mldsa.PublicKey:
-		switch key.Parameters() {
-		case mldsa.MLDSA44():
-			return jose.MLDSA44
-		case mldsa.MLDSA65():
-			return jose.MLDSA65
-		case mldsa.MLDSA87():
-			return jose.MLDSA87
-		}
+	}
+	// JOSE names the ML-DSA algorithms after their parameter sets.
+	if params, ok := test.MLDSAParameterSet(key); ok {
+		return jose.SignatureAlgorithm(params)
 	}
 	t.Fatalf("no test algorithm for key type %T", key)
 	return ""
@@ -344,7 +337,7 @@ func algForKey(t *testing.T, key any) jose.SignatureAlgorithm {
 func TestMLDSA(t *testing.T) {
 	const kid = "key-1"
 	for _, params := range test.MLDSAParameters {
-		t.Run(params.String(), func(t *testing.T) {
+		t.Run(params, func(t *testing.T) {
 			signingKey := test.NewMLDSAKey(t, params)
 			cnfKey := test.NewMLDSAKey(t, params)
 			tok := makeToken(t, signingKey, kid, "wit+jwt", makeValidClaims(t, workload, cnfKey.Public(), kid))
@@ -356,7 +349,9 @@ func TestMLDSA(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, workload, svid.ID)
 			assert.Equal(t, kid, svid.KeyID)
-			assert.True(t, cnfKey.PublicKey().Equal(svid.PublicKey), "cnf.jwk should hold the ML-DSA public key")
+			equal, err := cryptoutil.PublicKeyEqual(cnfKey.Public(), svid.PublicKey)
+			require.NoError(t, err)
+			assert.True(t, equal, "cnf.jwk should hold the ML-DSA public key")
 
 			t.Run("signature mismatch", func(t *testing.T) {
 				bundle := witbundle.New(td)

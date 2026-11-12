@@ -5,7 +5,6 @@ import (
 	"crypto/ecdsa"
 	"crypto/ed25519"
 	"crypto/elliptic"
-	"crypto/mldsa"
 	"crypto/rand"
 	"crypto/rsa"
 	"fmt"
@@ -555,18 +554,11 @@ func getSignerAlgorithm(signer crypto.Signer) (jose.SignatureAlgorithm, error) {
 		}
 	case ed25519.PublicKey:
 		return jose.EdDSA, nil
-	case *mldsa.PublicKey:
-		switch publicKey.Parameters() {
-		case mldsa.MLDSA44():
-			return jose.MLDSA44, nil
-		case mldsa.MLDSA65():
-			return jose.MLDSA65, nil
-		case mldsa.MLDSA87():
-			return jose.MLDSA87, nil
-		default:
-			return "", fmt.Errorf("unable to determine signature algorithm for ML-DSA parameter set %s", publicKey.Parameters())
-		}
 	default:
+		// JOSE names the ML-DSA algorithms after their parameter sets.
+		if params, ok := test.MLDSAParameterSet(publicKey); ok {
+			return jose.SignatureAlgorithm(params), nil
+		}
 		return "", fmt.Errorf("unable to determine signature algorithm for public key type %T", publicKey)
 	}
 }
@@ -576,7 +568,7 @@ func TestParseAndValidateMLDSA(t *testing.T) {
 	id := spiffeid.RequireFromPath(td, "/host")
 
 	for _, params := range test.MLDSAParameters {
-		t.Run(params.String(), func(t *testing.T) {
+		t.Run(params, func(t *testing.T) {
 			key := test.NewMLDSAKey(t, params)
 			bundle := jwtbundle.New(td)
 			require.NoError(t, bundle.AddJWTAuthority("authority1", key.Public()))

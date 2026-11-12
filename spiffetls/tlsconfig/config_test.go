@@ -882,7 +882,7 @@ func TestMTLSHandshakeMLDSA(t *testing.T) {
 	clientID := spiffeid.RequireFromPath(td, "/client")
 
 	for _, params := range test.MLDSAParameters {
-		t.Run(params.String(), func(t *testing.T) {
+		t.Run(params, func(t *testing.T) {
 			caKey := test.NewMLDSAKey(t, params)
 			caCert, _ := test.CreateCACertificate(t, nil, nil, test.WithKey(caKey))
 			bundle := x509bundle.FromX509Authorities(td, []*x509.Certificate{caCert})
@@ -900,8 +900,8 @@ func TestMTLSHandshakeMLDSA(t *testing.T) {
 					if id != expected {
 						return fmt.Errorf("unexpected peer ID %q", id)
 					}
-					if alg := chains[0][0].PublicKeyAlgorithm; alg != x509.MLDSA {
-						return fmt.Errorf("unexpected peer public key algorithm %s", alg)
+					if _, ok := test.MLDSAParameterSet(chains[0][0].PublicKey); !ok {
+						return fmt.Errorf("unexpected peer public key algorithm %s", chains[0][0].PublicKeyAlgorithm)
 					}
 					return nil
 				}

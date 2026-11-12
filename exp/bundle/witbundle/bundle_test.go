@@ -392,7 +392,7 @@ func TestMLDSAAuthorities(t *testing.T) {
 	for i, params := range test.MLDSAParameters {
 		kid := fmt.Sprintf("key-%d", i)
 		authorities[kid] = test.NewMLDSAKey(t, params).Public()
-		expectedAlg[kid] = params.String() // JOSE alg names match the FIPS 204 names
+		expectedAlg[kid] = params // JOSE alg names match the FIPS 204 names
 	}
 	bundle := witbundle.FromWITAuthorities(td, authorities)
 
