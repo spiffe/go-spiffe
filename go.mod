@@ -1,10 +1,10 @@
 module github.com/spiffe/go-spiffe/v2
 
-go 1.24.0
+go 1.26.0
 
 require (
 	github.com/Microsoft/go-winio v0.6.2
-	github.com/go-jose/go-jose/v4 v4.1.5
+	github.com/go-jose/go-jose/v4 v4.1.9
 	github.com/stretchr/testify v1.12.1
 	google.golang.org/grpc v1.79.3
 	google.golang.org/grpc/examples v0.0.0-20250407062114-b368379ef8f6

@@ -74,7 +74,7 @@ protoc_gen_go_grpc_base_dir := $(build_dir)/protoc-gen-go-grpc
 protoc_gen_go_grpc_dir := $(protoc_gen_go_grpc_base_dir)/$(protoc_gen_go_grpc_version)-go$(go_version)
 protoc_gen_go_grpc_bin := $(protoc_gen_go_grpc_dir)/protoc-gen-go-grpc
 
-golangci_lint_version = v2.11.4
+golangci_lint_version = v2.15.0
 golangci_lint_dir = $(build_dir)/golangci_lint/$(golangci_lint_version)
 golangci_lint_bin = $(golangci_lint_dir)/golangci-lint
 
@@ -86,7 +86,7 @@ apiprotos := \
 # Toolchain
 #############################################################################
 
-go_version_full := 1.24.13
+go_version_full := 1.26.11
 go_version := $(go_version_full:.0=)
 go_dir := $(build_dir)/go/$(go_version)
 
@@ -130,7 +130,7 @@ $(golangci_lint_bin):
 	@echo "Installing golangci-lint $(golangci_lint_version)..."
 	@rm -rf $(dir $(golangci_lint_dir))
 	@mkdir -p $(golangci_lint_dir)
-	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(golangci_lint_dir) $(golangci_lint_version)
+	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/$(golangci_lint_version)/install.sh | sh -s -- -b $(golangci_lint_dir) $(golangci_lint_version)
 
 #############################################################################
 # Tidy

@@ -28,6 +28,9 @@ var allowedSignatureAlgorithms = []jose.SignatureAlgorithm{
 	jose.PS256,
 	jose.PS384,
 	jose.PS512,
+	jose.MLDSA44,
+	jose.MLDSA65,
+	jose.MLDSA87,
 }
 
 // SVID represents a WIT-SVID.

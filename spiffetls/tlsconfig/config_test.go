@@ -788,7 +788,7 @@ func testConnection(t testing.TB, serverConfig *tls.Config, clientConfig *tls.Co
 func createTestTLSConfig(base *tls.Config) *tls.Config {
 	tlsCert := tls.Certificate{Certificate: [][]byte{[]byte("body")}}
 	return &tls.Config{ //nolint:gosec // MinVersion it is ok for this test
-		Rand:                        base.Rand,
+		Rand:                        base.Rand, //nolint:staticcheck // need to ensure this value is copied from the base
 		Time:                        base.Time,
 		GetConfigForClient:          base.GetConfigForClient,
 		NextProtos:                  base.NextProtos,
@@ -808,7 +808,7 @@ func createTestTLSConfig(base *tls.Config) *tls.Config {
 		Certificates: []tls.Certificate{
 			tlsCert,
 		},
-		NameToCertificate: map[string]*tls.Certificate{"cert": &tlsCert},
+		NameToCertificate: map[string]*tls.Certificate{"cert": &tlsCert}, //nolint:staticcheck // auth field that the Hook functions must reset
 		GetCertificate: func(info *tls.ClientHelloInfo) (certificate *tls.Certificate, err error) {
 			return nil, nil
 		},
@@ -824,7 +824,7 @@ func createTestTLSConfig(base *tls.Config) *tls.Config {
 
 func createBaseTLSConfig() *tls.Config {
 	return &tls.Config{
-		Rand: strings.NewReader("my rand"),
+		Rand: strings.NewReader("my rand"), //nolint:staticcheck // need to ensure this value is preserved
 		Time: time.Now().Add(-time.Minute).UTC,
 		GetConfigForClient: func(info *tls.ClientHelloInfo) (config *tls.Config, err error) {
 			return nil, nil
@@ -834,7 +834,7 @@ func createBaseTLSConfig() *tls.Config {
 		ClientCAs:                   x509.NewCertPool(),
 		CipherSuites:                []uint16{12},
 		SessionTicketsDisabled:      true,
-		SessionTicketKey:            [32]byte{32},
+		SessionTicketKey:            [32]byte{32}, //nolint:staticcheck // need to ensure this value is preserved
 		ClientSessionCache:          tls.NewLRUClientSessionCache(32),
 		MinVersion:                  999, //nolint:gosec // setting to 999 is OK, for this test
 		MaxVersion:                  999,
@@ -846,7 +846,7 @@ func createBaseTLSConfig() *tls.Config {
 }
 
 func assertUnrelatedFieldsUntouched(t testing.TB, base, wrapped *tls.Config) {
-	assert.Equal(t, base.Rand, wrapped.Rand)
+	assert.Equal(t, base.Rand, wrapped.Rand) //nolint:staticcheck // need to assert this field is not inadvertently mutated
 	assert.NotNil(t, wrapped.Time)
 	assert.NotNil(t, wrapped.GetConfigForClient)
 	assert.Equal(t, base.NextProtos, wrapped.NextProtos)
@@ -874,4 +874,42 @@ func (f *fakeSource) GetX509SVID() (*x509svid.SVID, error) {
 		return nil, f.err
 	}
 	return f.svid, nil
+}
+
+func TestMTLSHandshakeMLDSA(t *testing.T) {
+	td := spiffeid.RequireTrustDomainFromString("domain1.test")
+	serverID := spiffeid.RequireFromPath(td, "/server")
+	clientID := spiffeid.RequireFromPath(td, "/client")
+
+	for _, params := range test.MLDSAParameters {
+		t.Run(params, func(t *testing.T) {
+			caKey := test.NewMLDSAKey(t, params)
+			caCert, _ := test.CreateCACertificate(t, nil, nil, test.WithKey(caKey))
+			bundle := x509bundle.FromX509Authorities(td, []*x509.Certificate{caCert})
+
+			newSVID := func(id spiffeid.ID) *x509svid.SVID {
+				key := test.NewMLDSAKey(t, params)
+				cert, _ := test.CreateX509SVID(t, caCert, caKey, id, test.WithKey(key))
+				return &x509svid.SVID{ID: id, Certificates: []*x509.Certificate{cert}, PrivateKey: key}
+			}
+
+			// Authorize the expected peer and check that it really
+			// authenticated with an ML-DSA certificate.
+			authorizeMLDSA := func(expected spiffeid.ID) tlsconfig.Authorizer {
+				return func(id spiffeid.ID, chains [][]*x509.Certificate) error {
+					if id != expected {
+						return fmt.Errorf("unexpected peer ID %q", id)
+					}
+					if _, ok := test.MLDSAParameterSet(chains[0][0].PublicKey); !ok {
+						return fmt.Errorf("unexpected peer public key algorithm %s", chains[0][0].PublicKeyAlgorithm)
+					}
+					return nil
+				}
+			}
+
+			serverConfig := tlsconfig.MTLSServerConfig(newSVID(serverID), bundle, authorizeMLDSA(clientID))
+			clientConfig := tlsconfig.MTLSClientConfig(newSVID(clientID), bundle, authorizeMLDSA(serverID))
+			testConnection(t, serverConfig, clientConfig, "", "")
+		})
+	}
 }

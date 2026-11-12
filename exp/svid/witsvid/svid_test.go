@@ -1,6 +1,7 @@
 package witsvid_test
 
 import (
+	"crypto"
 	"crypto/ecdsa"
 	"encoding/json"
 	"testing"
@@ -10,6 +11,7 @@ import (
 	"github.com/go-jose/go-jose/v4/jwt"
 	"github.com/spiffe/go-spiffe/v2/exp/bundle/witbundle"
 	"github.com/spiffe/go-spiffe/v2/exp/svid/witsvid"
+	"github.com/spiffe/go-spiffe/v2/internal/cryptoutil"
 	"github.com/spiffe/go-spiffe/v2/internal/test"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/stretchr/testify/assert"
@@ -276,7 +278,7 @@ func TestMarshal(t *testing.T) {
 // "cnf.jwk must be a public key" failure path.
 func makeCnfJWKMap(t *testing.T, key any, kid string) map[string]any {
 	t.Helper()
-	jwk := jose.JSONWebKey{Key: key, KeyID: kid, Algorithm: string(jose.ES256)}
+	jwk := jose.JSONWebKey{Key: key, KeyID: kid, Algorithm: string(algForKey(t, key))}
 	data, err := jwk.MarshalJSON()
 	require.NoError(t, err)
 	var m map[string]any
@@ -297,7 +299,7 @@ func makeValidClaims(t *testing.T, id spiffeid.ID, cnfPub any, kid string) map[s
 
 // makeToken builds and signs a WIT-SVID token. An empty typ omits the typ
 // header entirely (producing typ="" when parsed).
-func makeToken(t *testing.T, signingKey *ecdsa.PrivateKey, kid, typ string, claims map[string]any) string {
+func makeToken(t *testing.T, signingKey crypto.Signer, kid, typ string, claims map[string]any) string {
 	t.Helper()
 	opts := new(jose.SignerOptions)
 	if typ != "" {
@@ -305,7 +307,7 @@ func makeToken(t *testing.T, signingKey *ecdsa.PrivateKey, kid, typ string, clai
 	}
 	signer, err := jose.NewSigner(
 		jose.SigningKey{
-			Algorithm: jose.ES256,
+			Algorithm: algForKey(t, signingKey),
 			Key:       jose.JSONWebKey{Key: signingKey, KeyID: kid},
 		},
 		opts,
@@ -314,4 +316,56 @@ func makeToken(t *testing.T, signingKey *ecdsa.PrivateKey, kid, typ string, clai
 	tok, err := jwt.Signed(signer).Claims(claims).Serialize()
 	require.NoError(t, err)
 	return tok
+}
+
+// algForKey returns the JWS algorithm used with the given public or private
+// key in these tests.
+func algForKey(t *testing.T, key any) jose.SignatureAlgorithm {
+	t.Helper()
+	switch key.(type) {
+	case *ecdsa.PrivateKey, *ecdsa.PublicKey:
+		return jose.ES256
+	}
+	// JOSE names the ML-DSA algorithms after their parameter sets.
+	if params, ok := test.MLDSAParameterSet(key); ok {
+		return jose.SignatureAlgorithm(params)
+	}
+	t.Fatalf("no test algorithm for key type %T", key)
+	return ""
+}
+
+func TestMLDSA(t *testing.T) {
+	const kid = "key-1"
+	for _, params := range test.MLDSAParameters {
+		t.Run(params, func(t *testing.T) {
+			signingKey := test.NewMLDSAKey(t, params)
+			cnfKey := test.NewMLDSAKey(t, params)
+			tok := makeToken(t, signingKey, kid, "wit+jwt", makeValidClaims(t, workload, cnfKey.Public(), kid))
+
+			bundle := witbundle.New(td)
+			require.NoError(t, bundle.AddWITAuthority(kid, signingKey.Public()))
+
+			svid, err := witsvid.ParseAndValidate(tok, bundle)
+			require.NoError(t, err)
+			assert.Equal(t, workload, svid.ID)
+			assert.Equal(t, kid, svid.KeyID)
+			equal, err := cryptoutil.PublicKeyEqual(cnfKey.Public(), svid.PublicKey)
+			require.NoError(t, err)
+			assert.True(t, equal, "cnf.jwk should hold the ML-DSA public key")
+
+			t.Run("signature mismatch", func(t *testing.T) {
+				bundle := witbundle.New(td)
+				require.NoError(t, bundle.AddWITAuthority(kid, test.NewMLDSAKey(t, params).Public()))
+				_, err := witsvid.ParseAndValidate(tok, bundle)
+				require.ErrorContains(t, err, "witsvid: signature verification failed")
+			})
+
+			t.Run("cnf.jwk private key rejected", func(t *testing.T) {
+				c := makeValidClaims(t, workload, cnfKey.Public(), kid)
+				c["cnf"] = map[string]any{"jwk": makeCnfJWKMap(t, cnfKey, kid)}
+				_, err := witsvid.ParseInsecure(makeToken(t, signingKey, kid, "wit+jwt", c))
+				require.EqualError(t, err, "witsvid: cnf.jwk must be a public key")
+			})
+		})
+	}
 }

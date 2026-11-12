@@ -20,6 +20,9 @@ func NewEC256Key(tb testing.TB) *ecdsa.PrivateKey {
 	return key
 }
 
+// MLDSAParameters names every ML-DSA parameter set that is supported
+var MLDSAParameters = []string{"ML-DSA-44", "ML-DSA-65", "ML-DSA-87"}
+
 // NewKeyID returns a random id useful for identifying keys
 func NewKeyID(tb testing.TB) string {
 	choices := make([]byte, 32)
