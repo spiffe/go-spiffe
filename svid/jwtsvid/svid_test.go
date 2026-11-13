@@ -130,6 +130,21 @@ func TestParseAndValidate(t *testing.T) {
 			err: "jwtsvid: token missing exp claim",
 		},
 		{
+			name:   "missing audience claim",
+			bundle: bundle1,
+			generateToken: func(tb testing.TB) string {
+				claims := jwt.Claims{
+					Subject:  spiffeid.RequireFromPath(trustDomain1, "/host").String(),
+					Issuer:   "issuer",
+					Expiry:   expires,
+					IssuedAt: issuedAt,
+				}
+
+				return generateToken(tb, claims, key1, "authority1", "")
+			},
+			err: "jwtsvid: token missing aud claim",
+		},
+		{
 			name:     "expired",
 			bundle:   bundle1,
 			audience: []string{"audience"},
@@ -368,6 +383,20 @@ func TestParseInsecure(t *testing.T) {
 				return generateToken(tb, claims, key1, "key1", "")
 			},
 			err: "jwtsvid: token missing exp claim",
+		},
+		{
+			name: "missing audience claim",
+			generateToken: func(tb testing.TB) string {
+				claims := jwt.Claims{
+					Subject:  spiffeid.RequireFromPath(trustDomain1, "/host").String(),
+					Issuer:   "issuer",
+					Expiry:   expires,
+					IssuedAt: issuedAt,
+				}
+
+				return generateToken(tb, claims, key1, "key1", "")
+			},
+			err: "jwtsvid: token missing aud claim",
 		},
 		{
 			name:     "expired",
