@@ -1,4 +1,5 @@
 // Package exp contains experimental implementations of go-spiffe components
+// * brokerapi - High-level SPIFFE Broker API client and sources
 // * proto/spiffe/broker - SPIFFE Broker API protobuf definitions
 //
 // Note: Code herein may be subject to breaking changes, and should not be
