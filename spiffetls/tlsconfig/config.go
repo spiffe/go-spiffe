@@ -18,8 +18,7 @@ func TLSClientConfig(bundle x509bundle.Source, authorizer Authorizer, opts ...Op
 
 // HookTLSClientConfig sets up the TLS configuration to verify and authorize
 // the server X509-SVID. Existing VerifyPeerCertificate and VerifyConnection
-// callbacks are wrapped and invoked after SPIFFE authentication has
-// completed. See the package documentation on session resumption.
+// callbacks are wrapped and invoked after SPIFFE authentication.
 func HookTLSClientConfig(config *tls.Config, bundle x509bundle.Source, authorizer Authorizer, opts ...Option) {
 	resetAuthFields(config)
 	config.InsecureSkipVerify = true
@@ -66,8 +65,7 @@ func MTLSClientConfig(svid x509svid.Source, bundle x509bundle.Source, authorizer
 // HookMTLSClientConfig sets up the TLS configuration to present an X509-SVID
 // to the server and verify and authorize the server X509-SVID. Existing
 // VerifyPeerCertificate and VerifyConnection callbacks are wrapped and
-// invoked after SPIFFE authentication has completed. See the package
-// documentation on session resumption.
+// invoked after SPIFFE authentication.
 func HookMTLSClientConfig(config *tls.Config, svid x509svid.Source, bundle x509bundle.Source, authorizer Authorizer, opts ...Option) {
 	resetAuthFields(config)
 	config.GetClientCertificate = GetClientCertificate(svid, opts...)
@@ -119,8 +117,7 @@ func MTLSServerConfig(svid x509svid.Source, bundle x509bundle.Source, authorizer
 // HookMTLSServerConfig sets up the TLS configuration to present an X509-SVID
 // to the client and require, verify, and authorize the client X509-SVID.
 // Existing VerifyPeerCertificate and VerifyConnection callbacks are wrapped
-// and invoked after SPIFFE authentication has completed. See the package
-// documentation on session resumption.
+// and invoked after SPIFFE authentication.
 func HookMTLSServerConfig(config *tls.Config, svid x509svid.Source, bundle x509bundle.Source, authorizer Authorizer, opts ...Option) {
 	resetAuthFields(config)
 	config.ClientAuth = tls.RequireAnyClientCert
@@ -140,8 +137,7 @@ func MTLSWebServerConfig(cert *tls.Certificate, bundle x509bundle.Source, author
 // HookMTLSWebServerConfig sets up the TLS configuration to presents a web
 // server certificate to the client and require, verify, and authorize client
 // X509-SVIDs. Existing VerifyPeerCertificate and VerifyConnection callbacks
-// are wrapped and invoked after SPIFFE authentication has completed. See the
-// package documentation on session resumption.
+// are wrapped and invoked after SPIFFE authentication.
 func HookMTLSWebServerConfig(config *tls.Config, cert *tls.Certificate, bundle x509bundle.Source, authorizer Authorizer, opts ...Option) {
 	resetAuthFields(config)
 	config.ClientAuth = tls.RequireAnyClientCert
@@ -170,7 +166,8 @@ func GetClientCertificate(svid x509svid.Source, opts ...Option) func(*tls.Certif
 
 // VerifyPeerCertificate returns a VerifyPeerCertificate callback for
 // tls.Config. It uses the given bundle source and authorizer to verify and
-// authorize X509-SVIDs provided by peers during the TLS handshake.
+// authorize X509-SVIDs provided by peers during the TLS handshake. Go does
+// not call it on resumed sessions; use VerifyConnection to cover them.
 func VerifyPeerCertificate(bundle x509bundle.Source, authorizer Authorizer, opts ...Option) func([][]byte, [][]*x509.Certificate) error {
 	return func(raw [][]byte, _ [][]*x509.Certificate) error {
 		id, certs, err := x509svid.ParseAndVerify(raw, bundle)
@@ -185,6 +182,8 @@ func VerifyPeerCertificate(bundle x509bundle.Source, authorizer Authorizer, opts
 // WrapVerifyPeerCertificate wraps a VerifyPeerCertificate callback, performing
 // SPIFFE authentication against the peer certificates using the given bundle and
 // authorizer. The wrapped callback will be passed the verified chains.
+// Go does not call it on resumed sessions; use WrapVerifyConnection to cover
+// them.
 // Note: TLS clients must set `InsecureSkipVerify` when doing SPIFFE authentication to disable hostname verification.
 func WrapVerifyPeerCertificate(wrapped func([][]byte, [][]*x509.Certificate) error, bundle x509bundle.Source, authorizer Authorizer, opts ...Option) func([][]byte, [][]*x509.Certificate) error {
 	if wrapped == nil {
@@ -205,26 +204,37 @@ func WrapVerifyPeerCertificate(wrapped func([][]byte, [][]*x509.Certificate) err
 	}
 }
 
-// hookPeerVerification authenticates full handshakes in VerifyPeerCertificate
-// and resumed ones in VerifyConnection, since Go skips VerifyPeerCertificate
-// on resumption.
-func hookPeerVerification(config *tls.Config, bundle x509bundle.Source, authorizer Authorizer, opts ...Option) {
-	config.VerifyPeerCertificate = WrapVerifyPeerCertificate(config.VerifyPeerCertificate, bundle, authorizer, opts...)
-	config.VerifyConnection = wrapVerifyConnection(config.VerifyConnection, bundle, authorizer)
+// VerifyConnection returns a VerifyConnection callback for tls.Config. It
+// verifies and authorizes the peer X509-SVID on every handshake, including
+// resumed sessions.
+// Note: TLS clients must set `InsecureSkipVerify` when doing SPIFFE authentication to disable hostname verification.
+func VerifyConnection(bundle x509bundle.Source, authorizer Authorizer, opts ...Option) func(tls.ConnectionState) error {
+	return WrapVerifyConnection(nil, bundle, authorizer, opts...)
 }
 
-func wrapVerifyConnection(wrapped func(tls.ConnectionState) error, bundle x509bundle.Source, authorizer Authorizer) func(tls.ConnectionState) error {
+// WrapVerifyConnection wraps a VerifyConnection callback, invoking it after
+// SPIFFE authentication of the peer on every handshake, including resumed
+// sessions.
+// Note: TLS clients must set `InsecureSkipVerify` when doing SPIFFE authentication to disable hostname verification.
+func WrapVerifyConnection(wrapped func(tls.ConnectionState) error, bundle x509bundle.Source, authorizer Authorizer, opts ...Option) func(tls.ConnectionState) error {
+	return wrapVerifyConnection(wrapped, false, bundle, authorizer, opts...)
+}
+
+// wrapVerifyResumedConnection leaves full handshakes to VerifyPeerCertificate
+// so they are not verified twice.
+func wrapVerifyResumedConnection(wrapped func(tls.ConnectionState) error, bundle x509bundle.Source, authorizer Authorizer, opts ...Option) func(tls.ConnectionState) error {
+	return wrapVerifyConnection(wrapped, true, bundle, authorizer, opts...)
+}
+
+func wrapVerifyConnection(wrapped func(tls.ConnectionState) error, resumedOnly bool, bundle x509bundle.Source, authorizer Authorizer, opts ...Option) func(tls.ConnectionState) error {
+	verify := VerifyPeerCertificate(bundle, authorizer, opts...)
 	return func(cs tls.ConnectionState) error {
-		if cs.DidResume {
+		if cs.DidResume || !resumedOnly {
 			raw := make([][]byte, 0, len(cs.PeerCertificates))
 			for _, cert := range cs.PeerCertificates {
 				raw = append(raw, cert.Raw)
 			}
-			id, certs, err := x509svid.ParseAndVerify(raw, bundle)
-			if err != nil {
-				return err
-			}
-			if err := authorizer(id, certs); err != nil {
+			if err := verify(raw, nil); err != nil {
 				return err
 			}
 		}
@@ -233,6 +243,11 @@ func wrapVerifyConnection(wrapped func(tls.ConnectionState) error, bundle x509bu
 		}
 		return nil
 	}
+}
+
+func hookPeerVerification(config *tls.Config, bundle x509bundle.Source, authorizer Authorizer, opts ...Option) {
+	config.VerifyPeerCertificate = WrapVerifyPeerCertificate(config.VerifyPeerCertificate, bundle, authorizer, opts...)
+	config.VerifyConnection = wrapVerifyResumedConnection(config.VerifyConnection, bundle, authorizer, opts...)
 }
 
 func getTLSCertificate(svid x509svid.Source, trace Trace) (*tls.Certificate, error) {

@@ -1,4 +1,4 @@
-Makefile .PHONY: default all help
+.PHONY: default all help
 
 default: all
 
