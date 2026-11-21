@@ -45,6 +45,7 @@ type mintOption func(*mintConfig)
 func (fn mintOption) configureMint(c *mintConfig) { fn(c) }
 
 // WithProofLifetime overrides DefaultProofLifetime for the minted proof's exp.
+// Mint rejects lifetimes under a second, since exp has whole-second precision.
 func WithProofLifetime(lifetime time.Duration) MintOption {
 	return mintOption(func(c *mintConfig) {
 		c.lifetime = lifetime
@@ -89,8 +90,8 @@ func Mint(svid *witsvid.SVID, audience string, opts ...MintOption) (string, erro
 	for _, opt := range opts {
 		opt.configureMint(config)
 	}
-	if config.lifetime <= 0 {
-		return "", wrapErr(fmt.Errorf("proof lifetime must be positive, got %s", config.lifetime))
+	if config.lifetime < time.Second {
+		return "", wrapErr(fmt.Errorf("proof lifetime must be at least 1s, got %s", config.lifetime))
 	}
 
 	jti, err := newJTI()

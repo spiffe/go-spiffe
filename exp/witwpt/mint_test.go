@@ -266,14 +266,21 @@ func TestMintErrors(t *testing.T) {
 			svid: fixtureSVID,
 			aud:  testAudience,
 			opts: []witwpt.MintOption{witwpt.WithProofLifetime(0)},
-			err:  "witwpt: proof lifetime must be positive, got 0s",
+			err:  "witwpt: proof lifetime must be at least 1s, got 0s",
 		},
 		{
 			name: "negative proof lifetime",
 			svid: fixtureSVID,
 			aud:  testAudience,
 			opts: []witwpt.MintOption{witwpt.WithProofLifetime(-time.Second)},
-			err:  "witwpt: proof lifetime must be positive, got -1s",
+			err:  "witwpt: proof lifetime must be at least 1s, got -1s",
+		},
+		{
+			name: "sub-second proof lifetime",
+			svid: fixtureSVID,
+			aud:  testAudience,
+			opts: []witwpt.MintOption{witwpt.WithProofLifetime(100 * time.Millisecond)},
+			err:  "witwpt: proof lifetime must be at least 1s, got 100ms",
 		},
 	}
 
