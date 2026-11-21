@@ -4,11 +4,11 @@
 // cnf.jwk claim, binding the proof to the credential (wth) and to the request
 // target (aud).
 //
-// This package is transport neutral. See exp/withttp for the net/http
-// integration.
+// This package is transport neutral.
 package witwpt
 
 import (
+	"crypto"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
@@ -21,26 +21,14 @@ import (
 	"github.com/spiffe/go-spiffe/v2/exp/svid/witsvid"
 )
 
-const (
-	// DefaultProofLifetime is how far ahead a minted proof's exp is set. The
-	// draft calls for a lifetime of "minutes or seconds".
-	DefaultProofLifetime = 60 * time.Second
-
-	// DefaultLeeway is the clock-skew tolerance a verifier applies to a proof's
-	// exp and nbf. It is tighter than the one-minute jwt.DefaultLeeway witsvid
-	// applies to the WIT, which would nearly double a proof's validity.
-	DefaultLeeway = 10 * time.Second
-
-	// DefaultMaxLifetime is the furthest-future exp a verifier accepts,
-	// enforcing wpt-01 §2's rejection of "unreasonably far future" values.
-	DefaultMaxLifetime = 5 * time.Minute
-)
+// DefaultProofLifetime is how far ahead a minted proof's exp is set. The draft
+// calls for a lifetime of "minutes or seconds".
+const DefaultProofLifetime = 60 * time.Second
 
 // proofType is the required typ header of a WPT (wpt-01 §2).
 const proofType = "wpt+jwt"
 
-// jtiBytes is the entropy behind each proof's jti, per wpt-01 §2's suggested
-// 128 random bits.
+// jtiBytes gives each jti 128 random bits (wpt-01 §2).
 const jtiBytes = 16
 
 // MintOption configures Mint.
@@ -56,9 +44,7 @@ type mintOption func(*mintConfig)
 
 func (fn mintOption) configureMint(c *mintConfig) { fn(c) }
 
-// WithProofLifetime sets how far ahead the minted proof's exp is placed,
-// overriding DefaultProofLifetime. Raising it past the verifier's maximum
-// lifetime causes the proof to be rejected.
+// WithProofLifetime overrides DefaultProofLifetime for the minted proof's exp.
 func WithProofLifetime(lifetime time.Duration) MintOption {
 	return mintOption(func(c *mintConfig) {
 		c.lifetime = lifetime
@@ -85,6 +71,9 @@ func Mint(svid *witsvid.SVID, audience string, opts ...MintOption) (string, erro
 	if witToken == "" {
 		return "", wrapErr(errors.New("WIT-SVID has no token to bind the proof to"))
 	}
+	if !time.Now().Before(svid.Expiry) {
+		return "", wrapErr(fmt.Errorf("WIT-SVID expired at %s", svid.Expiry.UTC().Format(time.RFC3339)))
+	}
 
 	// wpt-01 §2 requires the proof's alg to string-equal the WIT's cnf.jwk.alg.
 	alg, err := confirmationAlgorithm(svid)
@@ -92,9 +81,16 @@ func Mint(svid *witsvid.SVID, audience string, opts ...MintOption) (string, erro
 		return "", err
 	}
 
+	if err := checkKeyMatches(svid); err != nil {
+		return "", err
+	}
+
 	config := &mintConfig{lifetime: DefaultProofLifetime}
 	for _, opt := range opts {
 		opt.configureMint(config)
+	}
+	if config.lifetime <= 0 {
+		return "", wrapErr(fmt.Errorf("proof lifetime must be positive, got %s", config.lifetime))
 	}
 
 	jti, err := newJTI()
@@ -124,17 +120,14 @@ func Mint(svid *witsvid.SVID, audience string, opts ...MintOption) (string, erro
 	return proof, nil
 }
 
-// WITThumbprint returns the wth claim value binding a proof to a WIT-SVID:
-// base64url(SHA-256(ASCII(token))) over the compact serialization, per
-// wpt-01 §2. This hashes the token itself, not an RFC 7638 JWK thumbprint of
-// the confirmation key.
+// WITThumbprint returns the wth claim for a WIT-SVID token:
+// base64url(SHA-256(token)) over its compact serialization (wpt-01 §2).
 func WITThumbprint(witToken string) string {
 	sum := sha256.Sum256([]byte(witToken))
 	return base64.RawURLEncoding.EncodeToString(sum[:])
 }
 
-// confirmationAlgorithm reads cnf.jwk.alg from the credential's claims. witsvid
-// already validated it is present and a supported asymmetric algorithm.
+// confirmationAlgorithm reads cnf.jwk.alg from the credential's claims.
 func confirmationAlgorithm(svid *witsvid.SVID) (jose.SignatureAlgorithm, error) {
 	cnf, ok := svid.Claims["cnf"].(map[string]any)
 	if !ok {
@@ -149,6 +142,19 @@ func confirmationAlgorithm(svid *witsvid.SVID) (jose.SignatureAlgorithm, error) 
 		return "", wrapErr(errors.New("WIT-SVID cnf.jwk has no alg"))
 	}
 	return jose.SignatureAlgorithm(alg), nil
+}
+
+// checkKeyMatches verifies that the private key pairs with the cnf.jwk public key.
+func checkKeyMatches(svid *witsvid.SVID) error {
+	signer, ok := svid.PrivateKey.(crypto.Signer)
+	if !ok {
+		return wrapErr(fmt.Errorf("WIT-SVID private key of type %T cannot sign", svid.PrivateKey))
+	}
+	public, ok := signer.Public().(interface{ Equal(crypto.PublicKey) bool })
+	if !ok || !public.Equal(svid.PublicKey) {
+		return wrapErr(errors.New("WIT-SVID private key does not match its cnf.jwk"))
+	}
+	return nil
 }
 
 func newJTI() (string, error) {

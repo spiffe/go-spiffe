@@ -19,10 +19,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// witFixture is a committed WIT-SVID whose exp is 2100-01-01, so it does not
-// rot. Its signature is a fixed 64-byte filler: ParseInsecure does not verify
-// signatures, and holding the token bytes constant is what makes wantWTH below
-// a stable, independently checkable value.
+// witFixture is a fixed WIT-SVID expiring in 2100 with a filler signature,
+// which ParseInsecure accepts, so its wth is a stable constant.
 const witFixture = "eyJhbGciOiJFUzI1NiIsImtpZCI6IndpdC1hdXRob3JpdHktMSIsInR5cCI6IndpdCtqd3QifQ." +
 	"eyJjbmYiOnsiandrIjp7ImFsZyI6IkVTMjU2IiwiY3J2IjoiUC0yNTYiLCJraWQiOiJjbmYtMSIsImt0eSI6IkVDIiwi" +
 	"eCI6ImlLWnM3QzlPTWFrWm9DTkZDSmpjSWU4aHB4QkR2SGVDSTJsdzVnRVR1dWsiLCJ5IjoieHkzMGFfYzJ3YmduMkxl" +
@@ -30,25 +28,21 @@ const witFixture = "eyJhbGciOiJFUzI1NiIsImtpZCI6IndpdC1hdXRob3JpdHktMSIsInR5cCI6
 	"cyI6InNwaWZmZTovL2V4YW1wbGUub3JnIiwic3ViIjoic3BpZmZlOi8vZXhhbXBsZS5vcmcvY2xpZW50In0." +
 	"AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0-Pw"
 
-// witFixturePrivJWK is the private half of witFixture's cnf.jwk. It is a test
-// fixture, not a credential.
+// witFixturePrivJWK is the test-only private half of witFixture's cnf.jwk.
 const witFixturePrivJWK = `{"kty":"EC","kid":"cnf-1","crv":"P-256","alg":"ES256",` +
 	`"x":"iKZs7C9OMakZoCNFCJjcIe8hpxBDvHeCI2lw5gETuuk",` +
 	`"y":"xy30a_c2wbgn2LeI_hwo1ETwKksoK3ziSder3ih94w8",` +
 	`"d":"i7Q5Wgfd1jPpqMlApObMNHhkyTSEnVVLKtLfIOizFPE"}`
 
-// wantWTH is base64url(SHA-256(ASCII(witFixture))) per draft-ietf-wimse-wpt-01
-// §2 -- a hash of the whole compact serialization, NOT an RFC 7638 JWK
-// thumbprint. Derived without this package's code, and reproducible with:
+// wantWTH is base64url(SHA-256(witFixture)), computed outside this package with:
 //
 //	printf '%s' "$WIT" | openssl dgst -sha256 -binary | base64 | tr '+/' '-_' | tr -d '='
 const wantWTH = "YbWmBlkKlYIC8qAmT-RLp-ZWyPIfrijSxszwpN3CUyQ"
 
 const testAudience = "https://server.example.org/v2/orders"
 
-// TestMintWTHMatchesIndependentlyDerivedConstant is the anchor test for the
-// single highest-risk value in the implementation: the wrong reading of wth
-// (a JWK thumbprint) would still round-trip against our own verifier.
+// TestMintWTHMatchesIndependentlyDerivedConstant pins wth to an external value,
+// since a misreading shared by Mint and Verify would still round-trip.
 func TestMintWTHMatchesIndependentlyDerivedConstant(t *testing.T) {
 	svid := fixtureSVID(t)
 
@@ -59,7 +53,7 @@ func TestMintWTHMatchesIndependentlyDerivedConstant(t *testing.T) {
 	assert.Equal(t, wantWTH, claims["wth"],
 		"wth must be base64url(SHA-256(WIT compact serialization))")
 
-	// Guard against the tempting-but-wrong RFC 7638 thumbprint reading.
+	// wth is not the RFC 7638 JWK thumbprint.
 	thumbprint, err := (&jose.JSONWebKey{Key: svid.PublicKey}).Thumbprint(crypto.SHA256)
 	require.NoError(t, err)
 	assert.NotEqual(t, base64.RawURLEncoding.EncodeToString(thumbprint), claims["wth"],
@@ -82,28 +76,33 @@ func TestMintClaimAndHeaderShape(t *testing.T) {
 
 	claims := parseProofClaims(t, proof, svid.PublicKey)
 
-	t.Run("aud is the full target URI, query and fragment aside", func(t *testing.T) {
+	t.Run("claim set is exactly aud, exp, iat, jti, and wth", func(t *testing.T) {
+		names := make([]string, 0, len(claims))
+		for name := range claims {
+			names = append(names, name)
+		}
+		assert.ElementsMatch(t, []string{"aud", "exp", "iat", "jti", "wth"}, names)
+	})
+
+	t.Run("aud is the audience as given", func(t *testing.T) {
 		assert.Equal(t, testAudience, claims["aud"])
 	})
 
-	t.Run("exp defaults to DefaultProofLifetime ahead", func(t *testing.T) {
-		exp := numericDate(t, claims["exp"])
-		assert.WithinDuration(t, before.Add(witwpt.DefaultProofLifetime), exp, 5*time.Second)
+	t.Run("iat is the minting time", func(t *testing.T) {
+		assert.WithinDuration(t, before, numericDate(t, claims["iat"]), 2*time.Second)
+	})
+
+	t.Run("exp defaults to DefaultProofLifetime after iat", func(t *testing.T) {
+		iat := numericDate(t, claims["iat"])
+		assert.Equal(t, iat.Add(witwpt.DefaultProofLifetime), numericDate(t, claims["exp"]))
 	})
 
 	t.Run("jti is present", func(t *testing.T) {
 		assert.NotEmpty(t, claims["jti"])
 	})
-
-	t.Run("no aud-free or identity claims are invented", func(t *testing.T) {
-		// The WPT carries no identity; sub must not appear.
-		assert.NotContains(t, claims, "sub")
-	})
 }
 
 func TestMintAlgTracksCnfJWKAlg(t *testing.T) {
-	// wpt-01 §2 requires the proof's alg to string-equal the WIT's cnf.jwk.alg,
-	// so it is read from the credential rather than chosen by us.
 	rsaKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	require.NoError(t, err)
 	ecKey := test.NewEC256Key(t)
@@ -128,7 +127,6 @@ func TestMintAlgTracksCnfJWKAlg(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, string(tt.alg), tok.Headers[0].Algorithm)
 
-			// And the signature really verifies under the cnf public key.
 			var claims map[string]any
 			require.NoError(t, tok.Claims(tt.key.Public(), &claims))
 		})
@@ -168,10 +166,19 @@ func TestMintWithProofLifetime(t *testing.T) {
 }
 
 func TestMintErrors(t *testing.T) {
+	withClaims := func(edit func(claims map[string]any)) func(*testing.T) *witsvid.SVID {
+		return func(t *testing.T) *witsvid.SVID {
+			svid := fixtureSVID(t)
+			edit(svid.Claims)
+			return svid
+		}
+	}
+
 	tests := []struct {
 		name string
 		svid func(*testing.T) *witsvid.SVID
 		aud  string
+		opts []witwpt.MintOption
 		err  string
 	}{
 		{
@@ -196,15 +203,96 @@ func TestMintErrors(t *testing.T) {
 			aud:  "",
 			err:  "witwpt: no audience provided",
 		},
+		{
+			name: "SVID without a token",
+			svid: func(t *testing.T) *witsvid.SVID {
+				return &witsvid.SVID{PrivateKey: test.NewEC256Key(t)}
+			},
+			aud: testAudience,
+			err: "witwpt: WIT-SVID has no token to bind the proof to",
+		},
+		{
+			name: "expired SVID",
+			svid: func(t *testing.T) *witsvid.SVID {
+				svid := fixtureSVID(t)
+				svid.Expiry = time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+				return svid
+			},
+			aud: testAudience,
+			err: "witwpt: WIT-SVID expired at 2020-01-01T00:00:00Z",
+		},
+		{
+			name: "missing cnf",
+			svid: withClaims(func(claims map[string]any) { delete(claims, "cnf") }),
+			aud:  testAudience,
+			err:  "witwpt: WIT-SVID claims have no cnf object",
+		},
+		{
+			name: "missing cnf.jwk",
+			svid: withClaims(func(claims map[string]any) { claims["cnf"] = map[string]any{} }),
+			aud:  testAudience,
+			err:  "witwpt: WIT-SVID cnf claim has no jwk object",
+		},
+		{
+			name: "missing cnf.jwk.alg",
+			svid: withClaims(func(claims map[string]any) {
+				delete(claims["cnf"].(map[string]any)["jwk"].(map[string]any), "alg")
+			}),
+			aud: testAudience,
+			err: "witwpt: WIT-SVID cnf.jwk has no alg",
+		},
+		{
+			name: "private key is not a signer",
+			svid: func(t *testing.T) *witsvid.SVID {
+				svid := fixtureSVID(t)
+				svid.PrivateKey = "not a key"
+				return svid
+			},
+			aud: testAudience,
+			err: "witwpt: WIT-SVID private key of type string cannot sign",
+		},
+		{
+			name: "private key does not match the confirmation key",
+			svid: func(t *testing.T) *witsvid.SVID {
+				svid := fixtureSVID(t)
+				svid.PrivateKey = test.NewEC256Key(t)
+				return svid
+			},
+			aud: testAudience,
+			err: "witwpt: WIT-SVID private key does not match its cnf.jwk",
+		},
+		{
+			name: "zero proof lifetime",
+			svid: fixtureSVID,
+			aud:  testAudience,
+			opts: []witwpt.MintOption{witwpt.WithProofLifetime(0)},
+			err:  "witwpt: proof lifetime must be positive, got 0s",
+		},
+		{
+			name: "negative proof lifetime",
+			svid: fixtureSVID,
+			aud:  testAudience,
+			opts: []witwpt.MintOption{witwpt.WithProofLifetime(-time.Second)},
+			err:  "witwpt: proof lifetime must be positive, got -1s",
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			proof, err := witwpt.Mint(tt.svid(t), tt.aud)
+			proof, err := witwpt.Mint(tt.svid(t), tt.aud, tt.opts...)
 			require.EqualError(t, err, tt.err)
 			assert.Empty(t, proof)
 		})
 	}
+}
+
+func TestMintRejectsAlgorithmThatDoesNotSuitTheKey(t *testing.T) {
+	rsaKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	require.NoError(t, err)
+
+	proof, err := witwpt.Mint(makeWITSVID(t, jose.ES256, rsaKey), testAudience)
+	require.ErrorContains(t, err, "witwpt: unable to build proof signer")
+	assert.Empty(t, proof)
 }
 
 // --- helpers ---
@@ -215,8 +303,7 @@ var allProofAlgorithms = []jose.SignatureAlgorithm{
 	jose.PS256, jose.PS384, jose.PS512,
 }
 
-// fixtureSVID parses witFixture and attaches its committed private key, giving
-// an SVID whose token bytes -- and therefore whose wth -- are constant.
+// fixtureSVID returns witFixture parsed, with its private key attached.
 func fixtureSVID(t *testing.T) *witsvid.SVID {
 	t.Helper()
 	svid, err := witsvid.ParseInsecure(witFixture)
@@ -260,9 +347,8 @@ func makeWITSVID(t *testing.T, alg jose.SignatureAlgorithm, key crypto.Signer) *
 	return svid
 }
 
-// parseProofClaims parses a proof and verifies its signature under pub, then
-// returns its claims. It never routes through this package's Verify, so mint
-// coverage does not depend on verify being correct.
+// parseProofClaims parses a proof, verifies its signature under pub, and
+// returns its claims.
 func parseProofClaims(t *testing.T, proof string, pub crypto.PublicKey) map[string]any {
 	t.Helper()
 	tok, err := jwt.ParseSigned(proof, allProofAlgorithms)
