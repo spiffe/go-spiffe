@@ -445,6 +445,30 @@ func TestVerifyWithLeeway(t *testing.T) {
 	})
 }
 
+func TestVerifyRejectsMissingAudienceBeforeMatching(t *testing.T) {
+	f := newVerifyFixture(t)
+	acceptAll := func(string) error { return nil }
+
+	for name, aud := range map[string]any{
+		"missing": nil,
+		"empty":   "",
+		"array":   []string{"https://server.example.org"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			claims := f.validProofClaims()
+			if aud == nil {
+				delete(claims, "aud")
+			} else {
+				claims["aud"] = aud
+			}
+			proof := makeWPT(t, f.cnfKey, jose.ES256, "wpt+jwt", claims)
+
+			_, err := witwpt.Verify(t.Context(), f.witToken, proof, f.bundle, acceptAll)
+			require.ErrorContains(t, err, "aud claim must be a non-empty string")
+		})
+	}
+}
+
 func TestVerifyRequiresAnAudienceMatcher(t *testing.T) {
 	f := newVerifyFixture(t)
 	proof := makeWPT(t, f.cnfKey, jose.ES256, "wpt+jwt", f.validProofClaims())

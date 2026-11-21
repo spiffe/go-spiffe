@@ -31,6 +31,31 @@ func TestMemoryReplayCacheReclaimsOnWrite(t *testing.T) {
 		"expired entries must be reclaimed rather than accumulating")
 }
 
+func TestMemoryReplayCacheReclaimsAfterBurst(t *testing.T) {
+	id := spiffeid.RequireFromString("spiffe://example.org/client")
+	cache := newMemoryReplayCache()
+	future := time.Now().Add(time.Minute)
+
+	// A burst of live records raises the size threshold well above them.
+	for i := range 4 * minSweepSize {
+		require.NoError(t, cache.CheckAndRecord(t.Context(), id, "burst-"+strconv.Itoa(i), future))
+	}
+
+	// Once they expire and the interval passes, one quiet write reclaims them.
+	cache.mu.Lock()
+	for key := range cache.entries {
+		cache.entries[key] = time.Now().Add(-time.Second)
+	}
+	cache.lastSweep = time.Now().Add(-maxSweepInterval)
+	cache.mu.Unlock()
+	require.NoError(t, cache.CheckAndRecord(t.Context(), id, "quiet", time.Now().Add(time.Minute)))
+
+	cache.mu.Lock()
+	got := len(cache.entries)
+	cache.mu.Unlock()
+	assert.Equal(t, 1, got)
+}
+
 func TestMemoryReplayCacheKeepsLiveEntriesWhileSweeping(t *testing.T) {
 	id := spiffeid.RequireFromString("spiffe://example.org/client")
 	cache := newMemoryReplayCache()

@@ -187,6 +187,12 @@ func (v *Verifier) verifyProof(witToken, wptToken string, svid *witsvid.SVID) (p
 		return out, errors.New("proof wth claim is not bound to the presented WIT-SVID")
 	}
 
+	// Checked here so a custom AudienceMatcher never sees a proof without aud.
+	audience, _ := raw["aud"].(string)
+	if audience == "" {
+		return out, errors.New("proof aud claim must be a non-empty string")
+	}
+
 	// jti is required regardless of whether a replay cache is configured.
 	jti, _ := raw["jti"].(string)
 	if jti == "" {
@@ -227,7 +233,6 @@ func (v *Verifier) verifyProof(witToken, wptToken string, svid *witsvid.SVID) (p
 		}
 	}
 
-	audience, _ := raw["aud"].(string)
 	out = proofClaims{audience: audience, id: jti, expiry: expiry}
 	return out, nil
 }

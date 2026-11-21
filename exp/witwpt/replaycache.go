@@ -12,6 +12,10 @@ import (
 // cache reclaims expired ones, so a small cache does not sweep on every insert.
 const minSweepSize = 128
 
+// maxSweepInterval bounds how long expired records survive after a burst, when
+// writes are too few to reach the size threshold.
+const maxSweepInterval = time.Minute
+
 // ReplayCache records seen proofs so one cannot be presented twice within its
 // lifetime (wpt-01 §2). It keys on the WPT's jti, never the WIT-SVID's.
 type ReplayCache interface {
@@ -32,6 +36,7 @@ func newMemoryReplayCache() *memoryReplayCache {
 	return &memoryReplayCache{
 		entries:   make(map[replayKey]time.Time),
 		nextSweep: minSweepSize,
+		lastSweep: time.Now(),
 	}
 }
 
@@ -44,6 +49,7 @@ type memoryReplayCache struct {
 	mu        sync.Mutex
 	entries   map[replayKey]time.Time
 	nextSweep int
+	lastSweep time.Time
 }
 
 func (c *memoryReplayCache) CheckAndRecord(
@@ -53,10 +59,11 @@ func (c *memoryReplayCache) CheckAndRecord(
 	defer c.mu.Unlock()
 
 	now := time.Now()
-	if len(c.entries) >= c.nextSweep {
+	if len(c.entries) >= c.nextSweep || now.Sub(c.lastSweep) >= maxSweepInterval {
 		c.sweep(now)
 		// Amortized O(1) per insert, holding steady state near twice the live set.
 		c.nextSweep = 2*len(c.entries) + minSweepSize
+		c.lastSweep = now
 	}
 
 	key := replayKey{id: id.String(), jti: jti}
