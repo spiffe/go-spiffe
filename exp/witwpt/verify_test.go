@@ -9,6 +9,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -489,6 +490,19 @@ func TestVerifyReplayCacheFailureHasItsOwnStage(t *testing.T) {
 	require.ErrorAs(t, err, &verr)
 	assert.Equal(t, witwpt.StageReplayCache, verr.Stage)
 	assert.ErrorIs(t, err, outage)
+}
+
+func TestVerifyReplayCacheWrappedReplayIsAReplay(t *testing.T) {
+	f := newVerifyFixture(t)
+	proof := makeWPT(t, f.cnfKey, jose.ES256, "wpt+jwt", f.validProofClaims())
+	cache := failingCache{err: fmt.Errorf("redis: %w", witwpt.ErrReplayed)}
+	verifier := witwpt.NewVerifier(f.bundle, witwpt.WithReplayCache(cache))
+
+	_, err := verifier.Verify(t.Context(), f.witToken, proof, serverAudience(t))
+
+	var verr *witwpt.Error
+	require.ErrorAs(t, err, &verr)
+	assert.Equal(t, witwpt.StageReplay, verr.Stage)
 }
 
 func TestVerifierOptionsRejectInvalidValues(t *testing.T) {
