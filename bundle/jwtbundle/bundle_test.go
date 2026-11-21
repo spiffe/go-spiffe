@@ -36,6 +36,10 @@ var (
 		"missing kid": {
 			filePath: "testdata/jwks_missing_kid.json",
 		},
+		"unknown key type": {
+			filePath:  "testdata/jwks_unknown_kty.json",
+			keysCount: 1,
+		},
 	}
 )
 
@@ -66,6 +70,9 @@ func TestLoad(t *testing.T) {
 		},
 		{
 			tf: testFiles["valid 2"],
+		},
+		{
+			tf: testFiles["unknown key type"],
 		},
 		{
 			tf:  testFiles["non existent file"],
@@ -101,6 +108,9 @@ func TestRead(t *testing.T) {
 		},
 		{
 			tf: testFiles["valid 2"],
+		},
+		{
+			tf: testFiles["unknown key type"],
 		},
 		{
 			tf:  testFiles["non existent file"],
@@ -140,6 +150,9 @@ func TestParse(t *testing.T) {
 		},
 		{
 			tf: testFiles["valid 2"],
+		},
+		{
+			tf: testFiles["unknown key type"],
 		},
 		{
 			tf:  testFiles["non existent file"],

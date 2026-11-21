@@ -62,6 +62,12 @@ var (
 			err:      "spiffebundle: expected a single certificate in x509-svid entry 0; got 2",
 		},
 		{
+			// Keys with an unsupported kty, a missing use or an unknown use
+			// are ignored, leaving the same authorities as valid_1
+			filePath:  "testdata/spiffebundle_ignored_keys.json",
+			keysCount: 1,
+		},
+		{
 			filePath:       "testdata/spiffebundle_valid_with_wit.json",
 			keysCount:      2,
 			witKeysCount:   2,
