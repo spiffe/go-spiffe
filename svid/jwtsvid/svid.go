@@ -122,6 +122,10 @@ func parse(token string, audience []string, getClaims tokenValidator) (*SVID, er
 		return nil, wrapJwtsvidErr(errors.New("token missing subject claim"))
 	case claims.Expiry == nil:
 		return nil, wrapJwtsvidErr(errors.New("token missing exp claim"))
+	case len(claims.Audience) == 0:
+		// The audience check below is skipped when no audience is expected,
+		// but the spec requires every JWT-SVID to carry an aud claim.
+		return nil, wrapJwtsvidErr(errors.New("token missing aud claim"))
 	}
 
 	spiffeID, err := spiffeid.FromString(claims.Subject)
