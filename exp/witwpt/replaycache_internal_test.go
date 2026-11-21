@@ -1,0 +1,74 @@
+package witwpt
+
+// White-box, since reclaiming entries on write is not observable from outside.
+
+import (
+	"strconv"
+	"testing"
+	"time"
+
+	"github.com/spiffe/go-spiffe/v2/spiffeid"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+func TestMemoryReplayCacheReclaimsOnWrite(t *testing.T) {
+	id := spiffeid.RequireFromString("spiffe://example.org/client")
+	cache := newMemoryReplayCache()
+	past := time.Now().Add(-time.Second)
+
+	// Insert well past the initial sweep threshold, all already expired.
+	for i := range 4 * minSweepSize {
+		jti := "expired-" + strconv.Itoa(i)
+		require.NoError(t, cache.CheckAndRecord(t.Context(), id, jti, past))
+	}
+
+	cache.mu.Lock()
+	got := len(cache.entries)
+	cache.mu.Unlock()
+
+	assert.LessOrEqual(t, got, 2*minSweepSize,
+		"expired entries must be reclaimed rather than accumulating")
+}
+
+func TestMemoryReplayCacheReclaimsAfterBurst(t *testing.T) {
+	id := spiffeid.RequireFromString("spiffe://example.org/client")
+	cache := newMemoryReplayCache()
+	future := time.Now().Add(time.Minute)
+
+	// A burst of live records raises the size threshold well above them.
+	for i := range 4 * minSweepSize {
+		require.NoError(t, cache.CheckAndRecord(t.Context(), id, "burst-"+strconv.Itoa(i), future))
+	}
+
+	// Once they expire and the interval passes, one quiet write reclaims them.
+	cache.mu.Lock()
+	for key := range cache.entries {
+		cache.entries[key] = time.Now().Add(-time.Second)
+	}
+	cache.lastSweep = time.Now().Add(-maxSweepInterval)
+	cache.mu.Unlock()
+	require.NoError(t, cache.CheckAndRecord(t.Context(), id, "quiet", time.Now().Add(time.Minute)))
+
+	cache.mu.Lock()
+	got := len(cache.entries)
+	cache.mu.Unlock()
+	assert.Equal(t, 1, got)
+}
+
+func TestMemoryReplayCacheKeepsLiveEntriesWhileSweeping(t *testing.T) {
+	id := spiffeid.RequireFromString("spiffe://example.org/client")
+	cache := newMemoryReplayCache()
+	past := time.Now().Add(-time.Second)
+	future := time.Now().Add(time.Minute)
+
+	// One live entry, then enough expired ones to trigger sweeps.
+	require.NoError(t, cache.CheckAndRecord(t.Context(), id, "live", future))
+	for i := range 4 * minSweepSize {
+		require.NoError(t, cache.CheckAndRecord(t.Context(), id, "expired-"+strconv.Itoa(i), past))
+	}
+
+	// A sweep must not have dropped the still-valid record.
+	err := cache.CheckAndRecord(t.Context(), id, "live", future)
+	require.EqualError(t, err, "proof token has already been used")
+}
