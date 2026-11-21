@@ -79,7 +79,7 @@ func Mint(svid *witsvid.SVID, audience string, opts ...MintOption) (string, erro
 	// wpt-01 §2 requires the proof's alg to string-equal the WIT's cnf.jwk.alg.
 	alg, err := confirmationAlgorithm(svid)
 	if err != nil {
-		return "", err
+		return "", wrapErr(err)
 	}
 
 	if err := checkKeyMatches(svid); err != nil {
@@ -132,15 +132,15 @@ func WITThumbprint(witToken string) string {
 func confirmationAlgorithm(svid *witsvid.SVID) (jose.SignatureAlgorithm, error) {
 	cnf, ok := svid.Claims["cnf"].(map[string]any)
 	if !ok {
-		return "", wrapErr(errors.New("WIT-SVID claims have no cnf object"))
+		return "", errors.New("WIT-SVID claims have no cnf object")
 	}
 	jwk, ok := cnf["jwk"].(map[string]any)
 	if !ok {
-		return "", wrapErr(errors.New("WIT-SVID cnf claim has no jwk object"))
+		return "", errors.New("WIT-SVID cnf claim has no jwk object")
 	}
 	alg, ok := jwk["alg"].(string)
 	if !ok || alg == "" {
-		return "", wrapErr(errors.New("WIT-SVID cnf.jwk has no alg"))
+		return "", errors.New("WIT-SVID cnf.jwk has no alg")
 	}
 	return jose.SignatureAlgorithm(alg), nil
 }

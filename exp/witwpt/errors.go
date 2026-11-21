@@ -5,9 +5,8 @@ import (
 	"fmt"
 )
 
-// errReplayed is the cause of a StageReplay failure. Callers match on Stage,
-// so it is unexported.
-var errReplayed = errors.New("proof token has already been used")
+// ErrReplayed is returned by a ReplayCache for a proof it has already recorded.
+var ErrReplayed = errors.New("proof token has already been used")
 
 // Stage identifies which step of verification rejected a request, so a
 // rejection can be counted and not only logged.
@@ -22,12 +21,16 @@ const (
 
 	// StageReplay covers a proof whose jti has already been recorded.
 	StageReplay
+
+	// StageReplayCache covers a ReplayCache that failed to check or record a proof.
+	StageReplayCache
 )
 
 var stageNames = map[Stage]struct{ label, failure string }{
-	StageWIT:    {"wit", "WIT-SVID validation failed"},
-	StageProof:  {"proof", "proof verification failed"},
-	StageReplay: {"replay", "replay check failed"},
+	StageWIT:         {"wit", "WIT-SVID validation failed"},
+	StageProof:       {"proof", "proof verification failed"},
+	StageReplay:      {"replay", "replay check failed"},
+	StageReplayCache: {"replay_cache", "replay cache failed"},
 }
 
 // String returns a short, stable label suitable for use as a metric dimension.

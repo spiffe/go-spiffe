@@ -1,11 +1,14 @@
 package witwpt_test
 
 import (
+	"context"
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"testing"
 	"time"
 
@@ -110,7 +113,7 @@ func TestVerifyRejections(t *testing.T) {
 				unrelated := test.NewEC256Key(t)
 				return makeWPT(t, unrelated, jose.ES256, "wpt+jwt", f.validProofClaims())
 			},
-			errPart: "signature",
+			errPart: "proof signature verification failed",
 		},
 		{
 			name:  "proof alg does not match cnf.jwk.alg",
@@ -124,7 +127,7 @@ func TestVerifyRejections(t *testing.T) {
 				return makeWIT(t, f.authority, "authority-1", f.id, f.cnfKey.Public(),
 					jose.ES512, time.Now().Add(time.Hour))
 			},
-			errPart: "alg",
+			errPart: `proof alg "ES256" does not match the WIT-SVID's cnf.jwk alg "ES512"`,
 		},
 		{
 			name:  "proof signed with a different algorithm than cnf.jwk.alg",
@@ -261,6 +264,60 @@ func TestVerifyRejections(t *testing.T) {
 			errPart: "jti",
 		},
 		{
+			name:  "proof uses alg none",
+			stage: witwpt.StageProof,
+			proof: func(t *testing.T, f *verifyFixture) string {
+				return unsignedWPT(t, f.validProofClaims())
+			},
+			errPart: "unable to parse proof token",
+		},
+		{
+			name:  "proof is HMAC-signed with the cnf public key as the secret",
+			stage: witwpt.StageProof,
+			proof: func(t *testing.T, f *verifyFixture) string {
+				secret, err := jose.JSONWebKey{Key: f.cnfKey.Public()}.MarshalJSON()
+				require.NoError(t, err)
+				signer, err := jose.NewSigner(jose.SigningKey{Algorithm: jose.HS256, Key: secret},
+					(&jose.SignerOptions{}).WithType("wpt+jwt"))
+				require.NoError(t, err)
+				token, err := jwt.Signed(signer).Claims(f.validProofClaims()).Serialize()
+				require.NoError(t, err)
+				return token
+			},
+			errPart: "unable to parse proof token",
+		},
+		{
+			name:  "proof nbf is in the future",
+			stage: witwpt.StageProof,
+			proof: func(t *testing.T, f *verifyFixture) string {
+				claims := f.validProofClaims()
+				claims["nbf"] = jwt.NewNumericDate(time.Now().Add(time.Minute))
+				return makeWPT(t, f.cnfKey, jose.ES256, "wpt+jwt", claims)
+			},
+			errPart: "proof is not yet valid",
+		},
+		{
+			name:  "proof iat is in the future",
+			stage: witwpt.StageProof,
+			proof: func(t *testing.T, f *verifyFixture) string {
+				claims := f.validProofClaims()
+				claims["iat"] = jwt.NewNumericDate(time.Now().Add(time.Minute))
+				return makeWPT(t, f.cnfKey, jose.ES256, "wpt+jwt", claims)
+			},
+			errPart: "proof was issued in the future",
+		},
+		{
+			name:  "proof exp is just past the maximum lifetime plus leeway",
+			stage: witwpt.StageProof,
+			proof: func(t *testing.T, f *verifyFixture) string {
+				claims := f.validProofClaims()
+				claims["exp"] = jwt.NewNumericDate(time.Now().
+					Add(witwpt.DefaultMaxLifetime + witwpt.DefaultLeeway + 5*time.Second))
+				return makeWPT(t, f.cnfKey, jose.ES256, "wpt+jwt", claims)
+			},
+			errPart: "too far in the future",
+		},
+		{
 			name:    "WIT is missing",
 			stage:   witwpt.StageWIT,
 			wit:     func(*testing.T, *verifyFixture) string { return "" },
@@ -385,11 +442,11 @@ func TestVerifyReplayCache(t *testing.T) {
 
 	t.Run("a proof still inside the leeway window cannot be replayed", func(t *testing.T) {
 		// The record must last while the proof is acceptable: exp plus leeway.
-		verifier := witwpt.NewVerifier(f.bundle,
+		verifier := witwpt.NewVerifier(f.bundle, witwpt.WithLeeway(time.Minute),
 			witwpt.WithReplayCache(witwpt.NewMemoryReplayCache()))
 
 		claims := f.validProofClaims()
-		claims["exp"] = jwt.NewNumericDate(time.Now().Add(-witwpt.DefaultLeeway / 2))
+		claims["exp"] = jwt.NewNumericDate(time.Now().Add(-30 * time.Second))
 		expiring := makeWPT(t, f.cnfKey, jose.ES256, "wpt+jwt", claims)
 
 		_, err := verifier.Verify(t.Context(), f.witToken, expiring, audience)
@@ -402,6 +459,44 @@ func TestVerifyReplayCache(t *testing.T) {
 		require.ErrorAs(t, err, &verr)
 		assert.Equal(t, witwpt.StageReplay, verr.Stage)
 	})
+}
+
+func TestVerifyRejectedProofDoesNotConsumeItsJTI(t *testing.T) {
+	f := newVerifyFixture(t)
+	verifier := witwpt.NewVerifier(f.bundle,
+		witwpt.WithReplayCache(witwpt.NewMemoryReplayCache()))
+
+	wrongTarget := f.validProofClaims()
+	wrongTarget["aud"] = "https://elsewhere.example.org"
+	_, err := verifier.Verify(t.Context(), f.witToken,
+		makeWPT(t, f.cnfKey, jose.ES256, "wpt+jwt", wrongTarget), serverAudience(t))
+	require.ErrorContains(t, err, "not accepted here")
+
+	_, err = verifier.Verify(t.Context(), f.witToken,
+		makeWPT(t, f.cnfKey, jose.ES256, "wpt+jwt", f.validProofClaims()), serverAudience(t))
+	require.NoError(t, err)
+}
+
+func TestVerifyReplayCacheFailureHasItsOwnStage(t *testing.T) {
+	f := newVerifyFixture(t)
+	proof := makeWPT(t, f.cnfKey, jose.ES256, "wpt+jwt", f.validProofClaims())
+	outage := errors.New("connection refused")
+	verifier := witwpt.NewVerifier(f.bundle, witwpt.WithReplayCache(failingCache{err: outage}))
+
+	_, err := verifier.Verify(t.Context(), f.witToken, proof, serverAudience(t))
+
+	var verr *witwpt.Error
+	require.ErrorAs(t, err, &verr)
+	assert.Equal(t, witwpt.StageReplayCache, verr.Stage)
+	assert.ErrorIs(t, err, outage)
+}
+
+func TestVerifierOptionsRejectInvalidValues(t *testing.T) {
+	assert.Panics(t, func() { witwpt.NewVerifier(nil) })
+	assert.Panics(t, func() { witwpt.WithReplayCache(nil) })
+	assert.Panics(t, func() { witwpt.WithLeeway(-time.Second) })
+	assert.Panics(t, func() { witwpt.WithMaxProofLifetime(0) })
+	assert.NotPanics(t, func() { witwpt.WithLeeway(0) })
 }
 
 func TestVerifyWithMaxProofLifetime(t *testing.T) {
@@ -475,7 +570,11 @@ func TestVerifyRequiresAnAudienceMatcher(t *testing.T) {
 
 	// A nil matcher must fail closed rather than accept any audience.
 	_, err := witwpt.Verify(t.Context(), f.witToken, proof, f.bundle, nil)
-	require.ErrorContains(t, err, "no audience matcher")
+	require.EqualError(t, err, "witwpt: no audience matcher provided")
+
+	// A caller bug, not a peer failure, so it is not counted under a Stage.
+	var verr *witwpt.Error
+	assert.False(t, errors.As(err, &verr))
 }
 
 // --- local minters ---
@@ -524,6 +623,23 @@ func makeWPT(t *testing.T, key crypto.Signer, alg jose.SignatureAlgorithm, typ s
 	token, err := jwt.Signed(signer).Claims(claims).Serialize()
 	require.NoError(t, err)
 	return token
+}
+
+// unsignedWPT builds an alg "none" proof, which go-jose refuses to sign.
+func unsignedWPT(t *testing.T, claims map[string]any) string {
+	t.Helper()
+	header, err := json.Marshal(map[string]string{"alg": "none", "typ": "wpt+jwt"})
+	require.NoError(t, err)
+	payload, err := json.Marshal(claims)
+	require.NoError(t, err)
+	enc := base64.RawURLEncoding.EncodeToString
+	return enc(header) + "." + enc(payload) + "."
+}
+
+type failingCache struct{ err error }
+
+func (c failingCache) CheckAndRecord(context.Context, spiffeid.ID, string, time.Time) error {
+	return c.err
 }
 
 func serverAudience(t *testing.T) witwpt.AudienceMatcher {

@@ -17,11 +17,12 @@ const minSweepSize = 128
 const maxSweepInterval = time.Minute
 
 // ReplayCache records seen proofs so one cannot be presented twice within its
-// lifetime (wpt-01 §2). It keys on the WPT's jti, never the WIT-SVID's.
+// lifetime (wpt-01 §2). Records are keyed on the SPIFFE ID and the WPT's jti.
 type ReplayCache interface {
-	// CheckAndRecord records the proof identified by id and jti, returning an
-	// error if that pair has already been recorded. exp is when the record may
-	// be dropped. The check and the record must be atomic.
+	// CheckAndRecord atomically records the proof identified by id and jti. It
+	// returns ErrReplayed if the pair is already recorded, and any other error
+	// if it cannot check or record it; both reject the proof. The record must be
+	// kept until exp, an absolute time on the verifier's clock.
 	CheckAndRecord(ctx context.Context, id spiffeid.ID, jti string, exp time.Time) error
 }
 
@@ -68,8 +69,7 @@ func (c *memoryReplayCache) CheckAndRecord(
 
 	key := replayKey{id: id.String(), jti: jti}
 	if previous, ok := c.entries[key]; ok && previous.After(now) {
-		// Unprefixed, since Verify wraps it as StageReplay with the package prefix.
-		return errReplayed
+		return ErrReplayed
 	}
 
 	c.entries[key] = exp

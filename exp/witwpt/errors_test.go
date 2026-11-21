@@ -15,6 +15,7 @@ func TestStageString(t *testing.T) {
 	assert.Equal(t, "wit", witwpt.StageWIT.String())
 	assert.Equal(t, "proof", witwpt.StageProof.String())
 	assert.Equal(t, "replay", witwpt.StageReplay.String())
+	assert.Equal(t, "replay_cache", witwpt.StageReplayCache.String())
 	assert.Equal(t, "unknown", witwpt.Stage(0).String())
 }
 
@@ -24,10 +25,11 @@ func TestErrorCarriesStageAndUnwraps(t *testing.T) {
 
 	t.Run("message names the stage and the cause", func(t *testing.T) {
 		for stage, want := range map[witwpt.Stage]string{
-			witwpt.StageWIT:    "witwpt: WIT-SVID validation failed: boom",
-			witwpt.StageProof:  "witwpt: proof verification failed: boom",
-			witwpt.StageReplay: "witwpt: replay check failed: boom",
-			witwpt.Stage(0):    "witwpt: verification failed: boom",
+			witwpt.StageWIT:         "witwpt: WIT-SVID validation failed: boom",
+			witwpt.StageProof:       "witwpt: proof verification failed: boom",
+			witwpt.StageReplay:      "witwpt: replay check failed: boom",
+			witwpt.StageReplayCache: "witwpt: replay cache failed: boom",
+			witwpt.Stage(0):         "witwpt: verification failed: boom",
 		} {
 			assert.EqualError(t, &witwpt.Error{Stage: stage, Err: cause}, want)
 		}

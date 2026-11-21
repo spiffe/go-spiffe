@@ -49,40 +49,52 @@ func (fn verifyOption) configureVerify(c *verifyConfig) { fn(c) }
 
 // WithReplayCache rejects a proof whose jti was already recorded for the same
 // identity. It is off by default because an in-memory default would not cover
-// replicas.
+// replicas. It panics if cache is nil.
 func WithReplayCache(cache ReplayCache) VerifyOption {
+	if cache == nil {
+		panic("witwpt: WithReplayCache called with a nil cache")
+	}
 	return verifyOption(func(c *verifyConfig) {
 		c.replayCache = cache
 	})
 }
 
-// WithLeeway sets the clock-skew tolerance applied to a proof's exp and nbf,
-// overriding DefaultLeeway. Widening it lengthens the window in which a
-// captured proof stays usable.
+// WithLeeway sets the clock-skew tolerance applied to a proof's exp, nbf, and
+// iat, overriding DefaultLeeway. Widening it lengthens the window in which a
+// captured proof stays usable. It panics if leeway is negative.
 func WithLeeway(leeway time.Duration) VerifyOption {
+	if leeway < 0 {
+		panic("witwpt: WithLeeway called with a negative leeway")
+	}
 	return verifyOption(func(c *verifyConfig) {
 		c.leeway = leeway
 	})
 }
 
 // WithMaxProofLifetime sets how far into the future a proof's exp may sit,
-// overriding DefaultMaxLifetime. It also bounds the memory replay cache's
-// footprint, since no record is kept past it.
+// overriding DefaultMaxLifetime. It panics if maxLifetime is not positive.
 func WithMaxProofLifetime(maxLifetime time.Duration) VerifyOption {
+	if maxLifetime <= 0 {
+		panic("witwpt: WithMaxProofLifetime called with a non-positive lifetime")
+	}
 	return verifyOption(func(c *verifyConfig) {
 		c.maxLifetime = maxLifetime
 	})
 }
 
 // Verifier validates a WIT-SVID and its proof of possession. It is safe for
-// concurrent use; share one so transports share its replay cache.
+// concurrent use.
 type Verifier struct {
 	bundles witbundle.Source
 	config  verifyConfig
 }
 
-// NewVerifier returns a Verifier validating WIT-SVIDs against bundles.
+// NewVerifier returns a Verifier validating WIT-SVIDs against bundles. It
+// panics if bundles is nil.
 func NewVerifier(bundles witbundle.Source, opts ...VerifyOption) *Verifier {
+	if bundles == nil {
+		panic("witwpt: NewVerifier called with a nil bundle source")
+	}
 	config := verifyConfig{
 		leeway:      DefaultLeeway,
 		maxLifetime: DefaultMaxLifetime,
@@ -95,23 +107,22 @@ func NewVerifier(bundles witbundle.Source, opts ...VerifyOption) *Verifier {
 
 // Verify authenticates a peer from its raw WIT and WPT tokens, validating the
 // WIT against the bundle before checking the proof against its cnf key.
-// Failures are *Error; their messages should not be sent to the peer.
+// Verification failures are *Error; their messages should not be sent to the peer.
 func (v *Verifier) Verify(ctx context.Context, witToken, wptToken string,
 	audience AudienceMatcher) (*witsvid.SVID, error) {
 	if audience == nil {
-		return nil, newError(StageProof, errors.New("no audience matcher provided"))
+		return nil, wrapErr(errors.New("no audience matcher provided"))
 	}
 	if witToken == "" {
 		return nil, newError(StageWIT, errors.New("no WIT-SVID token presented"))
 	}
 
-	// Step 1: the credential. Until this succeeds there is no key to trust.
+	// Until the credential is validated there is no key to trust.
 	svid, err := witsvid.ParseAndValidate(witToken, v.bundles)
 	if err != nil {
 		return nil, newError(StageWIT, err)
 	}
 
-	// Step 2: the proof, against the confirmation key the credential named.
 	claims, err := v.verifyProof(witToken, wptToken, svid)
 	if err != nil {
 		return nil, newError(StageProof, err)
@@ -120,13 +131,17 @@ func (v *Verifier) Verify(ctx context.Context, witToken, wptToken string,
 		return nil, newError(StageProof, err)
 	}
 
-	// Step 3: replay, once the identity is known so a jti cannot be claimed
-	// across workloads. The record lasts leeway past exp, since that is how long
-	// the proof stays acceptable.
+	// Replay is checked last, once the proof is otherwise valid, so a rejected
+	// proof does not consume its jti. The record lasts leeway past exp, since
+	// that is how long the proof stays acceptable.
 	if v.config.replayCache != nil {
 		dropAfter := claims.expiry.Add(v.config.leeway)
-		if err := v.config.replayCache.CheckAndRecord(ctx, svid.ID, claims.id, dropAfter); err != nil {
+		err := v.config.replayCache.CheckAndRecord(ctx, svid.ID, claims.id, dropAfter)
+		switch {
+		case errors.Is(err, ErrReplayed):
 			return nil, newError(StageReplay, err)
+		case err != nil:
+			return nil, newError(StageReplayCache, err)
 		}
 	}
 	return svid, nil
@@ -228,6 +243,8 @@ func (v *Verifier) verifyProof(witToken, wptToken string, svid *witsvid.SVID) (p
 				v.config.leeway)
 		case errors.Is(err, jwt.ErrNotValidYet):
 			return out, errors.New("proof is not yet valid")
+		case errors.Is(err, jwt.ErrIssuedInTheFuture):
+			return out, errors.New("proof was issued in the future")
 		default:
 			return out, err
 		}

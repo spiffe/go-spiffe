@@ -14,7 +14,7 @@ type AudienceMatcher func(aud string) error
 
 // AcceptAudience returns an AudienceMatcher accepting any of values. Both sides
 // are reduced to lowercase scheme://authority without a default port, so a proof
-// is bound to a host, not a route. values must be absolute URIs without userinfo.
+// is bound to a host, not a route. values must be http or https URIs without userinfo.
 func AcceptAudience(values ...string) (AudienceMatcher, error) {
 	if len(values) == 0 {
 		return nil, wrapErr(errors.New("no audiences provided"))
@@ -23,19 +23,15 @@ func AcceptAudience(values ...string) (AudienceMatcher, error) {
 	for _, value := range values {
 		normalized, err := normalizeAudience(value)
 		if err != nil {
-			return nil, wrapErr(fmt.Errorf("audience %q is not a valid absolute URI", value))
+			return nil, wrapErr(fmt.Errorf("audience %q is not an absolute http(s) URI", value))
 		}
 		accepted = append(accepted, normalized)
 	}
 
 	return func(aud string) error {
-		if aud == "" {
-			return wrapErr(errors.New("proof is missing the aud claim"))
-		}
-
 		normalized, err := normalizeAudience(aud)
 		if err != nil {
-			return wrapErr(fmt.Errorf("proof audience %q is not a valid absolute URI", aud))
+			return fmt.Errorf("proof audience %q is not an absolute http(s) URI", aud)
 		}
 
 		for _, candidate := range accepted {
@@ -46,8 +42,8 @@ func AcceptAudience(values ...string) (AudienceMatcher, error) {
 
 		// Both sides are named so a proxy or port misconfiguration is diagnosable
 		// from one log line.
-		return wrapErr(fmt.Errorf("proof audience %q is not accepted here (expected one of %q)",
-			aud, accepted))
+		return fmt.Errorf("proof audience %q is not accepted here (expected one of %q)",
+			aud, accepted)
 	}, nil
 }
 
@@ -58,9 +54,11 @@ func normalizeAudience(value string) (string, error) {
 		return "", err
 	}
 
+	// Other schemes, such as spiffe, would lose their path and collapse to the
+	// trust domain.
 	scheme := strings.ToLower(parsed.Scheme)
-	if scheme == "" || parsed.Host == "" {
-		return "", fmt.Errorf("not an absolute URI: %q", value)
+	if (scheme != "https" && scheme != "http") || parsed.Host == "" {
+		return "", fmt.Errorf("not an absolute http(s) URI: %q", value)
 	}
 	if parsed.User != nil {
 		return "", fmt.Errorf("userinfo in %q", value)

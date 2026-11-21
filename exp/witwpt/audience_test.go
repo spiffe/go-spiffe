@@ -74,34 +74,34 @@ func TestAcceptAudience(t *testing.T) {
 			name:     "different host is rejected",
 			accepted: []string{"https://b.example.org"},
 			aud:      "https://a.example.org",
-			err: `witwpt: proof audience "https://a.example.org" is not accepted here ` +
+			err: `proof audience "https://a.example.org" is not accepted here ` +
 				`(expected one of ["https://b.example.org"])`,
 		},
 		{
 			name:     "different port is rejected",
 			accepted: []string{"https://server.example.org:8443"},
 			aud:      "https://server.example.org:9443",
-			err: `witwpt: proof audience "https://server.example.org:9443" is not accepted here ` +
+			err: `proof audience "https://server.example.org:9443" is not accepted here ` +
 				`(expected one of ["https://server.example.org:8443"])`,
 		},
 		{
 			name:     "different scheme is rejected",
 			accepted: []string{"https://server.example.org"},
 			aud:      "http://server.example.org",
-			err: `witwpt: proof audience "http://server.example.org" is not accepted here ` +
+			err: `proof audience "http://server.example.org" is not accepted here ` +
 				`(expected one of ["https://server.example.org"])`,
 		},
 		{
 			name:     "empty audience is rejected",
 			accepted: []string{"https://server.example.org"},
 			aud:      "",
-			err:      "witwpt: proof is missing the aud claim",
+			err:      `proof audience "" is not an absolute http(s) URI`,
 		},
 		{
 			name:     "audience without a scheme is rejected",
 			accepted: []string{"https://server.example.org"},
 			aud:      "server.example.org",
-			err:      `witwpt: proof audience "server.example.org" is not a valid absolute URI`,
+			err:      `proof audience "server.example.org" is not an absolute http(s) URI`,
 		},
 		{
 			name:     "IPv6 host with a port matches",
@@ -117,14 +117,38 @@ func TestAcceptAudience(t *testing.T) {
 			name:     "IPv6 host does not collide with a longer address",
 			accepted: []string{"https://[::1]:8443"},
 			aud:      "https://[::1:8443]",
-			err: `witwpt: proof audience "https://[::1:8443]" is not accepted here ` +
+			err: `proof audience "https://[::1:8443]" is not accepted here ` +
 				`(expected one of ["https://[::1]:8443"])`,
+		},
+		{
+			name:     "SPIFFE ID audience is rejected rather than collapsed to its trust domain",
+			accepted: []string{"https://server.example.org"},
+			aud:      "spiffe://example.org/server-b",
+			err:      `proof audience "spiffe://example.org/server-b" is not an absolute http(s) URI`,
+		},
+		{
+			name:     "URN audience is rejected",
+			accepted: []string{"https://server.example.org"},
+			aud:      "urn:example:server",
+			err:      `proof audience "urn:example:server" is not an absolute http(s) URI`,
+		},
+		{
+			name:     "audience without a host is rejected",
+			accepted: []string{"https://server.example.org"},
+			aud:      "https://:443",
+			err:      `proof audience "https://:443" is not an absolute http(s) URI`,
+		},
+		{
+			name:     "unparsable audience is rejected",
+			accepted: []string{"https://server.example.org"},
+			aud:      "https://%zz",
+			err:      `proof audience "https://%zz" is not an absolute http(s) URI`,
 		},
 		{
 			name:     "audience with userinfo is rejected",
 			accepted: []string{"https://server.example.org"},
 			aud:      "https://evil@server.example.org",
-			err:      `witwpt: proof audience "https://evil@server.example.org" is not a valid absolute URI`,
+			err:      `proof audience "https://evil@server.example.org" is not an absolute http(s) URI`,
 		},
 	}
 
@@ -157,12 +181,17 @@ func TestAcceptAudienceRejectsBadConfiguration(t *testing.T) {
 		{
 			name:   "value without a scheme",
 			values: []string{"https://server.example.org", "not a uri"},
-			err:    `witwpt: audience "not a uri" is not a valid absolute URI`,
+			err:    `witwpt: audience "not a uri" is not an absolute http(s) URI`,
+		},
+		{
+			name:   "SPIFFE ID value",
+			values: []string{"spiffe://example.org/server-a"},
+			err:    `witwpt: audience "spiffe://example.org/server-a" is not an absolute http(s) URI`,
 		},
 		{
 			name:   "value with userinfo",
 			values: []string{"https://user@server.example.org"},
-			err:    `witwpt: audience "https://user@server.example.org" is not a valid absolute URI`,
+			err:    `witwpt: audience "https://user@server.example.org" is not an absolute http(s) URI`,
 		},
 	}
 
