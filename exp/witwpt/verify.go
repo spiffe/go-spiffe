@@ -23,9 +23,8 @@ var allowedProofAlgorithms = []jose.SignatureAlgorithm{
 }
 
 const (
-	// DefaultLeeway is the clock-skew tolerance a verifier applies to a proof's
-	// exp and nbf. It is tighter than the one-minute jwt.DefaultLeeway witsvid
-	// applies to the WIT, which would nearly double a proof's validity.
+	// DefaultLeeway is the clock-skew tolerance for a proof's exp and nbf. It is
+	// tighter than witsvid's one minute, which would nearly double a proof's validity.
 	DefaultLeeway = 10 * time.Second
 
 	// DefaultMaxLifetime is the furthest-future exp a verifier accepts,
@@ -48,10 +47,9 @@ type verifyOption func(*verifyConfig)
 
 func (fn verifyOption) configureVerify(c *verifyConfig) { fn(c) }
 
-// WithReplayCache enables replay protection, rejecting a proof whose jti has
-// already been recorded for the presenting identity. It is off by default,
-// since NewMemoryReplayCache covers a single process only and enabling it by
-// default would look like complete coverage across replicas.
+// WithReplayCache rejects a proof whose jti was already recorded for the same
+// identity. It is off by default because an in-memory default would not cover
+// replicas.
 func WithReplayCache(cache ReplayCache) VerifyOption {
 	return verifyOption(func(c *verifyConfig) {
 		c.replayCache = cache
@@ -77,8 +75,7 @@ func WithMaxProofLifetime(maxLifetime time.Duration) VerifyOption {
 }
 
 // Verifier validates a WIT-SVID and its proof of possession. It is safe for
-// concurrent use; build one at startup and share it so every transport shares
-// its settings and replay cache.
+// concurrent use; share one so transports share its replay cache.
 type Verifier struct {
 	bundles witbundle.Source
 	config  verifyConfig
@@ -96,16 +93,9 @@ func NewVerifier(bundles witbundle.Source, opts ...VerifyOption) *Verifier {
 	return &Verifier{bundles: bundles, config: config}
 }
 
-// Verify authenticates a peer from the two raw tokens it presented, returning
-// the verified WIT-SVID. audience decides which aud values are acceptable for
-// this request and must not be nil.
-//
-// It takes raw tokens rather than a parsed SVID so the normative order is
-// unskippable: the WIT-SVID is validated against the trust bundle first, and
-// only then is the proof checked against the confirmation key it named.
-//
-// A failure is returned as *Error carrying the Stage that rejected it. Its
-// message should not be surfaced to a remote peer.
+// Verify authenticates a peer from its raw WIT and WPT tokens, validating the
+// WIT against the bundle before checking the proof against its cnf key.
+// Failures are *Error; their messages should not be sent to the peer.
 func (v *Verifier) Verify(ctx context.Context, witToken, wptToken string,
 	audience AudienceMatcher) (*witsvid.SVID, error) {
 	if audience == nil {
@@ -180,8 +170,7 @@ func (v *Verifier) verifyProof(witToken, wptToken string, svid *witsvid.SVID) (p
 			header.Algorithm, expectedAlg)
 	}
 
-	// The signature must verify under the confirmation public key: this is the
-	// proof of possession.
+	// Proof of possession: the signature must verify under the cnf key.
 	var raw map[string]any
 	if err := tok.Claims(svid.PublicKey, &raw); err != nil {
 		return out, fmt.Errorf("proof signature verification failed: %w", err)
@@ -248,9 +237,8 @@ func (v *Verifier) verifyProof(witToken, wptToken string, svid *witsvid.SVID) (p
 // another end-user-context token.
 var bindingClaims = []string{"ath", "tth", "oth"}
 
-// rejectTokenBindings fails closed on a binding this package does not model.
-// Ignoring one would let a stolen bearer token look bound when it is not, and
-// wpt-01 §2 requires rejecting an oth entry the recipient does not understand.
+// rejectTokenBindings fails closed on bindings this package does not enforce,
+// which would otherwise make a stolen bearer token look bound.
 func rejectTokenBindings(raw map[string]any) error {
 	for _, claim := range bindingClaims {
 		if _, ok := raw[claim]; ok {

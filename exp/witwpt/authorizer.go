@@ -7,9 +7,8 @@ import (
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 )
 
-// Authorizer decides whether an authenticated peer may proceed. It runs only
-// after verification has succeeded, and takes the whole credential rather than a
-// bare SPIFFE ID so it can also read issuer-supplied claims.
+// Authorizer decides whether a verified peer may proceed. It receives the whole
+// WIT-SVID so it can read issuer-supplied claims.
 type Authorizer func(svid *witsvid.SVID) error
 
 // AuthorizeAny allows any authenticated peer.

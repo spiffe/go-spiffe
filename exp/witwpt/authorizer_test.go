@@ -90,8 +90,6 @@ func TestAdaptMatcher(t *testing.T) {
 }
 
 func TestAuthorizersRejectNilCredential(t *testing.T) {
-	// A nil SVID means verification did not actually produce one; the built-in
-	// authorizers must refuse rather than dereference it.
 	require.EqualError(t, witwpt.AuthorizeAny()(nil), "witwpt: no WIT-SVID to authorize")
 	require.EqualError(t, witwpt.AuthorizeID(spiffeid.RequireFromString("spiffe://example.org/a"))(nil),
 		"witwpt: no WIT-SVID to authorize")

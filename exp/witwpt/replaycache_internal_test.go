@@ -1,9 +1,6 @@
 package witwpt
 
-// White-box, because the memory cache's bounded footprint is a design claim
-// about its internals: entries are reclaimed on write rather than by a sweeper
-// goroutine, which is what keeps NewMemoryReplayCache lifecycle-free. Nothing
-// observable from outside the package would show the map shrinking.
+// White-box, since reclaiming entries on write is not observable from outside.
 
 import (
 	"strconv"

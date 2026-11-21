@@ -12,26 +12,18 @@ import (
 // cache reclaims expired ones, so a small cache does not sweep on every insert.
 const minSweepSize = 128
 
-// ReplayCache remembers which proofs have been seen, so a captured proof cannot
-// be presented twice within its lifetime. wpt-01 §2 RECOMMENDS this check.
-//
-// It is the WPT's jti that is recorded; a WIT-SVID's own jti MUST NOT be used
-// for replay protection (SPIFFE WIT-SVID.md §3.3).
+// ReplayCache records seen proofs so one cannot be presented twice within its
+// lifetime (wpt-01 §2). It keys on the WPT's jti, never the WIT-SVID's.
 type ReplayCache interface {
 	// CheckAndRecord records the proof identified by id and jti, returning an
 	// error if that pair has already been recorded. exp is when the record may
-	// be dropped. Implementations MUST make the check and the record atomic.
+	// be dropped. The check and the record must be atomic.
 	CheckAndRecord(ctx context.Context, id spiffeid.ID, jti string, exp time.Time) error
 }
 
-// NewMemoryReplayCache returns a ReplayCache holding records in memory for the
-// life of the process, reclaiming expired records during writes so it owns no
-// goroutine and needs no Close.
-//
-// It covers a single process only. A deployment running several replicas needs a
-// shared store to reject a proof replayed to a different replica; implement
-// ReplayCache over one (a Redis SET NX EX maps onto CheckAndRecord) and pass it
-// to WithReplayCache.
+// NewMemoryReplayCache returns an in-process ReplayCache that reclaims expired
+// records on write, so it needs no Close. Replicated deployments need a shared
+// ReplayCache (e.g. Redis SET NX EX) to catch replays across replicas.
 func NewMemoryReplayCache() ReplayCache {
 	return newMemoryReplayCache()
 }

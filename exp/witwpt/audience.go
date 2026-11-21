@@ -12,14 +12,9 @@ import (
 // request. It is called with the aud claim exactly as it appeared in the proof.
 type AudienceMatcher func(aud string) error
 
-// AcceptAudience returns an AudienceMatcher that matches aud against values,
-// normalizing both sides to scheme and authority as wpt-01 §2's "acceptable
-// alias or normalization" allows: scheme and host are lowercased, and a default
-// port, path, query, and fragment are dropped. A proof is therefore bound to an
-// authority, not to a route; a path in a configured value is ignored.
-//
-// It returns an error if values is empty or any value is not an absolute URI
-// without userinfo.
+// AcceptAudience returns an AudienceMatcher accepting any of values. Both sides
+// are reduced to lowercase scheme://authority without a default port, so a proof
+// is bound to a host, not a route. values must be absolute URIs without userinfo.
 func AcceptAudience(values ...string) (AudienceMatcher, error) {
 	if len(values) == 0 {
 		return nil, wrapErr(errors.New("no audiences provided"))
@@ -56,8 +51,7 @@ func AcceptAudience(values ...string) (AudienceMatcher, error) {
 	}, nil
 }
 
-// normalizeAudience reduces an absolute URI to scheme://authority, dropping the
-// default port for the scheme along with any path, query, and fragment.
+// normalizeAudience reduces an absolute URI to scheme://authority.
 func normalizeAudience(value string) (string, error) {
 	parsed, err := url.Parse(value)
 	if err != nil {
@@ -77,8 +71,7 @@ func normalizeAudience(value string) (string, error) {
 		return "", fmt.Errorf("no host in %q", value)
 	}
 
-	// Hostname strips IPv6 brackets, which must be restored or "[::1]:8443"
-	// and "[::1:8443]" normalize to the same string.
+	// Hostname strips IPv6 brackets; restore them to keep the authority unambiguous.
 	if port := parsed.Port(); port != "" && !isDefaultPort(scheme, port) {
 		host = net.JoinHostPort(host, port)
 	} else if strings.Contains(host, ":") {

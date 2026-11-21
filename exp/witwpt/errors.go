@@ -5,8 +5,8 @@ import (
 	"fmt"
 )
 
-// errReplayed is the cause reported when a proof's jti has already been
-// recorded. It is unexported because callers distinguish failures by Stage.
+// errReplayed is the cause of a StageReplay failure. Callers match on Stage,
+// so it is unexported.
 var errReplayed = errors.New("proof token has already been used")
 
 // Stage identifies which step of verification rejected a request, so a
@@ -14,12 +14,10 @@ var errReplayed = errors.New("proof token has already been used")
 type Stage int
 
 const (
-	// StageWIT covers validating the WIT-SVID against the trust bundle: its typ,
-	// kid, signature, expiry, subject, and confirmation key.
+	// StageWIT covers validating the WIT-SVID against the trust bundle.
 	StageWIT Stage = iota + 1
 
-	// StageProof covers verifying the WPT against the confirmation key the
-	// WIT-SVID named, including its binding to that credential and to the target.
+	// StageProof covers verifying the WPT and its binding to the WIT-SVID and target.
 	StageProof
 
 	// StageReplay covers a proof whose jti has already been recorded.
@@ -40,9 +38,7 @@ func (s Stage) String() string {
 	return "unknown"
 }
 
-// Error is a verification failure together with the stage that produced it.
-// Verify returns errors of this type so an error handler can count rejections
-// by stage while the remote caller is told only that it was refused.
+// Error is a verification failure tagged with the Stage that rejected it.
 type Error struct {
 	Stage Stage
 	Err   error
@@ -58,7 +54,6 @@ func (e *Error) Error() string {
 
 func (e *Error) Unwrap() error { return e.Err }
 
-// newError builds a staged verification error.
 func newError(stage Stage, err error) error {
 	return &Error{Stage: stage, Err: err}
 }

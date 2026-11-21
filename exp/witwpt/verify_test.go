@@ -19,10 +19,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Verify is deliberately never fed by Mint. We author both halves of the wire
-// format, so a shared misreading of the draft would make a loopback test pass
-// while the format is wrong. Proofs here are built by makeWPT, a local go-jose
-// minter, and Mint is pinned separately against committed constants.
+// Proofs here come from makeWPT rather than Mint, so a misreading shared by
+// Mint and Verify cannot pass a loopback test.
 
 const verifyAudience = "https://server.example.org/v2/orders"
 
@@ -118,7 +116,6 @@ func TestVerifyRejections(t *testing.T) {
 			name:  "proof alg does not match cnf.jwk.alg",
 			stage: witwpt.StageProof,
 			proof: func(t *testing.T, f *verifyFixture) string {
-				// The confirmation key is P-256/ES256; sign ES512 instead.
 				key := test.NewEC256Key(t)
 				return makeWPT(t, key, jose.ES256, "wpt+jwt", f.validProofClaims())
 			},
@@ -133,8 +130,7 @@ func TestVerifyRejections(t *testing.T) {
 			name:  "proof signed with a different algorithm than cnf.jwk.alg",
 			stage: witwpt.StageProof,
 			proof: func(t *testing.T, f *verifyFixture) string {
-				// A genuinely ES384-signed proof against an ES256 confirmation
-				// key, rather than a mislabelled header.
+				// An ES384-signed proof, not just a relabeled header.
 				key, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
 				require.NoError(t, err)
 				return makeWPT(t, key, jose.ES384, "wpt+jwt", f.validProofClaims())
@@ -154,11 +150,8 @@ func TestVerifyRejections(t *testing.T) {
 			name:  "proof binds an OAuth access token via ath",
 			stage: witwpt.StageProof,
 			proof: func(t *testing.T, f *verifyFixture) string {
-				// wpt-01 §2 makes ath mandatory when an access token is present.
-				// This package does not consume it, so accepting the proof would
-				// silently discard a binding the client believes is enforced --
-				// a stolen bearer token would travel with a valid pair and look
-				// bound. Fail closed instead.
+				// ath is not enforced here, so accepting it would make the
+				// binding look enforced.
 				claims := f.validProofClaims()
 				claims["ath"] = "Zm9vYmFy"
 				return makeWPT(t, f.cnfKey, jose.ES256, "wpt+jwt", claims)
@@ -347,9 +340,7 @@ func TestVerifyRejections(t *testing.T) {
 }
 
 func TestVerifyValidatesTheWITBeforeTheProof(t *testing.T) {
-	// The ordering is normative: the proof can only be checked against a cnf key
-	// the WIT has already been trusted to carry. With both halves broken, the
-	// WIT failure must be the one reported.
+	// With both tokens broken, the WIT failure is reported (wpt-01 ordering).
 	f := newVerifyFixture(t)
 
 	expiredWIT := makeWIT(t, f.authority, "authority-1", f.id, f.cnfKey.Public(),
@@ -393,11 +384,7 @@ func TestVerifyReplayCache(t *testing.T) {
 	})
 
 	t.Run("a proof still inside the leeway window cannot be replayed", func(t *testing.T) {
-		// The record must outlive the proof's *acceptability*, not its exp. A
-		// proof whose exp has just passed is still accepted thanks to leeway, so
-		// recording it only until exp would leave replay unprotected for the
-		// whole leeway window -- the one window where a captured proof is most
-		// likely to be reused.
+		// The record must last while the proof is acceptable: exp plus leeway.
 		verifier := witwpt.NewVerifier(f.bundle,
 			witwpt.WithReplayCache(witwpt.NewMemoryReplayCache()))
 
