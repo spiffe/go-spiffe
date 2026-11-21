@@ -1,4 +1,4 @@
-.PHONY: default all help
+Makefile .PHONY: default all help
 
 default: all
 
@@ -86,8 +86,8 @@ apiprotos := \
 # Toolchain
 #############################################################################
 
-go_version_full := 1.24.13
-go_version := $(go_version_full:.0=)
+go_version_full := 1.26.11
+go_version := $(go_version_full)
 go_dir := $(build_dir)/go/$(go_version)
 
 ifeq ($(os1),windows)

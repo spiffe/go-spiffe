@@ -17,13 +17,13 @@ func TLSClientConfig(bundle x509bundle.Source, authorizer Authorizer, opts ...Op
 }
 
 // HookTLSClientConfig sets up the TLS configuration to verify and authorize
-// the server X509-SVID. If there is an existing callback set for
-// VerifyPeerCertificate it will be wrapped by this package and invoked
-// after SPIFFE authentication has completed.
+// the server X509-SVID. Existing VerifyPeerCertificate and VerifyConnection
+// callbacks are wrapped and invoked after SPIFFE authentication has
+// completed. See the package documentation on session resumption.
 func HookTLSClientConfig(config *tls.Config, bundle x509bundle.Source, authorizer Authorizer, opts ...Option) {
 	resetAuthFields(config)
 	config.InsecureSkipVerify = true
-	config.VerifyPeerCertificate = WrapVerifyPeerCertificate(config.VerifyPeerCertificate, bundle, authorizer, opts...) //nolint:gosec // G123: VerifyConnection migration handled in a follow-up
+	hookPeerVerification(config, bundle, authorizer, opts...)
 }
 
 // A Option changes the defaults used to by mTLS ClientConfig functions.
@@ -64,14 +64,15 @@ func MTLSClientConfig(svid x509svid.Source, bundle x509bundle.Source, authorizer
 }
 
 // HookMTLSClientConfig sets up the TLS configuration to present an X509-SVID
-// to the server and verify and authorize the server X509-SVID. If there is an
-// existing callback set for VerifyPeerCertificate it will be wrapped by
-// this package and invoked after SPIFFE authentication has completed.
+// to the server and verify and authorize the server X509-SVID. Existing
+// VerifyPeerCertificate and VerifyConnection callbacks are wrapped and
+// invoked after SPIFFE authentication has completed. See the package
+// documentation on session resumption.
 func HookMTLSClientConfig(config *tls.Config, svid x509svid.Source, bundle x509bundle.Source, authorizer Authorizer, opts ...Option) {
 	resetAuthFields(config)
 	config.GetClientCertificate = GetClientCertificate(svid, opts...)
 	config.InsecureSkipVerify = true
-	config.VerifyPeerCertificate = WrapVerifyPeerCertificate(config.VerifyPeerCertificate, bundle, authorizer, opts...) //nolint:gosec // G123: VerifyConnection migration handled in a follow-up
+	hookPeerVerification(config, bundle, authorizer, opts...)
 }
 
 // MTLSWebClientConfig returns a TLS configuration which presents an X509-SVID
@@ -116,15 +117,15 @@ func MTLSServerConfig(svid x509svid.Source, bundle x509bundle.Source, authorizer
 }
 
 // HookMTLSServerConfig sets up the TLS configuration to present an X509-SVID
-// to the client and require, verify, and authorize the client X509-SVID. If
-// there is an existing callback set for VerifyPeerCertificate it will be
-// wrapped by this package and invoked after SPIFFE authentication has
-// completed.
+// to the client and require, verify, and authorize the client X509-SVID.
+// Existing VerifyPeerCertificate and VerifyConnection callbacks are wrapped
+// and invoked after SPIFFE authentication has completed. See the package
+// documentation on session resumption.
 func HookMTLSServerConfig(config *tls.Config, svid x509svid.Source, bundle x509bundle.Source, authorizer Authorizer, opts ...Option) {
 	resetAuthFields(config)
 	config.ClientAuth = tls.RequireAnyClientCert
 	config.GetCertificate = GetCertificate(svid, opts...)
-	config.VerifyPeerCertificate = WrapVerifyPeerCertificate(config.VerifyPeerCertificate, bundle, authorizer, opts...) //nolint:gosec // G123: VerifyConnection migration handled in a follow-up
+	hookPeerVerification(config, bundle, authorizer, opts...)
 }
 
 // MTLSWebServerConfig returns a TLS configuration which presents a web
@@ -138,14 +139,14 @@ func MTLSWebServerConfig(cert *tls.Certificate, bundle x509bundle.Source, author
 
 // HookMTLSWebServerConfig sets up the TLS configuration to presents a web
 // server certificate to the client and require, verify, and authorize client
-// X509-SVIDs. If there is an existing callback set for VerifyPeerCertificate
-// it will be wrapped by this package and invoked after SPIFFE
-// authentication has completed.
+// X509-SVIDs. Existing VerifyPeerCertificate and VerifyConnection callbacks
+// are wrapped and invoked after SPIFFE authentication has completed. See the
+// package documentation on session resumption.
 func HookMTLSWebServerConfig(config *tls.Config, cert *tls.Certificate, bundle x509bundle.Source, authorizer Authorizer, opts ...Option) {
 	resetAuthFields(config)
 	config.ClientAuth = tls.RequireAnyClientCert
 	config.Certificates = []tls.Certificate{*cert}
-	config.VerifyPeerCertificate = WrapVerifyPeerCertificate(config.VerifyPeerCertificate, bundle, authorizer, opts...) //nolint:gosec // G123: VerifyConnection migration handled in a follow-up
+	hookPeerVerification(config, bundle, authorizer, opts...)
 }
 
 // GetCertificate returns a GetCertificate callback for tls.Config. It uses the
@@ -201,6 +202,36 @@ func WrapVerifyPeerCertificate(wrapped func([][]byte, [][]*x509.Certificate) err
 		}
 
 		return wrapped(raw, certs)
+	}
+}
+
+// hookPeerVerification authenticates full handshakes in VerifyPeerCertificate
+// and resumed ones in VerifyConnection, since Go skips VerifyPeerCertificate
+// on resumption.
+func hookPeerVerification(config *tls.Config, bundle x509bundle.Source, authorizer Authorizer, opts ...Option) {
+	config.VerifyPeerCertificate = WrapVerifyPeerCertificate(config.VerifyPeerCertificate, bundle, authorizer, opts...)
+	config.VerifyConnection = wrapVerifyConnection(config.VerifyConnection, bundle, authorizer)
+}
+
+func wrapVerifyConnection(wrapped func(tls.ConnectionState) error, bundle x509bundle.Source, authorizer Authorizer) func(tls.ConnectionState) error {
+	return func(cs tls.ConnectionState) error {
+		if cs.DidResume {
+			raw := make([][]byte, 0, len(cs.PeerCertificates))
+			for _, cert := range cs.PeerCertificates {
+				raw = append(raw, cert.Raw)
+			}
+			id, certs, err := x509svid.ParseAndVerify(raw, bundle)
+			if err != nil {
+				return err
+			}
+			if err := authorizer(id, certs); err != nil {
+				return err
+			}
+		}
+		if wrapped != nil {
+			return wrapped(cs)
+		}
+		return nil
 	}
 }
 

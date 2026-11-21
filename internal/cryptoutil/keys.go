@@ -30,5 +30,5 @@ func RSAPublicKeyEqual(a, b *rsa.PublicKey) bool {
 }
 
 func ECDSAPublicKeyEqual(a, b *ecdsa.PublicKey) bool {
-	return a.Curve == b.Curve && a.X.Cmp(b.X) == 0 && a.Y.Cmp(b.Y) == 0
+	return a.Equal(b)
 }
