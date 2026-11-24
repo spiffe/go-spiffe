@@ -62,7 +62,7 @@ func TestSessionResumption(t *testing.T) {
 	testCases := []struct {
 		name     string
 		pair     pair
-		revoke   func(*resumptionPeers)               // makes the next resumed handshake fail
+		revoke   func(*resumptionPeers)               // makes the next handshake fail
 		counter  func(*resumptionPeers) *atomic.Int32 // compared across the failing handshake
 		increase bool
 	}{
@@ -178,6 +178,40 @@ func TestSessionResumption(t *testing.T) {
 			})
 		}
 	}
+}
+
+func TestHookRunsVerifyPeerCertificateAfterAuthorizer(t *testing.T) {
+	td := spiffeid.RequireTrustDomainFromString("domain.test")
+	ca := test.NewCA(t, td)
+	bundle := ca.X509Bundle()
+
+	var authorized atomic.Bool
+	var calls atomic.Int32
+	authorizer := func(spiffeid.ID, [][]*x509.Certificate) error {
+		authorized.Store(true)
+		return nil
+	}
+	clientConfig := &tls.Config{
+		MinVersion:         tls.VersionTLS12,
+		ClientSessionCache: tls.NewLRUClientSessionCache(1),
+	}
+	clientConfig.VerifyPeerCertificate = func(raw [][]byte, chains [][]*x509.Certificate) error { //nolint:gosec // the hook below sets VerifyConnection
+		calls.Add(1)
+		if !authorized.Load() || len(raw) == 0 || len(chains) == 0 {
+			return errors.New("called before authorization or without chains")
+		}
+		return nil
+	}
+	tlsconfig.HookMTLSClientConfig(clientConfig, ca.CreateX509SVID(spiffeid.RequireFromPath(td, "/client")), bundle, authorizer)
+	addr := listen(t, tlsconfig.MTLSServerConfig(ca.CreateX509SVID(spiffeid.RequireFromPath(td, "/server")), bundle, tlsconfig.AuthorizeAny()))
+
+	for range 2 {
+		authorized.Store(false)
+		_, err := dialAndRead(addr, clientConfig)
+		require.NoError(t, err)
+	}
+	// Go does not call VerifyPeerCertificate on resumed sessions.
+	require.Equal(t, int32(1), calls.Load())
 }
 
 func TestSessionResumptionAfterCARotation(t *testing.T) {
