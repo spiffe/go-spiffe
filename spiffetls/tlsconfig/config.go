@@ -220,26 +220,14 @@ func VerifyConnection(bundle x509bundle.Source, authorizer Authorizer, opts ...O
 // SPIFFE authentication of the peer on every handshake, including resumed
 // sessions. The wrapped callback receives the verified chains in VerifiedChains.
 // Note: TLS clients must set `InsecureSkipVerify` when doing SPIFFE authentication to disable hostname verification.
-func WrapVerifyConnection(wrapped func(tls.ConnectionState) error, bundle x509bundle.Source, authorizer Authorizer, opts ...Option) func(tls.ConnectionState) error {
-	return wrapVerifyConnection(wrapped, false, bundle, authorizer, opts...)
-}
-
-// wrapVerifyResumedConnection leaves full handshakes to VerifyPeerCertificate
-// so they are not verified twice.
-func wrapVerifyResumedConnection(wrapped func(tls.ConnectionState) error, bundle x509bundle.Source, authorizer Authorizer, opts ...Option) func(tls.ConnectionState) error {
-	return wrapVerifyConnection(wrapped, true, bundle, authorizer, opts...)
-}
-
-func wrapVerifyConnection(wrapped func(tls.ConnectionState) error, resumedOnly bool, bundle x509bundle.Source, authorizer Authorizer, _ ...Option) func(tls.ConnectionState) error {
+func WrapVerifyConnection(wrapped func(tls.ConnectionState) error, bundle x509bundle.Source, authorizer Authorizer, _ ...Option) func(tls.ConnectionState) error {
 	return func(cs tls.ConnectionState) error {
-		if cs.DidResume || !resumedOnly {
-			chains, err := verifyPeer(cs.PeerCertificates, bundle, authorizer)
-			if err != nil {
-				return err
-			}
-			cs.VerifiedChains = chains
+		chains, err := verifyPeer(cs.PeerCertificates, bundle, authorizer)
+		if err != nil {
+			return err
 		}
 		if wrapped != nil {
+			cs.VerifiedChains = chains
 			return wrapped(cs)
 		}
 		return nil
@@ -257,9 +245,11 @@ func verifyPeer(certs []*x509.Certificate, bundle x509bundle.Source, authorizer 
 	return chains, nil
 }
 
+// hookPeerVerification verifies full handshakes in both callbacks on purpose, so
+// replacing VerifyPeerCertificate cannot leave them unauthenticated.
 func hookPeerVerification(config *tls.Config, bundle x509bundle.Source, authorizer Authorizer, opts ...Option) {
 	config.VerifyPeerCertificate = WrapVerifyPeerCertificate(config.VerifyPeerCertificate, bundle, authorizer, opts...)
-	config.VerifyConnection = wrapVerifyResumedConnection(config.VerifyConnection, bundle, authorizer, opts...)
+	config.VerifyConnection = WrapVerifyConnection(config.VerifyConnection, bundle, authorizer, opts...)
 }
 
 // peerChainExtra marks the SessionState.Extra entry holding the client

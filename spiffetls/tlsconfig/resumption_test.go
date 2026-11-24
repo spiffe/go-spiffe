@@ -33,17 +33,18 @@ func TestSessionResumption(t *testing.T) {
 	type pair func(p *resumptionPeers, server, client *tls.Config)
 	mtls := func(p *resumptionPeers, server, client *tls.Config) {
 		p.server.authenticates, p.client.authenticates = true, true
+		p.server.hooked, p.client.hooked = true, true
 		p.server.ticketChecks = true
 		tlsconfig.HookMTLSServerConfig(server, serverSVID, p.server.bundle(bundle, otherBundle), p.server.authorizer())
 		tlsconfig.HookMTLSClientConfig(client, clientSVID, p.client.bundle(bundle, otherBundle), p.client.authorizer())
 	}
 	tlsOnly := func(p *resumptionPeers, server, client *tls.Config) {
-		p.client.authenticates = true
+		p.client.authenticates, p.client.hooked = true, true
 		tlsconfig.HookTLSServerConfig(server, serverSVID)
 		tlsconfig.HookTLSClientConfig(client, p.client.bundle(bundle, otherBundle), p.client.authorizer())
 	}
 	mtlsWeb := func(p *resumptionPeers, server, client *tls.Config) {
-		p.server.authenticates = true
+		p.server.authenticates, p.server.hooked = true, true
 		p.server.ticketChecks = true
 		tlsconfig.HookMTLSWebServerConfig(server, webCert, p.server.bundle(bundle, otherBundle), p.server.authorizer())
 		tlsconfig.HookMTLSWebClientConfig(client, clientSVID, webRoots)
@@ -53,12 +54,12 @@ func TestSessionResumption(t *testing.T) {
 		serverBundle, serverAuthz := p.server.bundle(bundle, otherBundle), p.server.authorizer()
 		server.ClientAuth = tls.RequireAnyClientCert
 		server.GetCertificate = tlsconfig.GetCertificate(serverSVID)
-		server.VerifyConnection = tlsconfig.WrapVerifyConnection(requireVerifiedChains(server.VerifyConnection), serverBundle, serverAuthz)
+		server.VerifyConnection = tlsconfig.WrapVerifyConnection(server.VerifyConnection, serverBundle, serverAuthz)
 
 		clientBundle, clientAuthz := p.client.bundle(bundle, otherBundle), p.client.authorizer()
 		client.InsecureSkipVerify = true
 		client.GetClientCertificate = tlsconfig.GetClientCertificate(clientSVID)
-		client.VerifyConnection = tlsconfig.WrapVerifyConnection(requireVerifiedChains(client.VerifyConnection), clientBundle, clientAuthz)
+		client.VerifyConnection = tlsconfig.WrapVerifyConnection(client.VerifyConnection, clientBundle, clientAuthz)
 	}
 
 	testCases := []struct {
@@ -354,15 +355,6 @@ func (s *svidSource) GetX509SVID() (*x509svid.SVID, error) {
 	return s.Load(), nil
 }
 
-func requireVerifiedChains(next func(tls.ConnectionState) error) func(tls.ConnectionState) error {
-	return func(cs tls.ConnectionState) error {
-		if len(cs.VerifiedChains) == 0 {
-			return errors.New("no verified chains")
-		}
-		return next(cs)
-	}
-}
-
 func trustSource(trust *atomic.Pointer[x509bundle.Bundle]) x509bundle.Source {
 	return bundleSourceFunc(func(spiffeid.TrustDomain) (*x509bundle.Bundle, error) {
 		return trust.Load(), nil
@@ -384,6 +376,7 @@ type resumptionPeer struct {
 	authCalls     atomic.Int32
 	prevCalls     atomic.Int32
 	authenticates bool
+	hooked        bool // VerifyPeerCertificate also verifies full handshakes
 	ticketChecks  bool // server also verifies when unwrapping the session ticket
 }
 
@@ -406,8 +399,11 @@ func (p *resumptionPeer) bundle(trusted, untrusted *x509bundle.Bundle) x509bundl
 	})
 }
 
-func (p *resumptionPeer) prevVerifyConnection(tls.ConnectionState) error {
+func (p *resumptionPeer) prevVerifyConnection(cs tls.ConnectionState) error {
 	p.prevCalls.Add(1)
+	if p.authenticates && len(cs.VerifiedChains) == 0 {
+		return errors.New("no verified chains")
+	}
 	if p.failPrev.Load() {
 		return errors.New("previous callback failed")
 	}
@@ -425,11 +421,14 @@ func (p *resumptionPeers) assertCalls(t *testing.T, resumed int32) {
 	for _, peer := range []*resumptionPeer{&p.client, &p.server} {
 		assert.Equal(t, 1+resumed, peer.prevCalls.Load())
 		if peer.authenticates {
-			perResume := int32(1)
+			full, perResume := int32(1), int32(1)
+			if peer.hooked {
+				full = 2
+			}
 			if peer.ticketChecks {
 				perResume = 2
 			}
-			assert.Equal(t, 1+resumed*perResume, peer.authCalls.Load())
+			assert.Equal(t, full+resumed*perResume, peer.authCalls.Load())
 		}
 	}
 }
