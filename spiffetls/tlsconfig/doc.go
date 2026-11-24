@@ -2,6 +2,8 @@
 // SPIFFE X509-SVIDs.
 //
 // Go skips VerifyPeerCertificate on resumed sessions, so the Hook functions
-// also authenticate them in VerifyConnection. Chain onto VerifyConnection
-// rather than replacing it, and hook a configuration only once.
+// also authenticate them in VerifyConnection, and mTLS servers decline to
+// resume sessions whose client certificate no longer verifies. Chain onto
+// VerifyConnection, WrapSession and UnwrapSession rather than replacing them,
+// and hook a configuration only once.
 package tlsconfig
