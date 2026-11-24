@@ -124,7 +124,7 @@ func HookMTLSServerConfig(config *tls.Config, svid x509svid.Source, bundle x509b
 	config.ClientAuth = tls.RequireAnyClientCert
 	config.GetCertificate = GetCertificate(svid, opts...)
 	hookPeerVerification(config, bundle, authorizer, opts...)
-	hookServerSessions(config, bundle, authorizer)
+	hookServerSessions(config, bundle)
 }
 
 // MTLSWebServerConfig returns a TLS configuration which presents a web
@@ -145,7 +145,7 @@ func HookMTLSWebServerConfig(config *tls.Config, cert *tls.Certificate, bundle x
 	config.ClientAuth = tls.RequireAnyClientCert
 	config.Certificates = []tls.Certificate{*cert}
 	hookPeerVerification(config, bundle, authorizer, opts...)
-	hookServerSessions(config, bundle, authorizer)
+	hookServerSessions(config, bundle)
 }
 
 // GetCertificate returns a GetCertificate callback for tls.Config. It uses the
@@ -245,10 +245,21 @@ func verifyPeer(certs []*x509.Certificate, bundle x509bundle.Source, authorizer 
 	return chains, nil
 }
 
-// hookPeerVerification verifies full handshakes in both callbacks on purpose, so
-// replacing VerifyPeerCertificate cannot leave them unauthenticated.
+// hookPeerVerification authenticates in both callbacks, so replacing
+// VerifyPeerCertificate cannot leave a handshake unauthenticated, but
+// authorizes only in VerifyConnection, so the authorizer runs once.
 func hookPeerVerification(config *tls.Config, bundle x509bundle.Source, authorizer Authorizer, opts ...Option) {
-	config.VerifyPeerCertificate = WrapVerifyPeerCertificate(config.VerifyPeerCertificate, bundle, authorizer, opts...)
+	wrapped := config.VerifyPeerCertificate
+	config.VerifyPeerCertificate = func(raw [][]byte, _ [][]*x509.Certificate) error {
+		_, chains, err := x509svid.ParseAndVerify(raw, bundle)
+		if err != nil {
+			return err
+		}
+		if wrapped != nil {
+			return wrapped(raw, chains)
+		}
+		return nil
+	}
 	config.VerifyConnection = WrapVerifyConnection(config.VerifyConnection, bundle, authorizer, opts...)
 }
 
@@ -259,7 +270,7 @@ var peerChainExtra = []byte("go-spiffe/peer-chain/v1:")
 // hookServerSessions makes the server decline resuming a session whose client
 // certificate no longer verifies. Rejecting it later in VerifyConnection would
 // fail every TLS 1.3 reconnect, since the client keeps its ticket.
-func hookServerSessions(config *tls.Config, bundle x509bundle.Source, authorizer Authorizer) {
+func hookServerSessions(config *tls.Config, bundle x509bundle.Source) {
 	wrapSession, unwrapSession := config.WrapSession, config.UnwrapSession
 
 	config.WrapSession = func(cs tls.ConnectionState, ss *tls.SessionState) ([]byte, error) {
@@ -289,7 +300,7 @@ func hookServerSessions(config *tls.Config, bundle x509bundle.Source, authorizer
 			if chain, ok := bytes.CutPrefix(entry, peerChainExtra); ok {
 				certs, err := x509.ParseCertificates(chain)
 				if err == nil {
-					if _, err := verifyPeer(certs, bundle, authorizer); err == nil {
+					if _, _, err := x509svid.Verify(certs, bundle); err == nil {
 						return ss, nil
 					}
 				}

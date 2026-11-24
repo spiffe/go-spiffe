@@ -38,7 +38,8 @@ func (fn listenOption) apply(c *listenConfig) {
 
 // WithDialTLSConfigBase provides a base TLS configuration to use. Fields
 // related to certificates and verification will be overwritten by this package
-// as necessary to facilitate SPIFFE authentication.
+// as necessary to facilitate SPIFFE authentication. The base is cloned, not
+// modified.
 func WithDialTLSConfigBase(base *tls.Config) DialOption {
 	return dialOption(func(c *dialConfig) {
 		c.baseTLSConf = base
@@ -67,7 +68,8 @@ type ListenOption interface {
 
 // WithListenTLSConfigBase provides a base TLS configuration to use. Fields
 // related to certificates and verification will be overwritten by this package
-// as necessary to facilitate SPIFFE authentication.
+// as necessary to facilitate SPIFFE authentication. The base is cloned, not
+// modified.
 func WithListenTLSConfigBase(base *tls.Config) ListenOption {
 	return listenOption(func(c *listenConfig) {
 		c.baseTLSConf = base

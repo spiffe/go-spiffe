@@ -33,19 +33,16 @@ func TestSessionResumption(t *testing.T) {
 	type pair func(p *resumptionPeers, server, client *tls.Config)
 	mtls := func(p *resumptionPeers, server, client *tls.Config) {
 		p.server.authenticates, p.client.authenticates = true, true
-		p.server.hooked, p.client.hooked = true, true
-		p.server.ticketChecks = true
 		tlsconfig.HookMTLSServerConfig(server, serverSVID, p.server.bundle(bundle, otherBundle), p.server.authorizer())
 		tlsconfig.HookMTLSClientConfig(client, clientSVID, p.client.bundle(bundle, otherBundle), p.client.authorizer())
 	}
 	tlsOnly := func(p *resumptionPeers, server, client *tls.Config) {
-		p.client.authenticates, p.client.hooked = true, true
+		p.client.authenticates = true
 		tlsconfig.HookTLSServerConfig(server, serverSVID)
 		tlsconfig.HookTLSClientConfig(client, p.client.bundle(bundle, otherBundle), p.client.authorizer())
 	}
 	mtlsWeb := func(p *resumptionPeers, server, client *tls.Config) {
-		p.server.authenticates, p.server.hooked = true, true
-		p.server.ticketChecks = true
+		p.server.authenticates = true
 		tlsconfig.HookMTLSWebServerConfig(server, webCert, p.server.bundle(bundle, otherBundle), p.server.authorizer())
 		tlsconfig.HookMTLSWebClientConfig(client, clientSVID, webRoots)
 	}
@@ -376,8 +373,6 @@ type resumptionPeer struct {
 	authCalls     atomic.Int32
 	prevCalls     atomic.Int32
 	authenticates bool
-	hooked        bool // VerifyPeerCertificate also verifies full handshakes
-	ticketChecks  bool // server also verifies when unwrapping the session ticket
 }
 
 func (p *resumptionPeer) authorizer() tlsconfig.Authorizer {
@@ -421,14 +416,7 @@ func (p *resumptionPeers) assertCalls(t *testing.T, resumed int32) {
 	for _, peer := range []*resumptionPeer{&p.client, &p.server} {
 		assert.Equal(t, 1+resumed, peer.prevCalls.Load())
 		if peer.authenticates {
-			full, perResume := int32(1), int32(1)
-			if peer.hooked {
-				full = 2
-			}
-			if peer.ticketChecks {
-				perResume = 2
-			}
-			assert.Equal(t, full+resumed*perResume, peer.authCalls.Load())
+			assert.Equal(t, 1+resumed, peer.authCalls.Load())
 		}
 	}
 }
