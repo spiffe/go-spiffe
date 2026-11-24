@@ -1,11 +1,13 @@
 package tlsconfig_test
 
 import (
+	"bytes"
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
 	"io"
 	"net"
+	"slices"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -51,12 +53,12 @@ func TestSessionResumption(t *testing.T) {
 		serverBundle, serverAuthz := p.server.bundle(bundle, otherBundle), p.server.authorizer()
 		server.ClientAuth = tls.RequireAnyClientCert
 		server.GetCertificate = tlsconfig.GetCertificate(serverSVID)
-		server.VerifyConnection = tlsconfig.WrapVerifyConnection(server.VerifyConnection, serverBundle, serverAuthz)
+		server.VerifyConnection = tlsconfig.WrapVerifyConnection(requireVerifiedChains(server.VerifyConnection), serverBundle, serverAuthz)
 
 		clientBundle, clientAuthz := p.client.bundle(bundle, otherBundle), p.client.authorizer()
 		client.InsecureSkipVerify = true
 		client.GetClientCertificate = tlsconfig.GetClientCertificate(clientSVID)
-		client.VerifyConnection = tlsconfig.WrapVerifyConnection(client.VerifyConnection, clientBundle, clientAuthz)
+		client.VerifyConnection = tlsconfig.WrapVerifyConnection(requireVerifiedChains(client.VerifyConnection), clientBundle, clientAuthz)
 	}
 
 	testCases := []struct {
@@ -233,6 +235,68 @@ func TestSessionResumptionAfterCARotation(t *testing.T) {
 	}
 }
 
+func TestSessionResumptionChainsTicketCallbacks(t *testing.T) {
+	td := spiffeid.RequireTrustDomainFromString("domain.test")
+	serverID := spiffeid.RequireFromPath(td, "/server")
+	clientID := spiffeid.RequireFromPath(td, "/client")
+	userExtra := []byte("user")
+
+	for _, version := range []uint16{tls.VersionTLS12, tls.VersionTLS13} {
+		t.Run(tls.VersionName(version), func(t *testing.T) {
+			oldCA, newCA := test.NewCA(t, td), test.NewCA(t, td)
+			both := x509bundle.FromX509Authorities(td, append(oldCA.X509Bundle().X509Authorities(), newCA.X509Bundle().X509Authorities()...))
+			var serverTrust, clientTrust atomic.Pointer[x509bundle.Bundle]
+			serverTrust.Store(both)
+			clientTrust.Store(both)
+			var clientSVID svidSource
+			clientSVID.Store(oldCA.CreateX509SVID(clientID))
+
+			var sawUserExtra, failUnwrap atomic.Bool
+			serverConfig := &tls.Config{ //nolint:gosec // version is TLS 1.2 or 1.3
+				MinVersion: version,
+				MaxVersion: version,
+			}
+			serverConfig.WrapSession = func(cs tls.ConnectionState, ss *tls.SessionState) ([]byte, error) {
+				ss.Extra = append(ss.Extra, userExtra)
+				return serverConfig.EncryptTicket(cs, ss)
+			}
+			serverConfig.UnwrapSession = func(identity []byte, cs tls.ConnectionState) (*tls.SessionState, error) {
+				if failUnwrap.Load() {
+					return nil, errors.New("unwrap failed")
+				}
+				ss, err := serverConfig.DecryptTicket(identity, cs)
+				if ss != nil {
+					sawUserExtra.Store(slices.ContainsFunc(ss.Extra, func(e []byte) bool { return bytes.Equal(e, userExtra) }))
+				}
+				return ss, err
+			}
+			tlsconfig.HookMTLSServerConfig(serverConfig, newCA.CreateX509SVID(serverID), trustSource(&serverTrust), tlsconfig.AuthorizeAny())
+
+			clientConfig := tlsconfig.MTLSClientConfig(&clientSVID, trustSource(&clientTrust), tlsconfig.AuthorizeAny())
+			clientConfig.MinVersion, clientConfig.MaxVersion = version, version
+			clientConfig.ClientSessionCache = tls.NewLRUClientSessionCache(1)
+			addr := listen(t, serverConfig)
+
+			_, err := dialAndRead(addr, clientConfig)
+			require.NoError(t, err)
+			state, err := dialAndRead(addr, clientConfig)
+			require.NoError(t, err)
+			require.True(t, state.DidResume)
+			require.True(t, sawUserExtra.Load())
+
+			serverTrust.Store(newCA.X509Bundle())
+			clientSVID.Store(newCA.CreateX509SVID(clientID))
+			state, err = dialAndRead(addr, clientConfig)
+			require.NoError(t, err)
+			require.False(t, state.DidResume)
+
+			failUnwrap.Store(true)
+			_, err = dialAndRead(addr, clientConfig)
+			require.Error(t, err)
+		})
+	}
+}
+
 func TestSessionResumptionPeerCertificateExpires(t *testing.T) {
 	td := spiffeid.RequireTrustDomainFromString("domain.test")
 	ca := test.NewCA(t, td)
@@ -288,6 +352,15 @@ type svidSource struct {
 
 func (s *svidSource) GetX509SVID() (*x509svid.SVID, error) {
 	return s.Load(), nil
+}
+
+func requireVerifiedChains(next func(tls.ConnectionState) error) func(tls.ConnectionState) error {
+	return func(cs tls.ConnectionState) error {
+		if len(cs.VerifiedChains) == 0 {
+			return errors.New("no verified chains")
+		}
+		return next(cs)
+	}
 }
 
 func trustSource(trust *atomic.Pointer[x509bundle.Bundle]) x509bundle.Source {

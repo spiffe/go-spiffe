@@ -218,7 +218,7 @@ func VerifyConnection(bundle x509bundle.Source, authorizer Authorizer, opts ...O
 
 // WrapVerifyConnection wraps a VerifyConnection callback, invoking it after
 // SPIFFE authentication of the peer on every handshake, including resumed
-// sessions.
+// sessions. The wrapped callback receives the verified chains in VerifiedChains.
 // Note: TLS clients must set `InsecureSkipVerify` when doing SPIFFE authentication to disable hostname verification.
 func WrapVerifyConnection(wrapped func(tls.ConnectionState) error, bundle x509bundle.Source, authorizer Authorizer, opts ...Option) func(tls.ConnectionState) error {
 	return wrapVerifyConnection(wrapped, false, bundle, authorizer, opts...)
@@ -233,9 +233,11 @@ func wrapVerifyResumedConnection(wrapped func(tls.ConnectionState) error, bundle
 func wrapVerifyConnection(wrapped func(tls.ConnectionState) error, resumedOnly bool, bundle x509bundle.Source, authorizer Authorizer, _ ...Option) func(tls.ConnectionState) error {
 	return func(cs tls.ConnectionState) error {
 		if cs.DidResume || !resumedOnly {
-			if err := verifyPeer(cs.PeerCertificates, bundle, authorizer); err != nil {
+			chains, err := verifyPeer(cs.PeerCertificates, bundle, authorizer)
+			if err != nil {
 				return err
 			}
+			cs.VerifiedChains = chains
 		}
 		if wrapped != nil {
 			return wrapped(cs)
@@ -244,12 +246,15 @@ func wrapVerifyConnection(wrapped func(tls.ConnectionState) error, resumedOnly b
 	}
 }
 
-func verifyPeer(certs []*x509.Certificate, bundle x509bundle.Source, authorizer Authorizer) error {
+func verifyPeer(certs []*x509.Certificate, bundle x509bundle.Source, authorizer Authorizer) ([][]*x509.Certificate, error) {
 	id, chains, err := x509svid.Verify(certs, bundle)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return authorizer(id, chains)
+	if err := authorizer(id, chains); err != nil {
+		return nil, err
+	}
+	return chains, nil
 }
 
 func hookPeerVerification(config *tls.Config, bundle x509bundle.Source, authorizer Authorizer, opts ...Option) {
@@ -293,8 +298,10 @@ func hookServerSessions(config *tls.Config, bundle x509bundle.Source, authorizer
 		for _, entry := range ss.Extra {
 			if chain, ok := bytes.CutPrefix(entry, peerChainExtra); ok {
 				certs, err := x509.ParseCertificates(chain)
-				if err == nil && verifyPeer(certs, bundle, authorizer) == nil {
-					return ss, nil
+				if err == nil {
+					if _, err := verifyPeer(certs, bundle, authorizer); err == nil {
+						return ss, nil
+					}
 				}
 				break
 			}
