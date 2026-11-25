@@ -44,6 +44,7 @@ func TestTLSClientConfig(t *testing.T) {
 	assert.Nil(t, config.NameToCertificate) //nolint:staticcheck // setting to nil is OK
 	assert.Nil(t, config.RootCAs)
 	assert.NotNil(t, config.VerifyPeerCertificate)
+	assert.NotNil(t, config.VerifyConnection)
 }
 
 func TestHookTLSClientConfig(t *testing.T) {
@@ -62,6 +63,7 @@ func TestHookTLSClientConfig(t *testing.T) {
 	assert.Nil(t, config.NameToCertificate) //nolint:staticcheck // setting to nil is OK
 	assert.Nil(t, config.RootCAs)
 	assert.NotNil(t, config.VerifyPeerCertificate)
+	assert.NotNil(t, config.VerifyConnection)
 	assertUnrelatedFieldsUntouched(t, base, config)
 }
 
@@ -82,6 +84,7 @@ func TestMTLSClientConfig(t *testing.T) {
 	assert.Nil(t, config.NameToCertificate) //nolint:staticcheck // setting to nil is OK
 	assert.Nil(t, config.RootCAs)
 	assert.NotNil(t, config.VerifyPeerCertificate)
+	assert.NotNil(t, config.VerifyConnection)
 }
 
 func TestHookMTLSClientConfig(t *testing.T) {
@@ -103,6 +106,7 @@ func TestHookMTLSClientConfig(t *testing.T) {
 	assert.Nil(t, config.NameToCertificate) //nolint:staticcheck // setting to nil is OK
 	assert.Nil(t, config.RootCAs)
 	assert.NotNil(t, config.VerifyPeerCertificate)
+	assert.NotNil(t, config.VerifyConnection)
 	assertUnrelatedFieldsUntouched(t, base, config)
 }
 
@@ -200,6 +204,9 @@ func TestMTLSServerConfig(t *testing.T) {
 	assert.Nil(t, config.NameToCertificate) //nolint:staticcheck // setting to nil is OK
 	assert.Nil(t, config.RootCAs)
 	assert.NotNil(t, config.VerifyPeerCertificate)
+	assert.NotNil(t, config.VerifyConnection)
+	assert.NotNil(t, config.WrapSession)
+	assert.NotNil(t, config.UnwrapSession)
 }
 
 func TestHookMTLSServerConfig(t *testing.T) {
@@ -221,6 +228,9 @@ func TestHookMTLSServerConfig(t *testing.T) {
 	assert.Nil(t, config.NameToCertificate) //nolint:staticcheck // setting to nil is OK
 	assert.Nil(t, config.RootCAs)
 	assert.NotNil(t, config.VerifyPeerCertificate)
+	assert.NotNil(t, config.VerifyConnection)
+	assert.NotNil(t, config.WrapSession)
+	assert.NotNil(t, config.UnwrapSession)
 	assertUnrelatedFieldsUntouched(t, base, config)
 }
 
@@ -239,6 +249,9 @@ func TestMTLSWebServerConfig(t *testing.T) {
 	assert.Nil(t, config.NameToCertificate) //nolint:staticcheck // setting to nil is OK
 	assert.Nil(t, config.RootCAs)
 	assert.NotNil(t, config.VerifyPeerCertificate)
+	assert.NotNil(t, config.VerifyConnection)
+	assert.NotNil(t, config.WrapSession)
+	assert.NotNil(t, config.UnwrapSession)
 }
 
 func TestHookMTLSWebServerConfig(t *testing.T) {
@@ -258,6 +271,9 @@ func TestHookMTLSWebServerConfig(t *testing.T) {
 	assert.Nil(t, config.NameToCertificate) //nolint:staticcheck // setting to nil is OK
 	assert.Nil(t, config.RootCAs)
 	assert.NotNil(t, config.VerifyPeerCertificate)
+	assert.NotNil(t, config.VerifyConnection)
+	assert.NotNil(t, config.WrapSession)
+	assert.NotNil(t, config.UnwrapSession)
 	assertUnrelatedFieldsUntouched(t, base, config)
 }
 
@@ -560,6 +576,25 @@ func TestTLSHandshake(t *testing.T) {
 			clientErr:    `x509svid: could not verify leaf certificate: x509: certificate signed by unknown authority`,
 			serverErr:    "remote error: tls: bad certificate",
 		},
+		{
+			name:         "VerifyConnection success",
+			serverConfig: tlsconfig.TLSServerConfig(serverSVID),
+			clientConfig: verifyConnectionClientConfig(bundle1, tlsconfig.AuthorizeAny()),
+		},
+		{
+			name:         "VerifyConnection authorization fails",
+			serverConfig: tlsconfig.TLSServerConfig(serverSVID),
+			clientConfig: verifyConnectionClientConfig(bundle1, tlsconfig.AuthorizeMemberOf(td2)),
+			clientErr:    `unexpected trust domain "domain1.test"`,
+			serverErr:    "remote error: tls: bad certificate",
+		},
+		{
+			name:         "VerifyConnection unknown authority",
+			serverConfig: tlsconfig.TLSServerConfig(serverSVID),
+			clientConfig: verifyConnectionClientConfig(bundle3, tlsconfig.AuthorizeMemberOf(td)),
+			clientErr:    `x509svid: could not verify leaf certificate: x509: certificate signed by unknown authority`,
+			serverErr:    "remote error: tls: bad certificate",
+		},
 	}
 
 	for _, testCase := range testCases {
@@ -783,6 +818,14 @@ func testConnection(t testing.TB, serverConfig *tls.Config, clientConfig *tls.Co
 	}
 	require.NoError(t, err)
 	require.Equal(t, buf, []byte{2})
+}
+
+func verifyConnectionClientConfig(bundle x509bundle.Source, authorizer tlsconfig.Authorizer) *tls.Config {
+	return &tls.Config{
+		MinVersion:         tls.VersionTLS12,
+		InsecureSkipVerify: true, //nolint:gosec // VerifyConnection performs SPIFFE authentication
+		VerifyConnection:   tlsconfig.VerifyConnection(bundle, authorizer),
+	}
 }
 
 func createTestTLSConfig(base *tls.Config) *tls.Config {
