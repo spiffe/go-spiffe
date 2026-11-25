@@ -31,6 +31,8 @@ func TestVerify(t *testing.T) {
 
 	// bad leaf cert... invalid spiffe ID
 	leafBad, _ := ca1.CreateX509Certificate(test.WithURIs(&url.URL{Scheme: "sparfe", Host: "domain1.test", Path: "/workload"}))
+	// bad leaf cert... no path component (root URI)
+	leafRootPath, _ := ca1.CreateX509Certificate(test.WithURIs(&url.URL{Scheme: "spiffe", Host: "domain1.test"}))
 	// bad set of roots... sets roots for ca2 under domain1.test
 	bundleBad := spiffebundle.FromX509Authorities(td1, bundle2.X509Authorities())
 
@@ -74,7 +76,13 @@ func TestVerify(t *testing.T) {
 			name:   "bad leaf cert id",
 			chain:  leafBad,
 			bundle: bundle1,
-			err:    `x509svid: could not get leaf SPIFFE ID: scheme is missing or invalid`,
+			err:    `x509svid: cannot get leaf certificate SPIFFE ID: scheme is missing or invalid`,
+		},
+		{
+			name:   "bad leaf no non-root path SPIFFE ID",
+			chain:  leafRootPath,
+			bundle: bundle1,
+			err:    "x509svid: leaf certificate SPIFFE ID must have a non-root path",
 		},
 		{
 			name:   "verification fails",
@@ -86,31 +94,31 @@ func TestVerify(t *testing.T) {
 			name:   "no URI SAN",
 			chain:  leaf1NoURI,
 			bundle: bundle1,
-			err:    "x509svid: could not get leaf SPIFFE ID: certificate contains no URI SAN",
+			err:    "x509svid: cannot get leaf certificate SPIFFE ID: certificate contains no URI SAN",
 		},
 		{
 			name:   "more than one URI SAN",
 			chain:  leaf1DupUris,
 			bundle: bundle1,
-			err:    "x509svid: could not get leaf SPIFFE ID: certificate contains more than one URI SAN",
+			err:    "x509svid: cannot get leaf certificate SPIFFE ID: certificate contains more than one URI SAN",
 		},
 		{
 			name:   "leaf is CA",
 			chain:  leaf1IsCA,
 			bundle: bundle1,
-			err:    "x509svid: leaf certificate with CA flag set to true",
+			err:    "x509svid: leaf certificate must not have CA flag set to true",
 		},
 		{
 			name:   "leaf has KeyUsageCertSign",
 			chain:  leaf1WithCertSign,
 			bundle: bundle1,
-			err:    "x509svid: leaf certificate with KeyCertSign key usage",
+			err:    "x509svid: leaf certificate must not have 'keyCertSign' set as key usage",
 		},
 		{
 			name:   "leaf has KeyUsageCRLSign",
 			chain:  leaf1WithCRLSign,
 			bundle: bundle1,
-			err:    "x509svid: leaf certificate with KeyCrlSign key usage",
+			err:    "x509svid: leaf certificate must not have 'cRLSign' set as key usage",
 		},
 		{
 			name:   "with time",
