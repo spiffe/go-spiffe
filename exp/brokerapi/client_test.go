@@ -7,15 +7,10 @@ import (
 	"time"
 
 	"github.com/spiffe/go-spiffe/v2/exp/brokerapi"
-	"github.com/spiffe/go-spiffe/v2/internal/test"
 	"github.com/spiffe/go-spiffe/v2/internal/test/fakebrokerapi"
-	"github.com/spiffe/go-spiffe/v2/internal/test/fakeworkloadapi"
-	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
-	"github.com/spiffe/go-spiffe/v2/svid/x509svid"
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
 func TestNewRequiresAuthorizer(t *testing.T) {
@@ -36,11 +31,12 @@ func TestNewUsesDefaultAddress(t *testing.T) {
 	api := fakebrokerapi.New(t)
 	defer api.Stop()
 
+	workloadAPI := newTestWorkloadAPI(t, api)
+	t.Setenv(workloadapi.SocketEnv, workloadAPI.Addr())
 	t.Setenv(brokerapi.SocketEnv, api.Addr())
 
 	client, err := brokerapi.New(context.Background(),
-		tlsconfig.AuthorizeAny(),
-		brokerapi.WithTransportCredentials(insecure.NewCredentials()),
+		tlsconfig.AuthorizeID(api.ServerID()),
 	)
 	require.NoError(t, err)
 	require.NoError(t, client.Close())
@@ -67,10 +63,14 @@ func TestClientClose(t *testing.T) {
 	api := fakebrokerapi.New(t)
 	defer api.Stop()
 
+	workloadAPI := newTestWorkloadAPI(t, api)
+
 	client, err := brokerapi.New(context.Background(),
-		tlsconfig.AuthorizeAny(),
+		tlsconfig.AuthorizeID(api.ServerID()),
 		brokerapi.WithAddr(api.Addr()),
-		brokerapi.WithTransportCredentials(insecure.NewCredentials()),
+		brokerapi.WithWorkloadAPISourceOptions(
+			workloadapi.WithClientOptions(workloadapi.WithAddr(workloadAPI.Addr())),
+		),
 	)
 	require.NoError(t, err)
 	require.NoError(t, client.Close())
@@ -82,15 +82,13 @@ func TestNewUsesDefaultWorkloadAPISource(t *testing.T) {
 
 	unsetEnv(t, workloadapi.SocketEnv)
 
-	workloadAPI := fakeworkloadapi.New(t)
-	defer workloadAPI.Stop()
-	setWorkloadAPIResponse(t, workloadAPI)
-	t.Setenv(workloadapi.SocketEnv, workloadAPI.Addr())
-
 	api := fakebrokerapi.New(t)
 	defer api.Stop()
 
-	client, err := brokerapi.New(ctx, tlsconfig.AuthorizeAny(), brokerapi.WithAddr(api.Addr()))
+	workloadAPI := newTestWorkloadAPI(t, api)
+	t.Setenv(workloadapi.SocketEnv, workloadAPI.Addr())
+
+	client, err := brokerapi.New(ctx, tlsconfig.AuthorizeID(api.ServerID()), brokerapi.WithAddr(api.Addr()))
 	require.NoError(t, err)
 	require.NoError(t, client.Close())
 }
@@ -101,15 +99,13 @@ func TestNewPassesWorkloadAPISourceOptions(t *testing.T) {
 
 	unsetEnv(t, workloadapi.SocketEnv)
 
-	workloadAPI := fakeworkloadapi.New(t)
-	defer workloadAPI.Stop()
-	setWorkloadAPIResponse(t, workloadAPI)
-
 	api := fakebrokerapi.New(t)
 	defer api.Stop()
 
+	workloadAPI := newTestWorkloadAPI(t, api)
+
 	client, err := brokerapi.New(ctx,
-		tlsconfig.AuthorizeAny(),
+		tlsconfig.AuthorizeID(api.ServerID()),
 		brokerapi.WithAddr(api.Addr()),
 		brokerapi.WithWorkloadAPISourceOptions(
 			workloadapi.WithClientOptions(workloadapi.WithAddr(workloadAPI.Addr())),
@@ -125,9 +121,10 @@ func TestNewUsesProvidedMTLSSource(t *testing.T) {
 
 	unsetEnv(t, workloadapi.SocketEnv)
 
-	workloadAPI := fakeworkloadapi.New(t)
-	defer workloadAPI.Stop()
-	setWorkloadAPIResponse(t, workloadAPI)
+	api := fakebrokerapi.New(t)
+	defer api.Stop()
+
+	workloadAPI := newTestWorkloadAPI(t, api)
 
 	source, err := workloadapi.NewX509Source(ctx,
 		workloadapi.WithClientOptions(workloadapi.WithAddr(workloadAPI.Addr())),
@@ -137,11 +134,8 @@ func TestNewUsesProvidedMTLSSource(t *testing.T) {
 		require.NoError(t, source.Close())
 	}()
 
-	api := fakebrokerapi.New(t)
-	defer api.Stop()
-
 	client, err := brokerapi.New(ctx,
-		tlsconfig.AuthorizeAny(),
+		tlsconfig.AuthorizeID(api.ServerID()),
 		brokerapi.WithAddr(api.Addr()),
 		brokerapi.WithMTLSSource(source),
 	)
@@ -153,20 +147,6 @@ func TestNewUsesProvidedMTLSSource(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestNewRejectsMultipleCredentialSources(t *testing.T) {
-	api := fakebrokerapi.New(t)
-	defer api.Stop()
-
-	client, err := brokerapi.New(context.Background(),
-		tlsconfig.AuthorizeAny(),
-		brokerapi.WithAddr(api.Addr()),
-		brokerapi.WithTransportCredentials(insecure.NewCredentials()),
-		brokerapi.WithMTLSSource(&brokerapi.X509Source{}),
-	)
-	require.EqualError(t, err, "brokerapi: cannot use both transport credentials and an X.509 source")
-	require.Nil(t, client)
-}
-
 func TestNewFailsIfDefaultWorkloadAPISourceFails(t *testing.T) {
 	unsetEnv(t, workloadapi.SocketEnv)
 
@@ -176,19 +156,6 @@ func TestNewFailsIfDefaultWorkloadAPISourceFails(t *testing.T) {
 	client, err := brokerapi.New(context.Background(), tlsconfig.AuthorizeAny(), brokerapi.WithAddr(api.Addr()))
 	require.EqualError(t, err, "brokerapi: failed to create X.509 source: workload endpoint socket address is not configured")
 	require.Nil(t, client)
-}
-
-func setWorkloadAPIResponse(t *testing.T, workloadAPI *fakeworkloadapi.WorkloadAPI) {
-	t.Helper()
-
-	td := spiffeid.RequireTrustDomainFromString("domain.test")
-	ca := test.NewCA(t, td)
-	svid := ca.CreateX509SVID(spiffeid.RequireFromPath(td, "/broker"))
-
-	workloadAPI.SetX509SVIDResponse(&fakeworkloadapi.X509SVIDResponse{
-		SVIDs:  []*x509svid.SVID{svid},
-		Bundle: ca.X509Bundle(),
-	})
 }
 
 func unsetEnv(t *testing.T, key string) {

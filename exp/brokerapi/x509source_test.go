@@ -14,6 +14,8 @@ import (
 	"github.com/spiffe/go-spiffe/v2/svid/x509svid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestX509Source(t *testing.T) {
@@ -62,6 +64,24 @@ func TestX509Source(t *testing.T) {
 
 	_, err = source.GetX509BundleForTrustDomain(td)
 	require.EqualError(t, err, `x509bundle: no X.509 bundle for trust domain "domain.test"`)
+}
+
+func TestX509SourceReturnsTerminalWatchErrors(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+
+	for _, code := range []codes.Code{codes.InvalidArgument, codes.Unimplemented, codes.NotFound} {
+		t.Run(code.String(), func(t *testing.T) {
+			api := fakebrokerapi.New(t)
+			defer api.Stop()
+			api.SetX509SVIDError(status.Error(code, "test error"))
+			client := newTestClient(t, api)
+
+			source, err := brokerapi.NewX509Source(ctx, client, workloadReference())
+			require.Equal(t, code, status.Code(err))
+			require.Nil(t, source)
+		})
+	}
 }
 
 func TestX509SourceWaitsForInitialUpdate(t *testing.T) {

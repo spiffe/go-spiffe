@@ -80,7 +80,7 @@ func parseTCPTarget(u *url.URL) (string, error) {
 		return "", errors.New("broker endpoint tcp socket URI host component must include a port")
 	}
 
-	return net.JoinHostPort(host, port), nil
+	return "dns:///" + net.JoinHostPort(host, port), nil
 }
 
 func parseUnixTarget(u *url.URL) (string, error) {

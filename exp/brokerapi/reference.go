@@ -17,6 +17,13 @@ func newWorkloadReference(reference proto.Message) (*brokerpb.WorkloadReference,
 		return nil, errors.New("brokerapi: workload reference is not valid")
 	}
 
+	if workloadReference, ok := reference.(*brokerpb.WorkloadReference); ok {
+		if workloadReference.Reference == nil {
+			return nil, errors.New("brokerapi: workload reference is not valid")
+		}
+		return workloadReference, nil
+	}
+
 	anyReference, err := anypb.New(reference)
 	if err != nil {
 		return nil, fmt.Errorf("brokerapi: failed to marshal workload reference: %w", err)

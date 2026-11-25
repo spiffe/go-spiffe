@@ -7,7 +7,6 @@ import (
 	"github.com/spiffe/go-spiffe/v2/svid/x509svid"
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 )
 
 // ClientOption is an option used when creating a new Client.
@@ -44,8 +43,6 @@ type MTLSSource interface {
 // the Client. If unset, a new Workload API X.509 source is created with
 // workloadapi.NewX509Source. The source is not closed by the Client.
 //
-// This option cannot be used with WithTransportCredentials.
-//
 // Experimental: subject to change.
 func WithMTLSSource(source MTLSSource) ClientOption {
 	return clientOption(func(c *clientConfig) {
@@ -64,23 +61,8 @@ func WithWorkloadAPISourceOptions(options ...workloadapi.X509SourceOption) Clien
 	})
 }
 
-// WithTransportCredentials provides the transport credentials used to connect
-// to the Broker API, overriding the default mTLS credentials created from an
-// X.509 source.
-//
-// This option cannot be used with WithMTLSSource.
-//
-// Experimental: subject to change.
-func WithTransportCredentials(creds credentials.TransportCredentials) ClientOption {
-	return clientOption(func(c *clientConfig) {
-		c.credentials = creds
-	})
-}
-
 // WithDialOptions provides extra gRPC dial options when connecting to the
-// Broker API. Transport credentials should be provided with
-// WithTransportCredentials, since generated mTLS credentials take precedence
-// when WithTransportCredentials is unset.
+// Broker API.
 //
 // Experimental: subject to change.
 func WithDialOptions(options ...grpc.DialOption) ClientOption {
@@ -102,7 +84,7 @@ func WithLogger(log logger.Logger) ClientOption {
 // default backoff strategy (linear backoff) used when re-establishing streams.
 //
 // Experimental: subject to change.
-func WithBackoffStrategy(backoffStrategy BackoffStrategy) ClientOption {
+func WithBackoffStrategy(backoffStrategy workloadapi.BackoffStrategy) ClientOption {
 	return clientOption(func(c *clientConfig) {
 		c.backoffStrategy = backoffStrategy
 	})
@@ -142,12 +124,11 @@ func WithDefaultJWTSVIDPicker(picker func([]*jwtsvid.SVID) *jwtsvid.SVID) JWTSou
 
 type clientConfig struct {
 	address                  string
-	credentials              credentials.TransportCredentials
 	mtlsSource               MTLSSource
 	workloadAPISourceOptions []workloadapi.X509SourceOption
 	dialOptions              []grpc.DialOption
 	log                      logger.Logger
-	backoffStrategy          BackoffStrategy
+	backoffStrategy          workloadapi.BackoffStrategy
 }
 
 type clientOption func(*clientConfig)

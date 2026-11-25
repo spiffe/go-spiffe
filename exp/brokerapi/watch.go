@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/spiffe/go-spiffe/v2/logger"
+	"github.com/spiffe/go-spiffe/v2/workloadapi"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -18,11 +19,11 @@ type openFunc[T any] func(context.Context) (recvFunc[T], error)
 func watch[T any](
 	ctx context.Context,
 	log logger.Logger,
-	backoffStrategy BackoffStrategy,
+	backoffStrategy workloadapi.BackoffStrategy,
 	name string,
 	open openFunc[T],
 	update func(T) error,
-	onPermissionDenied func(),
+	onClear func(),
 ) error {
 	backoff := backoffStrategy.NewBackoff()
 	for {
@@ -38,9 +39,15 @@ func watch[T any](
 		case codes.InvalidArgument, codes.Unimplemented:
 			log.Errorf("Canceling %s watch: %v", name, err)
 			return err
-		case codes.NotFound, codes.PermissionDenied:
-			if onPermissionDenied != nil {
-				onPermissionDenied()
+		case codes.NotFound:
+			if onClear != nil {
+				onClear()
+			}
+			log.Errorf("Canceling %s watch: %v", name, err)
+			return err
+		case codes.PermissionDenied:
+			if onClear != nil {
+				onClear()
 			}
 		}
 
@@ -58,7 +65,7 @@ func watch[T any](
 func watchStream[T any](
 	ctx context.Context,
 	log logger.Logger,
-	backoff Backoff,
+	backoff workloadapi.Backoff,
 	name string,
 	open openFunc[T],
 	update func(T) error,

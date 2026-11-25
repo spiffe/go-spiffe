@@ -133,11 +133,15 @@ func TestValidateAddress(t *testing.T) {
 func TestTargetFromAddress(t *testing.T) {
 	target, err := TargetFromAddress("tcp://1.2.3.4:5")
 	require.NoError(t, err)
-	assert.Equal(t, "1.2.3.4:5", target)
+	assert.Equal(t, "dns:///1.2.3.4:5", target)
 
 	target, err = TargetFromAddress("tcp://broker.example.com:8443")
 	require.NoError(t, err)
-	assert.Equal(t, "broker.example.com:8443", target)
+	assert.Equal(t, "dns:///broker.example.com:8443", target)
+
+	target, err = TargetFromAddress("tcp://[::1]:8443")
+	require.NoError(t, err)
+	assert.Equal(t, "dns:///[::1]:8443", target)
 
 	target, err = TargetFromAddress("unix:///path/to/broker.sock")
 	require.NoError(t, err)

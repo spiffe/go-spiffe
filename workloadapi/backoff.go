@@ -1,8 +1,9 @@
 package workloadapi
 
 import (
-	"math"
 	"time"
+
+	"github.com/spiffe/go-spiffe/v2/internal/backoff"
 )
 
 // BackoffStrategy provides backoff facilities.
@@ -25,31 +26,5 @@ type Backoff interface {
 type defaultBackoffStrategy struct{}
 
 func (defaultBackoffStrategy) NewBackoff() Backoff {
-	return newLinearBackoff()
-}
-
-// linearBackoff defines an linear backoff policy.
-type linearBackoff struct {
-	initialDelay time.Duration
-	maxDelay     time.Duration
-	n            int
-}
-
-func newLinearBackoff() *linearBackoff {
-	return &linearBackoff{
-		initialDelay: time.Second,
-		maxDelay:     30 * time.Second,
-		n:            0,
-	}
-}
-
-func (b *linearBackoff) Next() time.Duration {
-	backoff := float64(b.n) + 1
-	d := math.Min(b.initialDelay.Seconds()*backoff, b.maxDelay.Seconds())
-	b.n++
-	return time.Duration(d) * time.Second
-}
-
-func (b *linearBackoff) Reset() {
-	b.n = 0
+	return backoff.NewLinear()
 }

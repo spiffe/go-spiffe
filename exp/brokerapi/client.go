@@ -19,10 +19,10 @@ import (
 // connection as needed; individual streams are re-established by the sources
 // when they are terminated.
 //
-// By default, the Client creates a Workload API X.509 source and uses it to
-// build the mutual TLS credentials required by the Broker API. The source is
-// closed when the Client is closed. The Broker API server X509-SVID is
-// authorized by the Authorizer provided to New.
+// The Client authenticates the Broker API server using the Authorizer provided
+// to New. By default, the Client creates a Workload API X.509 source and uses
+// it to build the mutual TLS credentials required by the Broker API. The
+// source is closed when the Client is closed.
 //
 // Experimental: subject to change.
 type Client struct {
@@ -40,7 +40,6 @@ type Client struct {
 // If no address is provided with WithAddr, the address in the
 // SPIFFE_BROKER_SOCKET environment variable is used.
 //
-// If no transport credentials are provided with WithTransportCredentials,
 // mTLS credentials are created from the source provided by WithMTLSSource or,
 // if unset, from a new Workload API X.509 source.
 //
@@ -72,33 +71,30 @@ func New(ctx context.Context, authorizer tlsconfig.Authorizer, options ...Client
 		return nil, fmt.Errorf("brokerapi: invalid address: %w", err)
 	}
 
-	if config.credentials != nil && config.mtlsSource != nil {
-		return nil, errors.New("brokerapi: cannot use both transport credentials and an X.509 source")
-	}
-
 	var ownedSource *workloadapi.X509Source
-	if config.credentials == nil {
-		var source MTLSSource
-		if config.mtlsSource != nil {
-			source = config.mtlsSource
-		} else {
-			ownedSource, err = workloadapi.NewX509Source(ctx, config.workloadAPISourceOptions...)
-			if err != nil {
-				return nil, fmt.Errorf("brokerapi: failed to create X.509 source: %w", err)
-			}
-			source = ownedSource
+	source := config.mtlsSource
+	if source == nil {
+		ownedSource, err = workloadapi.NewX509Source(ctx, config.workloadAPISourceOptions...)
+		if err != nil {
+			return nil, fmt.Errorf("brokerapi: failed to create X.509 source: %w", err)
 		}
-		config.credentials = grpccredentials.MTLSClientCredentials(source, source, authorizer)
+		source = ownedSource
 	}
 
-	dialOptions := make([]grpc.DialOption, 0, len(config.dialOptions)+1)
+	dialOptions := make([]grpc.DialOption, 0, len(config.dialOptions)+3)
 	dialOptions = append(dialOptions, config.dialOptions...)
-	dialOptions = append(dialOptions, grpc.WithTransportCredentials(config.credentials))
+	dialOptions = append(dialOptions,
+		grpc.WithTransportCredentials(grpccredentials.MTLSClientCredentials(source, source, authorizer)),
+		grpc.WithChainUnaryInterceptor(unaryMetadataInterceptor),
+		grpc.WithChainStreamInterceptor(streamMetadataInterceptor),
+	)
 
 	conn, err := grpc.NewClient(target, dialOptions...)
 	if err != nil {
 		if ownedSource != nil {
-			err = errors.Join(err, ownedSource.Close())
+			if sErr := ownedSource.Close(); sErr != nil {
+				err = errors.Join(err, sErr)
+			}
 		}
 		return nil, fmt.Errorf("brokerapi: failed to create client: %w", err)
 	}
@@ -117,10 +113,20 @@ func New(ctx context.Context, authorizer tlsconfig.Authorizer, options ...Client
 func (c *Client) Close() error {
 	var errs []error
 	if c.conn != nil {
-		errs = append(errs, c.conn.Close())
+		if err := c.conn.Close(); err != nil {
+			errs = append(errs, err)
+		}
 	}
 	if c.ownedSource != nil {
-		errs = append(errs, c.ownedSource.Close())
+		if err := c.ownedSource.Close(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if len(errs) == 0 {
+		return nil
+	}
+	if len(errs) == 1 {
+		return errs[0]
 	}
 	return errors.Join(errs...)
 }

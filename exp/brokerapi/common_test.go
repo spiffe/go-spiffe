@@ -11,19 +11,20 @@ import (
 	"github.com/spiffe/go-spiffe/v2/exp/brokerapi"
 	brokerpb "github.com/spiffe/go-spiffe/v2/exp/proto/spiffe/broker"
 	"github.com/spiffe/go-spiffe/v2/internal/test/fakebrokerapi"
+	"github.com/spiffe/go-spiffe/v2/internal/test/fakeworkloadapi"
 	"github.com/spiffe/go-spiffe/v2/internal/x509util"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
 	"github.com/spiffe/go-spiffe/v2/svid/jwtsvid"
 	"github.com/spiffe/go-spiffe/v2/svid/x509svid"
+	"github.com/spiffe/go-spiffe/v2/workloadapi"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/proto"
 )
 
 type instantBackoffStrategy struct{}
 
-func (instantBackoffStrategy) NewBackoff() brokerapi.Backoff {
+func (instantBackoffStrategy) NewBackoff() workloadapi.Backoff {
 	return instantBackoff{}
 }
 
@@ -35,10 +36,14 @@ func (instantBackoff) Reset()              {}
 func newTestClient(tb testing.TB, api *fakebrokerapi.BrokerAPI) *brokerapi.Client {
 	tb.Helper()
 
+	workloadAPI := newTestWorkloadAPI(tb, api)
+
 	client, err := brokerapi.New(context.Background(),
-		tlsconfig.AuthorizeAny(),
+		tlsconfig.AuthorizeID(api.ServerID()),
 		brokerapi.WithAddr(api.Addr()),
-		brokerapi.WithTransportCredentials(insecure.NewCredentials()),
+		brokerapi.WithWorkloadAPISourceOptions(
+			workloadapi.WithClientOptions(workloadapi.WithAddr(workloadAPI.Addr())),
+		),
 		brokerapi.WithBackoffStrategy(instantBackoffStrategy{}),
 	)
 	require.NoError(tb, err)
@@ -46,6 +51,18 @@ func newTestClient(tb testing.TB, api *fakebrokerapi.BrokerAPI) *brokerapi.Clien
 		require.NoError(tb, client.Close())
 	})
 	return client
+}
+
+func newTestWorkloadAPI(tb testing.TB, api *fakebrokerapi.BrokerAPI) *fakeworkloadapi.WorkloadAPI {
+	tb.Helper()
+
+	workloadAPI := fakeworkloadapi.New(tb)
+	tb.Cleanup(workloadAPI.Stop)
+	workloadAPI.SetX509SVIDResponse(&fakeworkloadapi.X509SVIDResponse{
+		SVIDs:  []*x509svid.SVID{api.MTLSClientSVID()},
+		Bundle: api.Bundle(),
+	})
+	return workloadAPI
 }
 
 func workloadReference() *brokerpb.WorkloadPIDReference {
