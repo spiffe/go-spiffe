@@ -246,30 +246,27 @@ func verifyPeer(certs []*x509.Certificate, bundle x509bundle.Source, authorizer 
 	return chains, nil
 }
 
-// hookPeerVerification authenticates in both callbacks so replacing
-// VerifyPeerCertificate can't skip it; authorizes once, in VerifyConnection,
-// before any existing callbacks.
+// hookPeerVerification authorizes full handshakes in VerifyPeerCertificate and
+// resumed ones, which Go does not pass to it, in VerifyConnection.
 func hookPeerVerification(config *tls.Config, bundle x509bundle.Source, authorizer Authorizer, opts ...Option) {
-	verifyPeerCertificate, verifyConnection := config.VerifyPeerCertificate, config.VerifyConnection
-	config.VerifyPeerCertificate = func(raw [][]byte, _ [][]*x509.Certificate) error {
-		_, _, err := x509svid.ParseAndVerify(raw, bundle)
-		return err
+	config.VerifyPeerCertificate = WrapVerifyPeerCertificate(config.VerifyPeerCertificate, bundle, authorizer, opts...)
+	wrapped := config.VerifyConnection
+	verifyResumed := WrapVerifyConnection(wrapped, bundle, authorizer, opts...)
+	config.VerifyConnection = func(cs tls.ConnectionState) error {
+		if cs.DidResume {
+			return verifyResumed(cs)
+		}
+		if wrapped == nil {
+			return nil
+		}
+		// Verified again only to pass the chains on.
+		_, chains, err := x509svid.Verify(cs.PeerCertificates, bundle)
+		if err != nil {
+			return err
+		}
+		cs.VerifiedChains = chains
+		return wrapped(cs)
 	}
-	config.VerifyConnection = WrapVerifyConnection(func(cs tls.ConnectionState) error {
-		if verifyPeerCertificate != nil && !cs.DidResume {
-			raw := make([][]byte, len(cs.PeerCertificates))
-			for i, cert := range cs.PeerCertificates {
-				raw[i] = cert.Raw
-			}
-			if err := verifyPeerCertificate(raw, cs.VerifiedChains); err != nil {
-				return err
-			}
-		}
-		if verifyConnection != nil {
-			return verifyConnection(cs)
-		}
-		return nil
-	}, bundle, authorizer, opts...)
 }
 
 // peerChainExtra marks the SessionState.Extra entry holding the client

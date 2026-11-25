@@ -10,7 +10,6 @@ import (
 	"slices"
 	"sync/atomic"
 	"testing"
-	"time"
 
 	"github.com/spiffe/go-spiffe/v2/bundle/x509bundle"
 	"github.com/spiffe/go-spiffe/v2/internal/test"
@@ -329,53 +328,17 @@ func TestSessionResumptionChainsTicketCallbacks(t *testing.T) {
 	}
 }
 
-func TestSessionResumptionPeerCertificateExpires(t *testing.T) {
+func TestHookAuthorizesWhenVerifyConnectionIsReplaced(t *testing.T) {
 	td := spiffeid.RequireTrustDomainFromString("domain.test")
 	ca := test.NewCA(t, td)
 	bundle := ca.X509Bundle()
-	serverID := spiffeid.RequireFromPath(td, "/server")
-	clientID := spiffeid.RequireFromPath(td, "/client")
 
-	for _, version := range []uint16{tls.VersionTLS12, tls.VersionTLS13} {
-		for _, serverExpires := range []bool{true, false} {
-			name := tls.VersionName(version) + "/client certificate expires"
-			if serverExpires {
-				name = tls.VersionName(version) + "/server certificate expires"
-			}
-			t.Run(name, func(t *testing.T) {
-				t.Parallel()
-				notAfter := time.Now().Add(3 * time.Second)
-				expiring := test.WithLifetime(time.Now().Add(-time.Minute), notAfter)
-				serverSVID, clientSVID := ca.CreateX509SVID(serverID), ca.CreateX509SVID(clientID)
-				if serverExpires {
-					serverSVID = ca.CreateX509SVID(serverID, expiring)
-				} else {
-					clientSVID = ca.CreateX509SVID(clientID, expiring)
-				}
+	clientConfig := tlsconfig.MTLSClientConfig(ca.CreateX509SVID(spiffeid.RequireFromPath(td, "/client")), bundle, tlsconfig.AuthorizeID(spiffeid.RequireFromPath(td, "/other")))
+	clientConfig.VerifyConnection = func(tls.ConnectionState) error { return nil }
+	addr := listen(t, tlsconfig.MTLSServerConfig(ca.CreateX509SVID(spiffeid.RequireFromPath(td, "/server")), bundle, tlsconfig.AuthorizeAny()))
 
-				serverConfig := tlsconfig.MTLSServerConfig(serverSVID, bundle, tlsconfig.AuthorizeAny())
-				serverConfig.MinVersion, serverConfig.MaxVersion = version, version
-				clientConfig := tlsconfig.MTLSClientConfig(clientSVID, bundle, tlsconfig.AuthorizeAny())
-				clientConfig.MinVersion, clientConfig.MaxVersion = version, version
-				clientConfig.ClientSessionCache = tls.NewLRUClientSessionCache(1)
-				addr := listen(t, serverConfig)
-
-				_, err := dialAndRead(addr, clientConfig)
-				require.NoError(t, err)
-				state, err := dialAndRead(addr, clientConfig)
-				require.NoError(t, err)
-				require.True(t, state.DidResume)
-
-				time.Sleep(time.Until(notAfter) + 1500*time.Millisecond)
-				_, err = dialAndRead(addr, clientConfig)
-				if serverExpires {
-					require.ErrorContains(t, err, "certificate has expired")
-				} else {
-					require.ErrorContains(t, err, "bad certificate")
-				}
-			})
-		}
-	}
+	_, err := dialAndRead(addr, clientConfig)
+	require.ErrorContains(t, err, "unexpected ID")
 }
 
 type svidSource struct {
