@@ -128,6 +128,12 @@ func parse(token string, audience []string, getClaims tokenValidator) (*SVID, er
 		return nil, wrapJwtsvidErr(errors.New("token missing aud claim"))
 	}
 
+	for _, aud := range claims.Audience {
+		if aud == "" {
+			return nil, wrapJwtsvidErr(errors.New("token has an empty aud claim value"))
+		}
+	}
+
 	spiffeID, err := spiffeid.FromString(claims.Subject)
 	if err != nil {
 		return nil, wrapJwtsvidErr(fmt.Errorf("token has an invalid subject claim: %v", err))
