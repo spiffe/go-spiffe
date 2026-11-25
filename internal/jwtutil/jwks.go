@@ -12,7 +12,27 @@ import (
 // instead of rejecting the whole set, as RFC 7517 section 5 recommends and the
 // SPIFFE bundle specification requires.
 func DecodeKey(raw json.RawMessage) (key jose.JSONWebKey, ok bool, err error) {
+	// go-jose decodes every member it knows before it looks at the key type,
+	// so it fails on an unknown key type that gives one of those members a
+	// different shape. The key type is checked first to ignore such entries.
+	var entry struct {
+		KeyType string `json:"kty"`
+	}
+	if err := json.Unmarshal(raw, &entry); err != nil {
+		return jose.JSONWebKey{}, false, err
+	}
+	switch entry.KeyType {
+	case "EC", "RSA", "OKP", "oct":
+		// The key types go-jose decodes.
+	case "":
+		// The key type is required, so go-jose is left to reject the entry.
+	default:
+		return jose.JSONWebKey{}, false, nil
+	}
+
 	if err := json.Unmarshal(raw, &key); err != nil {
+		// go-jose also reports key types it knows but can't decode, such as
+		// an OKP key on an unsupported curve.
 		if errors.Is(err, jose.ErrUnsupportedKeyType) {
 			return jose.JSONWebKey{}, false, nil
 		}

@@ -222,6 +222,11 @@ func TestLoad(t *testing.T) {
 			expectedCount: 2,
 		},
 		{
+			name:          "unknown key type is ignored",
+			path:          "testdata/jwks_unknown_kty.json",
+			expectedCount: 1,
+		},
+		{
 			name:        "non existent file",
 			path:        "testdata/does-not-exist.json",
 			expectedErr: "witbundle: unable to read WIT bundle: open testdata/does-not-exist.json: " + errstrings.FileNotFound,
@@ -262,6 +267,11 @@ func TestRead(t *testing.T) {
 			name:          "valid with two keys",
 			path:          "testdata/jwks_valid_2.json",
 			expectedCount: 2,
+		},
+		{
+			name:          "unknown key type is ignored",
+			path:          "testdata/jwks_unknown_kty.json",
+			expectedCount: 1,
 		},
 		{
 			name:        "unreadable reader",
