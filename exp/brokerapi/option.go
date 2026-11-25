@@ -73,6 +73,20 @@ func WithDialOptions(options ...grpc.DialOption) ClientOption {
 	})
 }
 
+// WithRoundRobin configures the Client to load-balance requests across the
+// endpoints returned by the DNS resolver using the round_robin policy. This is
+// useful when the Broker API address resolves to multiple endpoints, such as a
+// headless Kubernetes Service.
+//
+// Experimental: subject to change.
+func WithRoundRobin() ClientOption {
+	return clientOption(func(c *clientConfig) {
+		c.dialOptions = append(c.dialOptions, grpc.WithDefaultServiceConfig(roundRobinServiceConfig))
+	})
+}
+
+const roundRobinServiceConfig = `{"loadBalancingConfig":[{"round_robin":{}}]}`
+
 // WithLogger provides a logger to the Client.
 //
 // Experimental: subject to change.

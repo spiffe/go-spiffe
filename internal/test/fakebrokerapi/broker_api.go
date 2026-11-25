@@ -18,6 +18,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 )
 
@@ -55,6 +56,8 @@ type BrokerAPI struct {
 	lastReference     *brokerpb.WorkloadReference
 	lastReferenceCh   chan struct{}
 	lastReferenceOnce sync.Once
+
+	requestsByLocalAddr map[string]int
 }
 
 func New(tb testing.TB) *BrokerAPI {
@@ -64,14 +67,15 @@ func New(tb testing.TB) *BrokerAPI {
 	clientSVID := ca.CreateX509SVID(spiffeid.RequireFromPath(td, clientPath))
 
 	b := &BrokerAPI{
-		tb:               tb,
-		ca:               ca,
-		serverID:         serverSVID.ID,
-		clientSVID:       clientSVID,
-		x509SVIDChans:    make(map[chan *brokerpb.SubscribeToX509SVIDResponse]struct{}),
-		x509BundlesChans: make(map[chan *brokerpb.SubscribeToX509BundlesResponse]struct{}),
-		jwtBundlesChans:  make(map[chan *brokerpb.SubscribeToJWTBundlesResponse]struct{}),
-		lastReferenceCh:  make(chan struct{}),
+		tb:                  tb,
+		ca:                  ca,
+		serverID:            serverSVID.ID,
+		clientSVID:          clientSVID,
+		x509SVIDChans:       make(map[chan *brokerpb.SubscribeToX509SVIDResponse]struct{}),
+		x509BundlesChans:    make(map[chan *brokerpb.SubscribeToX509BundlesResponse]struct{}),
+		jwtBundlesChans:     make(map[chan *brokerpb.SubscribeToJWTBundlesResponse]struct{}),
+		lastReferenceCh:     make(chan struct{}),
+		requestsByLocalAddr: make(map[string]int),
 	}
 
 	listener, err := net.Listen("tcp", "localhost:0")
@@ -98,6 +102,23 @@ func New(tb testing.TB) *BrokerAPI {
 
 func (b *BrokerAPI) Addr() string {
 	return b.addr
+}
+
+// AddListener starts serving the Broker API on another TCP listener and
+// returns the listener address.
+func (b *BrokerAPI) AddListener(tb testing.TB) string {
+	tb.Helper()
+
+	listener, err := net.Listen("tcp", "localhost:0")
+	require.NoError(tb, err)
+
+	b.wg.Add(1)
+	go func() {
+		defer b.wg.Done()
+		_ = b.server.Serve(listener)
+	}()
+
+	return listener.Addr().String()
 }
 
 // Bundle returns the X.509 bundle trusted by the Broker API server.
@@ -177,6 +198,19 @@ func (b *BrokerAPI) SetJWTSVIDError(err error) {
 	b.jwtSVIDErr = err
 }
 
+// RequestCountsByLocalAddr returns the number of requests received on each
+// local listener address.
+func (b *BrokerAPI) RequestCountsByLocalAddr() map[string]int {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	counts := make(map[string]int, len(b.requestsByLocalAddr))
+	for addr, count := range b.requestsByLocalAddr {
+		counts[addr] = count
+	}
+	return counts
+}
+
 func (b *BrokerAPI) LastReference() *brokerpb.WorkloadReference {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -215,6 +249,17 @@ func (b *BrokerAPI) recordReference(reference *brokerpb.WorkloadReference) error
 	return nil
 }
 
+func (b *BrokerAPI) recordRequest(ctx context.Context) {
+	p, ok := peer.FromContext(ctx)
+	if !ok {
+		return
+	}
+
+	b.mu.Lock()
+	b.requestsByLocalAddr[p.LocalAddr.String()]++
+	b.mu.Unlock()
+}
+
 func checkHeader(ctx context.Context) error {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
@@ -239,6 +284,7 @@ func (s *apiServer) SubscribeToX509SVID(req *brokerpb.SubscribeToX509SVIDRequest
 	if err := checkHeader(stream.Context()); err != nil {
 		return err
 	}
+	s.b.recordRequest(stream.Context())
 	if err := s.b.recordReference(req.Reference); err != nil {
 		return err
 	}
@@ -287,6 +333,7 @@ func (s *apiServer) SubscribeToX509Bundles(req *brokerpb.SubscribeToX509BundlesR
 	if err := checkHeader(stream.Context()); err != nil {
 		return err
 	}
+	s.b.recordRequest(stream.Context())
 	if err := s.b.recordReference(req.Reference); err != nil {
 		return err
 	}
@@ -335,6 +382,7 @@ func (s *apiServer) FetchJWTSVID(ctx context.Context, req *brokerpb.FetchJWTSVID
 	if err := checkHeader(ctx); err != nil {
 		return nil, err
 	}
+	s.b.recordRequest(ctx)
 	if err := s.b.recordReference(req.Reference); err != nil {
 		return nil, err
 	}
@@ -371,6 +419,7 @@ func (s *apiServer) SubscribeToJWTBundles(req *brokerpb.SubscribeToJWTBundlesReq
 	if err := checkHeader(stream.Context()); err != nil {
 		return err
 	}
+	s.b.recordRequest(stream.Context())
 	if err := s.b.recordReference(req.Reference); err != nil {
 		return err
 	}
