@@ -6,6 +6,8 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"runtime"
+	"time"
 
 	"github.com/spiffe/go-spiffe/v2/logger"
 )
@@ -45,5 +47,10 @@ func (a slogAdapter) log(level slog.Level, format string, args []any) {
 	if !a.l.Enabled(ctx, level) {
 		return
 	}
-	a.l.Log(ctx, level, fmt.Sprintf(format, args...))
+	// Record the caller of Debugf/Infof/Warnf/Errorf as the source instead of
+	// this adapter. Skip runtime.Callers, this function and the level method.
+	var pcs [1]uintptr
+	runtime.Callers(3, pcs[:])
+	r := slog.NewRecord(time.Now(), level, fmt.Sprintf(format, args...), pcs[0])
+	_ = a.l.Handler().Handle(ctx, r)
 }

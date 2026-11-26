@@ -2,7 +2,9 @@ package slogutil_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"log/slog"
+	"path/filepath"
 	"testing"
 
 	"github.com/spiffe/go-spiffe/v2/internal/slogutil"
@@ -50,4 +52,21 @@ func TestWrapRespectsLevel(t *testing.T) {
 
 func TestWrapNil(t *testing.T) {
 	require.Equal(t, logger.Null, slogutil.Wrap(nil))
+}
+
+func TestWrapReportsCallerAsSource(t *testing.T) {
+	buf := new(bytes.Buffer)
+	l := slog.New(slog.NewJSONHandler(buf, &slog.HandlerOptions{AddSource: true}))
+
+	slogutil.Wrap(l).Infof("hello")
+
+	var record struct {
+		Source struct {
+			Function string `json:"function"`
+			File     string `json:"file"`
+		} `json:"source"`
+	}
+	require.NoError(t, json.Unmarshal(buf.Bytes(), &record))
+	require.Equal(t, "slogutil_test.go", filepath.Base(record.Source.File))
+	require.Equal(t, "github.com/spiffe/go-spiffe/v2/internal/slogutil_test.TestWrapReportsCallerAsSource", record.Source.Function)
 }
