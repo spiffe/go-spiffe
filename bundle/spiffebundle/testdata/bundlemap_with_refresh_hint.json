@@ -1,0 +1,18 @@
+{
+    "trust_domains": {
+        "domain.test": {
+            "keys": [
+                {
+                    "use": "jwt-svid",
+                    "kty": "EC",
+                    "kid": "C6vs25welZOx6WksNYfbMfiw9l96pMnD",
+                    "crv": "P-256",
+                    "x": "ngLYQnlfF6GsojUwqtcEE3WgTNG2RUlsGhK73RNEl5k",
+                    "y": "tKbiDSUSsQ3F1P7wteeHNXIcU-cx6CgSbroeQrQHTLM"
+                }
+            ],
+            "spiffe_refresh_hint": 60,
+            "spiffe_sequence": 1
+        }
+    }
+}
