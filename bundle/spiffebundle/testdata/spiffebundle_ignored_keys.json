@@ -22,7 +22,7 @@
             "use": "jwt-svid",
             "kty": "FUTURE",
             "kid": "future-key",
-            "pub": "AAAA"
+            "x": "!!!"
         },
         {
             "kty": "EC",

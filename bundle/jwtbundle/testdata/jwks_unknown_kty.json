@@ -10,7 +10,7 @@
         {
             "kty": "FUTURE",
             "kid": "future-key",
-            "pub": "AAAA"
+            "x": "!!!"
         }
     ]
 }

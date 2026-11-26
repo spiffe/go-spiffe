@@ -13,24 +13,17 @@ import (
 // instead of rejecting the whole set, as RFC 7517 section 5 recommends and the
 // SPIFFE bundle specification requires.
 func DecodeKey(raw json.RawMessage) (key jose.JSONWebKey, ok bool, err error) {
-	// go-jose decodes every member it knows before it looks at the key type,
-	// so it fails on an unknown key type that gives one of those members a
-	// different shape. The key type is checked first to ignore such entries.
-	// It is read with go-jose's decoder, which matches member names by exact
-	// case, so that both steps see the same key type.
+	// go-jose decodes known members before it checks kty, so an unsupported
+	// kty with a bad member would fail. Check kty first, with go-jose's
+	// decoder so that both steps read the same member.
 	var entry struct {
 		KeyType string `json:"kty"`
 	}
 	if err := josejson.Unmarshal(raw, &entry); err != nil {
 		return jose.JSONWebKey{}, false, err
 	}
-	switch entry.KeyType {
-	case "EC", "RSA", "OKP", "oct", "AKP":
-		// The key types go-jose decodes. It only decodes AKP when built
-		// with Go 1.27 or later, and reports it as unsupported otherwise.
-	case "":
-		// The key type is required, so go-jose is left to reject the entry.
-	default:
+	// The key type is required, so go-jose is left to reject a missing one.
+	if entry.KeyType != "" && !decodable(entry.KeyType) {
 		return jose.JSONWebKey{}, false, nil
 	}
 
@@ -43,4 +36,16 @@ func DecodeKey(raw json.RawMessage) (key jose.JSONWebKey, ok bool, err error) {
 		return jose.JSONWebKey{}, false, err
 	}
 	return key, true, nil
+}
+
+// decodable reports whether go-jose decodes keys of the given type.
+func decodable(keyType string) bool {
+	switch keyType {
+	case "EC", "RSA", "OKP", "oct":
+		return true
+	case "AKP":
+		return mldsaSupported
+	default:
+		return false
+	}
 }
