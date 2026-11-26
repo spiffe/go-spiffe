@@ -2,6 +2,7 @@ package brokerapi
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/spiffe/go-spiffe/v2/logger"
@@ -12,6 +13,22 @@ import (
 
 type recvFunc[T any] func() (T, error)
 type openFunc[T any] func(context.Context) (recvFunc[T], error)
+
+type watchTerminalError struct {
+	err error
+}
+
+func (e watchTerminalError) Error() string {
+	return e.err.Error()
+}
+
+func (e watchTerminalError) Unwrap() error {
+	return e.err
+}
+
+func newWatchTerminalError(err error) error {
+	return watchTerminalError{err: err}
+}
 
 // watch repeatedly establishes a stream and receives responses from it until
 // the context is canceled or a terminal error is encountered. Transient errors
@@ -24,18 +41,25 @@ func watch[T any](
 	open openFunc[T],
 	update func(T) error,
 	onClear func(),
+	onError func(error),
 ) error {
 	backoff := backoffStrategy.NewBackoff()
 	for {
-		err := watchStream(ctx, log, backoff, name, open, update)
+		err := watchStream(ctx, log, backoff, name, open, update, onError)
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
 
+		notifyError(onError, err)
+
+		var terminal watchTerminalError
+		if errors.As(err, &terminal) {
+			log.Errorf("Canceling %s watch: %v", name, err)
+			return err
+		}
+
 		code := status.Code(err)
 		switch code {
-		case codes.Canceled:
-			return err
 		case codes.InvalidArgument, codes.Unimplemented:
 			log.Errorf("Canceling %s watch: %v", name, err)
 			return err
@@ -69,6 +93,7 @@ func watchStream[T any](
 	name string,
 	open openFunc[T],
 	update func(T) error,
+	onError func(error),
 ) error {
 	recv, err := open(ctx)
 	if err != nil {
@@ -83,7 +108,18 @@ func watchStream[T any](
 
 		backoff.Reset()
 		if err := update(response); err != nil {
+			var terminal watchTerminalError
+			if errors.As(err, &terminal) {
+				return err
+			}
 			log.Errorf("Failed to parse %s response: %v", name, err)
+			notifyError(onError, err)
 		}
+	}
+}
+
+func notifyError(onError func(error), err error) {
+	if onError != nil {
+		onError(err)
 	}
 }

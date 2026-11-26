@@ -65,7 +65,8 @@ func TestBundleSourceWaitsForInitialUpdates(t *testing.T) {
 	defer cancel()
 
 	source, err := brokerapi.NewBundleSource(ctx, client, workloadReference())
-	require.EqualError(t, err, context.DeadlineExceeded.Error())
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+	require.ErrorContains(t, err, "PermissionDenied")
 	require.Nil(t, source)
 }
 

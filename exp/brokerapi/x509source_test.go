@@ -84,6 +84,38 @@ func TestX509SourceReturnsTerminalWatchErrors(t *testing.T) {
 	}
 }
 
+func TestX509SourceExposesWatchTermination(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+
+	api := fakebrokerapi.New(t)
+	defer api.Stop()
+	client := newTestClient(t, api)
+
+	td := spiffeid.RequireTrustDomainFromString("domain.test")
+	ca := test.NewCA(t, td)
+	svid := ca.CreateX509SVID(spiffeid.RequireFromPath(td, "/workload"))
+	api.SetX509SVIDResponse(makeX509SVIDResponse(t, ca.X509Bundle(), []*x509svid.SVID{svid}))
+
+	source, err := brokerapi.NewX509Source(ctx, client, workloadReference())
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, source.Close())
+	}()
+
+	api.SetX509SVIDError(status.Error(codes.InvalidArgument, "terminal error"))
+	api.SetX509SVIDResponse(nil)
+
+	select {
+	case <-source.Done():
+	case <-ctx.Done():
+		require.FailNow(t, "timed out waiting for the source to stop watching")
+	}
+
+	require.Equal(t, codes.InvalidArgument, status.Code(source.Err()))
+	require.ErrorContains(t, source.Err(), "terminal error")
+}
+
 func TestX509SourceWaitsForInitialUpdate(t *testing.T) {
 	api := fakebrokerapi.New(t)
 	defer api.Stop()
@@ -93,7 +125,24 @@ func TestX509SourceWaitsForInitialUpdate(t *testing.T) {
 	defer cancel()
 
 	source, err := brokerapi.NewX509Source(ctx, client, workloadReference())
-	require.EqualError(t, err, context.DeadlineExceeded.Error())
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+	require.ErrorContains(t, err, "PermissionDenied")
+	require.Nil(t, source)
+}
+
+func TestX509SourceJoinsResponseErrorOnTimeout(t *testing.T) {
+	api := fakebrokerapi.New(t)
+	defer api.Stop()
+	client := newTestClient(t, api)
+
+	api.SetX509SVIDResponse(&brokerpb.SubscribeToX509SVIDResponse{})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+
+	source, err := brokerapi.NewX509Source(ctx, client, workloadReference())
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+	require.ErrorContains(t, err, "no X.509-SVIDs in response")
 	require.Nil(t, source)
 }
 
@@ -124,6 +173,28 @@ func TestX509SourcePicker(t *testing.T) {
 	}()
 
 	requireX509SVID(t, source, svid2)
+}
+
+func TestX509SourceFailsIfPickerReturnsNil(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+
+	api := fakebrokerapi.New(t)
+	defer api.Stop()
+	client := newTestClient(t, api)
+
+	td := spiffeid.RequireTrustDomainFromString("domain.test")
+	ca := test.NewCA(t, td)
+	svid := ca.CreateX509SVID(spiffeid.RequireFromPath(td, "/workload"))
+	api.SetX509SVIDResponse(makeX509SVIDResponse(t, ca.X509Bundle(), []*x509svid.SVID{svid}))
+
+	source, err := brokerapi.NewX509Source(ctx, client, workloadReference(),
+		brokerapi.WithDefaultX509SVIDPicker(func([]*x509svid.SVID) *x509svid.SVID {
+			return nil
+		}),
+	)
+	require.ErrorContains(t, err, "picker returned nil")
+	require.Nil(t, source)
 }
 
 func TestX509SourceFailsCallsIfClosed(t *testing.T) {

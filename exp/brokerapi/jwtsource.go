@@ -54,9 +54,12 @@ func NewJWTSource(ctx context.Context, client *Client, workloadReference proto.M
 	if err != nil {
 		return nil, err
 	}
+	if err := validateReferenceScope(reference, client.config.address); err != nil {
+		return nil, err
+	}
 
 	s := &JWTSource{
-		sourceBase:    newSourceBase(),
+		sourceBase:    newSourceBase(1),
 		client:        client,
 		reference:     reference,
 		picker:        config.picker,
@@ -82,7 +85,7 @@ func NewJWTSource(ctx context.Context, client *Client, workloadReference proto.M
 	case err := <-errCh:
 		return nil, err
 	case <-ctx.Done():
-		return nil, ctx.Err()
+		return nil, joinWatchError(ctx.Err(), s.lastWatchError())
 	}
 
 	s.drainUpdated()
@@ -175,8 +178,25 @@ func (s *JWTSource) Updated() <-chan struct{} {
 	return s.updated()
 }
 
+// Done returns a channel that is closed when the source stops watching for
+// updates, either because it was closed or because the watch terminated.
+//
+// Experimental: subject to change.
+func (s *JWTSource) Done() <-chan struct{} {
+	return s.done()
+}
+
+// Err returns the most recent error encountered while watching for updates, or
+// nil if no error has occurred.
+//
+// Experimental: subject to change.
+func (s *JWTSource) Err() error {
+	return s.lastWatchError()
+}
+
 func (s *JWTSource) watch(ctx context.Context) error {
-	return watch(ctx, s.client.config.log, s.client.config.backoffStrategy, "JWT bundles", s.open, s.update, s.clear)
+	defer s.markWatchDone()
+	return watch(ctx, s.client.config.log, s.client.config.backoffStrategy, "JWT bundles", s.open, s.update, s.clear, s.recordWatchError)
 }
 
 func (s *JWTSource) open(ctx context.Context) (recvFunc[*brokerpb.SubscribeToJWTBundlesResponse], error) {

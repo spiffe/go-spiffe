@@ -55,9 +55,12 @@ func NewX509Source(ctx context.Context, client *Client, workloadReference proto.
 	if err != nil {
 		return nil, err
 	}
+	if err := validateReferenceScope(reference, client.config.address); err != nil {
+		return nil, err
+	}
 
 	s := &X509Source{
-		sourceBase:     newSourceBase(),
+		sourceBase:     newSourceBase(1),
 		client:         client,
 		reference:      reference,
 		picker:         config.picker,
@@ -83,7 +86,7 @@ func NewX509Source(ctx context.Context, client *Client, workloadReference proto.
 	case err := <-errCh:
 		return nil, err
 	case <-ctx.Done():
-		return nil, ctx.Err()
+		return nil, joinWatchError(ctx.Err(), s.lastWatchError())
 	}
 
 	s.drainUpdated()
@@ -159,8 +162,25 @@ func (s *X509Source) Updated() <-chan struct{} {
 	return s.updated()
 }
 
+// Done returns a channel that is closed when the source stops watching for
+// updates, either because it was closed or because the watch terminated.
+//
+// Experimental: subject to change.
+func (s *X509Source) Done() <-chan struct{} {
+	return s.done()
+}
+
+// Err returns the most recent error encountered while watching for updates, or
+// nil if no error has occurred.
+//
+// Experimental: subject to change.
+func (s *X509Source) Err() error {
+	return s.lastWatchError()
+}
+
 func (s *X509Source) watch(ctx context.Context) error {
-	return watch(ctx, s.client.config.log, s.client.config.backoffStrategy, "X.509-SVIDs", s.open, s.update, s.clear)
+	defer s.markWatchDone()
+	return watch(ctx, s.client.config.log, s.client.config.backoffStrategy, "X.509-SVIDs", s.open, s.update, s.clear, s.recordWatchError)
 }
 
 func (s *X509Source) open(ctx context.Context) (recvFunc[*brokerpb.SubscribeToX509SVIDResponse], error) {
@@ -185,7 +205,7 @@ func (s *X509Source) update(response *brokerpb.SubscribeToX509SVIDResponse) erro
 	} else {
 		svid = s.picker(svids)
 		if svid == nil {
-			return errors.New("X509-SVID picker returned nil")
+			return newWatchTerminalError(errors.New("X509-SVID picker returned nil"))
 		}
 	}
 

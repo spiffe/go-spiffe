@@ -15,7 +15,7 @@
 //	defer client.Close()
 //
 //	source, err := client.NewX509Source(ctx, &brokerpb.WorkloadPIDReference{
-//		Pid: int32(os.Getpid()),
+//		Pid: int32(workloadPID),
 //	})
 //	if err != nil {
 //		// handle error

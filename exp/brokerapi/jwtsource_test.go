@@ -75,7 +75,8 @@ func TestJWTSourceWaitsForInitialUpdate(t *testing.T) {
 	defer cancel()
 
 	source, err := brokerapi.NewJWTSource(ctx, client, workloadReference())
-	require.EqualError(t, err, context.DeadlineExceeded.Error())
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+	require.ErrorContains(t, err, "PermissionDenied")
 	require.Nil(t, source)
 }
 
