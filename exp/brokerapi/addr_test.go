@@ -90,78 +90,6 @@ func TestValidateAddress(t *testing.T) {
 			err:  "",
 		},
 		{
-			addr: "dns:opaque",
-			err:  "broker endpoint dns URI must not be opaque",
-		},
-		{
-			addr: "dns://",
-			err:  "broker endpoint dns URI must include a host",
-		},
-		{
-			addr: "dns:///",
-			err:  "broker endpoint dns URI host component must include a hostname or IP and a port",
-		},
-		{
-			addr: "dns:///broker.example.com",
-			err:  "broker endpoint dns URI host component must include a hostname or IP and a port",
-		},
-		{
-			addr: "dns:///broker.example.com:8443/path",
-			err:  "broker endpoint dns URI host component must include a hostname or IP and a port",
-		},
-		{
-			addr: "dns://broker.example.com:8443/path",
-			err:  "broker endpoint dns URI must not include a path",
-		},
-		{
-			addr: "dns:///broker.example.com:8443?whatever",
-			err:  "broker endpoint dns URI must not include query values",
-		},
-		{
-			addr: "dns:///broker.example.com:8443#whatever",
-			err:  "broker endpoint dns URI must not include a fragment",
-		},
-		{ //nolint:gosec // G101: intentional userinfo fixture exercising the rejection path
-			addr: "dns://john:doe@broker.example.com:8443",
-			err:  "broker endpoint dns URI must not include user info",
-		},
-		{
-			addr: "dns://:8443",
-			err:  "broker endpoint dns URI host component must include a hostname or IP",
-		},
-		{
-			addr: "dns:///broker.example.com:8443",
-			err:  "",
-		},
-		{
-			addr: "dns://broker.example.com:8443",
-			err:  "",
-		},
-		{
-			addr: "dns:///[::1]:8443",
-			err:  "",
-		},
-		{
-			addr: "broker.example.com:8443",
-			err:  "",
-		},
-		{
-			addr: "127.0.0.1:8443",
-			err:  "",
-		},
-		{
-			addr: "[::1]:8443",
-			err:  "",
-		},
-		{
-			addr: "broker.example.com",
-			err:  ErrInvalidEndpointScheme.Error(),
-		},
-		{
-			addr: "broker.example.com:notaport",
-			err:  ErrInvalidEndpointScheme.Error(),
-		},
-		{
 			addr: "unix:opaque",
 			err:  "broker endpoint unix socket URI must not be opaque",
 		},
@@ -212,30 +140,6 @@ func TestTargetFromAddress(t *testing.T) {
 	assert.Equal(t, "dns:///broker.example.com:8443", target)
 
 	target, err = TargetFromAddress("tcp://[::1]:8443")
-	require.NoError(t, err)
-	assert.Equal(t, "dns:///[::1]:8443", target)
-
-	target, err = TargetFromAddress("dns:///broker.example.com:8443")
-	require.NoError(t, err)
-	assert.Equal(t, "dns:///broker.example.com:8443", target)
-
-	target, err = TargetFromAddress("dns://broker.example.com:8443")
-	require.NoError(t, err)
-	assert.Equal(t, "dns:///broker.example.com:8443", target)
-
-	target, err = TargetFromAddress("dns:///[::1]:8443")
-	require.NoError(t, err)
-	assert.Equal(t, "dns:///[::1]:8443", target)
-
-	target, err = TargetFromAddress("broker.example.com:8443")
-	require.NoError(t, err)
-	assert.Equal(t, "dns:///broker.example.com:8443", target)
-
-	target, err = TargetFromAddress("127.0.0.1:8443")
-	require.NoError(t, err)
-	assert.Equal(t, "dns:///127.0.0.1:8443", target)
-
-	target, err = TargetFromAddress("[::1]:8443")
 	require.NoError(t, err)
 	assert.Equal(t, "dns:///[::1]:8443", target)
 

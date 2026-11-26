@@ -7,11 +7,8 @@ import (
 	"time"
 
 	"github.com/spiffe/go-spiffe/v2/exp/brokerapi"
-	"github.com/spiffe/go-spiffe/v2/internal/test"
 	"github.com/spiffe/go-spiffe/v2/internal/test/fakebrokerapi"
-	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
-	"github.com/spiffe/go-spiffe/v2/svid/x509svid"
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
 	"github.com/stretchr/testify/require"
 )
@@ -60,40 +57,6 @@ func TestNewHonorsCanceledContext(t *testing.T) {
 	client, err := brokerapi.New(ctx, tlsconfig.AuthorizeAny())
 	require.EqualError(t, err, context.Canceled.Error())
 	require.Nil(t, client)
-}
-
-func TestNewAcceptsDNSTarget(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-	defer cancel()
-
-	api := fakebrokerapi.New(t)
-	defer api.Stop()
-
-	workloadAPI := newTestWorkloadAPI(t, api)
-
-	addr, err := brokerapi.TargetFromAddress(api.Addr())
-	require.NoError(t, err)
-
-	client, err := brokerapi.New(ctx,
-		tlsconfig.AuthorizeID(api.ServerID()),
-		brokerapi.WithAddr(addr),
-		brokerapi.WithWorkloadAPISourceOptions(
-			workloadapi.WithClientOptions(workloadapi.WithAddr(workloadAPI.Addr())),
-		),
-	)
-	require.NoError(t, err)
-	defer func() {
-		require.NoError(t, client.Close())
-	}()
-
-	td := spiffeid.RequireTrustDomainFromString("domain.test")
-	ca := test.NewCA(t, td)
-	svid := ca.CreateX509SVID(spiffeid.RequireFromPath(td, "/workload"))
-	api.SetX509SVIDResponse(makeX509SVIDResponse(t, ca.X509Bundle(), []*x509svid.SVID{svid}))
-
-	source, err := brokerapi.NewX509Source(ctx, client, workloadReference())
-	require.NoError(t, err)
-	require.NoError(t, source.Close())
 }
 
 func TestClientClose(t *testing.T) {

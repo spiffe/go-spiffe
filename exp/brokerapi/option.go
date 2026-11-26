@@ -17,10 +17,8 @@ type ClientOption interface {
 }
 
 // WithAddr provides the address of the Broker API. The address must be an
-// RFC 3986 URI with a "unix", "tcp", or "dns" scheme, e.g.
-// "unix:///run/spire/broker.sock", "tcp://broker.example.org:8443", or
-// "dns:///broker.example.org:8443". A bare host:port address, e.g.
-// "broker.example.org:8443", is treated as a DNS target.
+// RFC 3986 URI with either a "unix" or "tcp" scheme, e.g.
+// "unix:///run/spire/broker.sock" or "tcp://broker.example.org:8443".
 //
 // The value of the SPIFFE_BROKER_SOCKET environment variable will be used if
 // the option is unused.
