@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/go-jose/go-jose/v4"
+	josejson "github.com/go-jose/go-jose/v4/json"
 	"github.com/spiffe/go-spiffe/v2/bundle/jwtbundle"
 	"github.com/spiffe/go-spiffe/v2/bundle/x509bundle"
 	"github.com/spiffe/go-spiffe/v2/exp/bundle/witbundle"
@@ -30,6 +31,15 @@ type bundleDoc struct {
 	jose.JSONWebKeySet
 	SequenceNumber *uint64 `json:"spiffe_sequence,omitempty"`
 	RefreshHint    *int64  `json:"spiffe_refresh_hint,omitempty"`
+}
+
+// parseBundleDoc is the form of bundleDoc used when parsing. Its keys are
+// decoded one at a time so that entries the specification says to ignore
+// don't cause the whole bundle to be rejected.
+type parseBundleDoc struct {
+	Keys           []json.RawMessage `json:"keys"`
+	SequenceNumber *uint64           `json:"spiffe_sequence,omitempty"`
+	RefreshHint    *int64            `json:"spiffe_refresh_hint,omitempty"`
 }
 
 // Bundle is a collection of trusted public key material for a trust domain,
@@ -81,7 +91,7 @@ func Read(trustDomain spiffeid.TrustDomain, r io.Reader) (*Bundle, error) {
 // Parse parses a bundle from bytes. The data must be a JWKS document following
 // the SPIFFE Trust Domain and Bundle specification.
 func Parse(trustDomain spiffeid.TrustDomain, bundleBytes []byte) (*Bundle, error) {
-	jwks := &bundleDoc{}
+	jwks := &parseBundleDoc{}
 	if err := json.Unmarshal(bundleBytes, jwks); err != nil {
 		return nil, wrapSpiffebundleErr(fmt.Errorf("unable to parse JWKS: %v", err))
 	}
@@ -99,7 +109,29 @@ func Parse(trustDomain spiffeid.TrustDomain, bundleBytes []byte) (*Bundle, error
 		// https://github.com/spiffe/spiffe/blob/main/standards/SPIFFE_Trust_Domain_and_Bundle.md#413-keys
 		return nil, wrapSpiffebundleErr(errors.New("no authorities found"))
 	}
-	for i, key := range jwks.Keys {
+	for i, rawKey := range jwks.Keys {
+		// Entries with a missing or unknown use, or an unsupported key type,
+		// MUST be ignored. The use is read with go-jose's decoder so that
+		// this check and the key decoding below read the same member.
+		var keyUse struct {
+			Use string `json:"use"`
+		}
+		if err := josejson.Unmarshal(rawKey, &keyUse); err != nil {
+			return nil, wrapSpiffebundleErr(fmt.Errorf("unable to parse JWKS: %v", err))
+		}
+		switch keyUse.Use {
+		case x509SVIDUse, jwtSVIDUse, witSVIDUse:
+		default:
+			continue
+		}
+		key, ok, err := jwtutil.DecodeKey(rawKey)
+		if err != nil {
+			return nil, wrapSpiffebundleErr(fmt.Errorf("unable to parse JWKS: %v", err))
+		}
+		if !ok {
+			continue
+		}
+
 		switch key.Use {
 		// Two SVID types are supported: x509-svid and jwt-svid.
 		case x509SVIDUse:
