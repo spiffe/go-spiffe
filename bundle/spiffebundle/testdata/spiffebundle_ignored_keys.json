@@ -22,7 +22,7 @@
             "use": "jwt-svid",
             "kty": "UNKNOWN",
             "kid": "unknown-kty-key",
-            "pub": "AAAA"
+            "x": "!!!"
         },
         {
             "kty": "EC",

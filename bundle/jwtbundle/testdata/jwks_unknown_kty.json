@@ -10,7 +10,7 @@
         {
             "kty": "UNKNOWN",
             "kid": "unknown-kty-key",
-            "pub": "AAAA"
+            "x": "!!!"
         }
     ]
 }

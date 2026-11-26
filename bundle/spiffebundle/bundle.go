@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/go-jose/go-jose/v4"
+	josejson "github.com/go-jose/go-jose/v4/json"
 	"github.com/spiffe/go-spiffe/v2/bundle/jwtbundle"
 	"github.com/spiffe/go-spiffe/v2/bundle/x509bundle"
 	"github.com/spiffe/go-spiffe/v2/exp/bundle/witbundle"
@@ -110,11 +111,12 @@ func Parse(trustDomain spiffeid.TrustDomain, bundleBytes []byte) (*Bundle, error
 	}
 	for i, rawKey := range jwks.Keys {
 		// Entries with a missing or unknown use, or an unsupported key type,
-		// MUST be ignored.
+		// MUST be ignored. The use is read with go-jose's decoder so that
+		// this check and the key decoding below read the same member.
 		var keyUse struct {
 			Use string `json:"use"`
 		}
-		if err := json.Unmarshal(rawKey, &keyUse); err != nil {
+		if err := josejson.Unmarshal(rawKey, &keyUse); err != nil {
 			return nil, wrapSpiffebundleErr(fmt.Errorf("unable to parse JWKS: %v", err))
 		}
 		switch keyUse.Use {
