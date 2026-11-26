@@ -3,6 +3,8 @@ package federation_test
 import (
 	"context"
 	"net"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/spiffe/go-spiffe/v2/federation"
@@ -99,12 +101,21 @@ func TestFetchBundle_ErrorGettingBundle(t *testing.T) {
 	assert.Nil(t, fetchedBundle)
 }
 
-func TestFetchBundle_ErrorReadingBundleBody(t *testing.T) {
+func TestFetchBundle_UnexpectedStatusCode(t *testing.T) {
 	be := fakebundleendpoint.New(t)
 	defer be.Shutdown()
 
 	fetchedBundle, err := federation.FetchBundle(context.Background(), td, be.FetchBundleURL(),
 		federation.WithWebPKIRoots(be.RootCAs()))
+	assert.EqualError(t, err, `federation: unexpected HTTP status: 404 Not Found`)
+	assert.Nil(t, fetchedBundle)
+}
+
+func TestFetchBundle_ErrorReadingBundleBody(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	defer server.Close()
+
+	fetchedBundle, err := federation.FetchBundle(context.Background(), td, server.URL)
 	assert.EqualError(t, err, `federation: spiffebundle: unable to parse JWKS: unexpected end of JSON input`)
 	assert.Nil(t, fetchedBundle)
 }

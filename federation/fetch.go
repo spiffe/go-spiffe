@@ -80,6 +80,10 @@ func FetchBundle(ctx context.Context, trustDomain spiffeid.TrustDomain, url stri
 	}
 	defer response.Body.Close()
 
+	if response.StatusCode != http.StatusOK {
+		return nil, wrapFederationErr(fmt.Errorf("unexpected HTTP status: %s", response.Status))
+	}
+
 	bundle, err := spiffebundle.Read(trustDomain, response.Body)
 	if err != nil {
 		return nil, wrapFederationErr(err)
