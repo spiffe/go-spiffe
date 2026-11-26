@@ -20,9 +20,8 @@
         },
         {
             "use": "jwt-svid",
-            "kty": "AKP",
-            "kid": "ml-dsa-key",
-            "alg": "ML-DSA-44",
+            "kty": "FUTURE",
+            "kid": "future-key",
             "pub": "AAAA"
         },
         {

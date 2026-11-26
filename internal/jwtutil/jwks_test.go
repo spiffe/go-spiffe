@@ -23,8 +23,17 @@ func TestDecodeKey(t *testing.T) {
 			expectOK: true,
 		},
 		{
+			name:     "supported key type next to a member differing only in case",
+			raw:      `{"kty":"EC","KTY":"FUTURE","kid":"ec-key","crv":"P-256","x":"ngLYQnlfF6GsojUwqtcEE3WgTNG2RUlsGhK73RNEl5k","y":"tKbiDSUSsQ3F1P7wteeHNXIcU-cx6CgSbroeQrQHTLM"}`,
+			expectOK: true,
+		},
+		{
 			name: "unknown key type",
-			raw:  `{"kty":"AKP","kid":"ml-dsa-key","alg":"ML-DSA-44","pub":"AAAA"}`,
+			raw:  `{"kty":"FUTURE","kid":"future-key","pub":"AAAA"}`,
+		},
+		{
+			name: "unknown key type next to a member differing only in case",
+			raw:  `{"kty":"FUTURE","KTY":"EC","kid":"future-key","x":"!!!"}`,
 		},
 		{
 			name: "unknown key type with a member that is not base64url",
