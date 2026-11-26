@@ -134,6 +134,53 @@ func TestParseAndValidate(t *testing.T) {
 			err: "jwtsvid: token missing exp claim",
 		},
 		{
+			name:   "empty audience claim",
+			bundle: bundle1,
+			generateToken: func(tb testing.TB) string {
+				claims := jwt.Claims{
+					Subject:  spiffeid.RequireFromPath(trustDomain1, "/host").String(),
+					Issuer:   "issuer",
+					Audience: []string{""},
+					Expiry:   expires,
+					IssuedAt: issuedAt,
+				}
+
+				return generateToken(tb, claims, key1, "authority1", "")
+			},
+			err: "jwtsvid: token has an empty aud claim value",
+		},
+		{
+			name:   "empty audience value in a list",
+			bundle: bundle1,
+			generateToken: func(tb testing.TB) string {
+				claims := jwt.Claims{
+					Subject:  spiffeid.RequireFromPath(trustDomain1, "/host").String(),
+					Issuer:   "issuer",
+					Audience: []string{"audience", ""},
+					Expiry:   expires,
+					IssuedAt: issuedAt,
+				}
+
+				return generateToken(tb, claims, key1, "authority1", "")
+			},
+			err: "jwtsvid: token has an empty aud claim value",
+		},
+		{
+			name:   "missing audience claim",
+			bundle: bundle1,
+			generateToken: func(tb testing.TB) string {
+				claims := jwt.Claims{
+					Subject:  spiffeid.RequireFromPath(trustDomain1, "/host").String(),
+					Issuer:   "issuer",
+					Expiry:   expires,
+					IssuedAt: issuedAt,
+				}
+
+				return generateToken(tb, claims, key1, "authority1", "")
+			},
+			err: "jwtsvid: token missing aud claim",
+		},
+		{
 			name:     "expired",
 			bundle:   bundle1,
 			audience: []string{"audience"},
@@ -372,6 +419,50 @@ func TestParseInsecure(t *testing.T) {
 				return generateToken(tb, claims, key1, "key1", "")
 			},
 			err: "jwtsvid: token missing exp claim",
+		},
+		{
+			name: "empty audience claim",
+			generateToken: func(tb testing.TB) string {
+				claims := jwt.Claims{
+					Subject:  spiffeid.RequireFromPath(trustDomain1, "/host").String(),
+					Issuer:   "issuer",
+					Audience: []string{""},
+					Expiry:   expires,
+					IssuedAt: issuedAt,
+				}
+
+				return generateToken(tb, claims, key1, "key1", "")
+			},
+			err: "jwtsvid: token has an empty aud claim value",
+		},
+		{
+			name: "empty audience value in a list",
+			generateToken: func(tb testing.TB) string {
+				claims := jwt.Claims{
+					Subject:  spiffeid.RequireFromPath(trustDomain1, "/host").String(),
+					Issuer:   "issuer",
+					Audience: []string{"audience", ""},
+					Expiry:   expires,
+					IssuedAt: issuedAt,
+				}
+
+				return generateToken(tb, claims, key1, "key1", "")
+			},
+			err: "jwtsvid: token has an empty aud claim value",
+		},
+		{
+			name: "missing audience claim",
+			generateToken: func(tb testing.TB) string {
+				claims := jwt.Claims{
+					Subject:  spiffeid.RequireFromPath(trustDomain1, "/host").String(),
+					Issuer:   "issuer",
+					Expiry:   expires,
+					IssuedAt: issuedAt,
+				}
+
+				return generateToken(tb, claims, key1, "key1", "")
+			},
+			err: "jwtsvid: token missing aud claim",
 		},
 		{
 			name:     "expired",
