@@ -3,12 +3,15 @@ on:
   pull_request:
   merge_group:
   workflow_dispatch:
+env:
+  # Go version for the jobs that cover ML-DSA support.
+  GO_1_27_VERSION: 1.27.3
 jobs:
   lint-linux:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Setup go
         uses: actions/setup-go@v7
         with:
@@ -22,7 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Setup go
         uses: actions/setup-go@v7
         with:
@@ -32,6 +35,37 @@ jobs:
       - name: Test
         run: make test
 
+  # ML-DSA support needs Go 1.27 or later, but go.mod targets an older Go
+  # version, so the jobs above skip the ML-DSA tests and don't lint the files
+  # that need Go 1.27. These jobs cover them.
+  lint-linux-go1-27:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Setup go
+        uses: actions/setup-go@v7
+        with:
+          cache: true
+          cache-dependency-path: go.sum
+          go-version: ${{ env.GO_1_27_VERSION }}
+      - name: Lint
+        run: make lint go_version=${{ env.GO_1_27_VERSION }}
+
+  test-linux-go1-27:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Setup go
+        uses: actions/setup-go@v7
+        with:
+          cache: true
+          cache-dependency-path: go.sum
+          go-version: ${{ env.GO_1_27_VERSION }}
+      - name: Test
+        run: make test go_version=${{ env.GO_1_27_VERSION }}
+
   lint-windows:
     runs-on: windows-2022
     defaults:
@@ -39,7 +73,7 @@ jobs:
         shell: msys2 {0}
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Setup go
         uses: actions/setup-go@v7
         with:
@@ -66,7 +100,7 @@ jobs:
         shell: msys2 {0}
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Setup go
         uses: actions/setup-go@v7
         with:
@@ -90,7 +124,7 @@ jobs:
   # and is used as a single job to block PR merge from. GH doesn't have a
   # way to say "all jobs from this action", which would be ideal.
   success:
-    needs: [lint-linux, test-linux, lint-windows, test-windows]
+    needs: [lint-linux, test-linux, lint-linux-go1-27, test-linux-go1-27, lint-windows, test-windows]
     runs-on: ubuntu-latest
     steps:
       - name: Shout it out

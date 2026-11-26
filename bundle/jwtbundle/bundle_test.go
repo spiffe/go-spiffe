@@ -4,6 +4,7 @@ import (
 	"crypto"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"os"
 	"testing"
 
@@ -38,6 +39,10 @@ var (
 		"missing kid": {
 			filePath: "testdata/jwks_missing_kid.json",
 		},
+		"unknown key type": {
+			filePath:  "testdata/jwks_unknown_kty.json",
+			keysCount: 1,
+		},
 	}
 )
 
@@ -68,6 +73,9 @@ func TestLoad(t *testing.T) {
 		},
 		{
 			tf: testFiles["valid 2"],
+		},
+		{
+			tf: testFiles["unknown key type"],
 		},
 		{
 			tf:  testFiles["non existent file"],
@@ -103,6 +111,9 @@ func TestRead(t *testing.T) {
 		},
 		{
 			tf: testFiles["valid 2"],
+		},
+		{
+			tf: testFiles["unknown key type"],
 		},
 		{
 			tf:  testFiles["non existent file"],
@@ -142,6 +153,9 @@ func TestParse(t *testing.T) {
 		},
 		{
 			tf: testFiles["valid 2"],
+		},
+		{
+			tf: testFiles["unknown key type"],
 		},
 		{
 			tf:  testFiles["non existent file"],
@@ -356,4 +370,41 @@ func TestClone(t *testing.T) {
 
 	cloned := original.Clone()
 	require.True(t, original.Equal(cloned))
+}
+
+func TestMLDSAAuthorities(t *testing.T) {
+	authorities := map[string]crypto.PublicKey{}
+	expectedAlg := map[string]string{}
+	for i, params := range test.MLDSAParameters {
+		kid := fmt.Sprintf("key-%d", i)
+		authorities[kid] = test.NewMLDSAKey(t, params).Public()
+		expectedAlg[kid] = params // JOSE alg names match the FIPS 204 names
+	}
+	bundle := jwtbundle.FromJWTAuthorities(td, authorities)
+
+	data, err := bundle.Marshal()
+	require.NoError(t, err)
+
+	// RFC 9964: ML-DSA keys use the AKP key type and must carry "alg".
+	var jwks struct {
+		Keys []map[string]any `json:"keys"`
+	}
+	require.NoError(t, json.Unmarshal(data, &jwks))
+	require.Len(t, jwks.Keys, len(test.MLDSAParameters))
+	for _, key := range jwks.Keys {
+		require.Equal(t, "AKP", key["kty"])
+		require.Equal(t, expectedAlg[key["kid"].(string)], key["alg"])
+	}
+
+	parsed, err := jwtbundle.Parse(td, data)
+	require.NoError(t, err)
+	require.True(t, bundle.Equal(parsed))
+	require.True(t, bundle.Equal(bundle.Clone()))
+
+	// Swapping one key for a different ML-DSA key makes the bundles unequal.
+	other := bundle.Clone()
+	swapped := maps.Clone(authorities)
+	swapped["key-0"] = test.NewMLDSAKey(t, test.MLDSAParameters[0]).Public()
+	other.SetJWTAuthorities(swapped)
+	require.False(t, bundle.Equal(other))
 }

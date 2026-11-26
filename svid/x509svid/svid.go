@@ -1,11 +1,7 @@
 package x509svid
 
 import (
-	"bytes"
 	"crypto"
-	"crypto/ecdsa"
-	"crypto/ed25519"
-	"crypto/rsa"
 	"crypto/x509"
 	"errors"
 	"fmt"
@@ -229,25 +225,13 @@ func validatePrivateKey(privateKey crypto.PrivateKey, leaf *x509.Certificate) (c
 }
 
 func keyMatches(privateKey crypto.PrivateKey, publicKey crypto.PublicKey) (bool, error) {
-	switch privateKey := privateKey.(type) {
-	case *rsa.PrivateKey:
-		rsaPublicKey, ok := publicKey.(*rsa.PublicKey)
-		return ok && rsaPublicKeyEqual(&privateKey.PublicKey, rsaPublicKey), nil
-	case *ecdsa.PrivateKey:
-		ecdsaPublicKey, ok := publicKey.(*ecdsa.PublicKey)
-		return ok && ecdsaPublicKeyEqual(&privateKey.PublicKey, ecdsaPublicKey), nil
-	case ed25519.PrivateKey:
-		ed25519PublicKey, ok := publicKey.(ed25519.PublicKey)
-		return ok && bytes.Equal(privateKey.Public().(ed25519.PublicKey), ed25519PublicKey), nil
-	default:
+	signer, ok := privateKey.(crypto.Signer)
+	if !ok {
 		return false, fmt.Errorf("unsupported private key type %T", privateKey)
 	}
-}
-
-func rsaPublicKeyEqual(a, b *rsa.PublicKey) bool {
-	return a.E == b.E && a.N.Cmp(b.N) == 0
-}
-
-func ecdsaPublicKeyEqual(a, b *ecdsa.PublicKey) bool {
-	return a.Curve == b.Curve && a.X.Cmp(b.X) == 0 && a.Y.Cmp(b.Y) == 0
+	pub, ok := signer.Public().(interface{ Equal(crypto.PublicKey) bool })
+	if !ok {
+		return false, fmt.Errorf("unsupported private key type %T", privateKey)
+	}
+	return pub.Equal(publicKey), nil
 }

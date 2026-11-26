@@ -1,8 +1,10 @@
 package workloadapi
 
 import (
+	"bytes"
 	"context"
 	"crypto/x509"
+	"log/slog"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -383,6 +385,35 @@ func TestFetchJWTBundles(t *testing.T) {
 
 	require.NoError(t, err)
 	assertJWTBundle(t, bundleSet, td, ca.JWTBundle())
+}
+
+func TestWithSlogger(t *testing.T) {
+	wl := fakeworkloadapi.New(t)
+	defer wl.Stop()
+
+	buf := new(bytes.Buffer)
+	log := slog.New(slog.NewTextHandler(buf, &slog.HandlerOptions{Level: slog.LevelDebug}))
+
+	c, err := New(context.Background(), WithAddr(wl.Addr()), WithBackoffStrategy(&testBackoffStrategy{}), WithSlogger(log))
+	require.NoError(t, err)
+	defer c.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	tw := newTestWatcher(t)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		_ = c.WatchX509Context(ctx, tw)
+		wg.Done()
+	}()
+
+	// The fake Workload API starts with PermissionDenied, which the client logs.
+	tw.WaitForUpdates(1)
+	cancel()
+	wg.Wait()
+
+	require.Contains(t, buf.String(), `level=DEBUG msg="Watching X.509 contexts"`)
+	require.Contains(t, buf.String(), `level=ERROR msg="Failed to watch the Workload API`)
 }
 
 func TestWatchJWTBundles(t *testing.T) {

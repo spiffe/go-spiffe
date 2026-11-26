@@ -5,6 +5,7 @@ import (
 	"crypto/x509"
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -142,6 +143,22 @@ func TestHandler(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestHandlerWithSlogger(t *testing.T) {
+	trustDomain := spiffeid.RequireTrustDomainFromString("domain.test")
+	buf := new(bytes.Buffer)
+	log := slog.New(slog.NewTextHandler(buf, nil))
+
+	handler, err := federation.NewHandler(trustDomain, &fakeSource{}, federation.WithSlogger(log))
+	require.NoError(t, err)
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
+
+	require.Equal(t, http.StatusInternalServerError, rec.Code)
+	require.Contains(t, buf.String(), "level=ERROR")
+	require.Contains(t, buf.String(), "bundle not found")
 }
 
 type fakeSource struct {

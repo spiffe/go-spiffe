@@ -28,6 +28,9 @@ var allowedSignatureAlgorithms = []jose.SignatureAlgorithm{
 	jose.PS256,
 	jose.PS384,
 	jose.PS512,
+	jose.MLDSA44,
+	jose.MLDSA65,
+	jose.MLDSA87,
 }
 
 // SVID represents a WIT-SVID.
@@ -51,6 +54,9 @@ type SVID struct {
 	// Hint is an operator-specified string used to provide guidance on how this
 	// identity should be used by a workload when more than one SVID is returned.
 	Hint string
+
+	// Claims is the parsed claims from the WIT-SVID token.
+	Claims map[string]interface{}
 
 	// token is the serialized JWS compact serialization.
 	token string
@@ -167,6 +173,7 @@ func parse(token string, verify verifyFn) (*SVID, error) {
 		Expiry:    stdClaims.Expiry.Time().UTC(),
 		PublicKey: publicKey,
 		KeyID:     keyID,
+		Claims:    rawClaims,
 		token:     token,
 	}, nil
 }

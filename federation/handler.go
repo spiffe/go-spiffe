@@ -2,9 +2,11 @@ package federation
 
 import (
 	"fmt"
+	"log/slog"
 	"net/http"
 
 	"github.com/spiffe/go-spiffe/v2/bundle/spiffebundle"
+	"github.com/spiffe/go-spiffe/v2/internal/slogutil"
 	"github.com/spiffe/go-spiffe/v2/logger"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 )
@@ -13,9 +15,19 @@ type HandlerOption interface {
 	apply(*handlerConfig) error
 }
 
+// WithLogger provides a logger to the handler.
 func WithLogger(log logger.Logger) HandlerOption {
 	return handlerOption(func(c *handlerConfig) error {
 		c.log = log
+		return nil
+	})
+}
+
+// WithSlogger provides a *slog.Logger to the handler. A nil logger disables
+// logging.
+func WithSlogger(log *slog.Logger) HandlerOption {
+	return handlerOption(func(c *handlerConfig) error {
+		c.log = slogutil.Wrap(log)
 		return nil
 	})
 }

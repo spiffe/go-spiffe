@@ -1,6 +1,9 @@
 package workloadapi
 
 import (
+	"log/slog"
+
+	"github.com/spiffe/go-spiffe/v2/internal/slogutil"
 	"github.com/spiffe/go-spiffe/v2/logger"
 	"github.com/spiffe/go-spiffe/v2/svid/jwtsvid"
 	"github.com/spiffe/go-spiffe/v2/svid/x509svid"
@@ -33,6 +36,14 @@ func WithDialOptions(options ...grpc.DialOption) ClientOption {
 func WithLogger(logger logger.Logger) ClientOption {
 	return clientOption(func(c *clientConfig) {
 		c.log = logger
+	})
+}
+
+// WithSlogger provides a *slog.Logger to the Client. A nil logger disables
+// logging.
+func WithSlogger(log *slog.Logger) ClientOption {
+	return clientOption(func(c *clientConfig) {
+		c.log = slogutil.Wrap(log)
 	})
 }
 

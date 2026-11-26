@@ -14,6 +14,7 @@ import (
 	"github.com/spiffe/go-spiffe/v2/bundle/spiffebundle"
 	"github.com/spiffe/go-spiffe/v2/bundle/x509bundle"
 	"github.com/spiffe/go-spiffe/v2/exp/bundle/witbundle"
+	"github.com/spiffe/go-spiffe/v2/internal/cryptoutil"
 	"github.com/spiffe/go-spiffe/v2/internal/test"
 	"github.com/spiffe/go-spiffe/v2/internal/test/errstrings"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
@@ -63,6 +64,19 @@ var (
 		{
 			filePath: "testdata/spiffebundle_multiple_x509.json",
 			err:      "spiffebundle: expected a single certificate in x509-svid entry 0; got 2",
+		},
+		{
+			// Keys with an unsupported kty, a missing use or an unknown use
+			// are ignored, leaving the same authorities as valid_1
+			filePath:  "testdata/spiffebundle_ignored_keys.json",
+			keysCount: 1,
+		},
+		{
+			// Only a member named use in lower case is the use of a key.
+			// Members that differ from it in case don't replace it and don't
+			// stand in for it when it is missing.
+			filePath:  "testdata/spiffebundle_use_member_case.json",
+			keysCount: 1,
 		},
 		{
 			filePath:       "testdata/spiffebundle_valid_with_wit.json",
@@ -670,4 +684,45 @@ func TestGetWITBundleForTrustDomain(t *testing.T) {
 	wb2, err = sb.GetWITBundleForTrustDomain(td2)
 	require.Nil(t, wb2)
 	require.EqualError(t, err, `spiffebundle: no WIT bundle for trust domain "domain2.test"`)
+}
+
+func TestMLDSAAuthorities(t *testing.T) {
+	var x509Authorities []*x509.Certificate
+	jwtAuthorities := map[string]crypto.PublicKey{}
+	witAuthorities := map[string]crypto.PublicKey{}
+	for _, params := range test.MLDSAParameters {
+		cert, _ := test.CreateCACertificate(t, nil, nil, test.WithKey(test.NewMLDSAKey(t, params)))
+		x509Authorities = append(x509Authorities, cert)
+		jwtAuthorities["jwt-"+params] = test.NewMLDSAKey(t, params).Public()
+		witAuthorities["wit-"+params] = test.NewMLDSAKey(t, params).Public()
+	}
+
+	bundle := spiffebundle.New(td)
+	bundle.SetX509Authorities(x509Authorities)
+	bundle.SetJWTAuthorities(jwtAuthorities)
+	bundle.SetWITAuthorities(witAuthorities)
+
+	data, err := bundle.Marshal()
+	require.NoError(t, err)
+
+	parsed, err := spiffebundle.Parse(td, data)
+	require.NoError(t, err)
+	require.Equal(t, x509Authorities, parsed.X509Authorities())
+	requireMLDSAAuthoritiesEqual(t, jwtAuthorities, parsed.JWTAuthorities())
+	requireMLDSAAuthoritiesEqual(t, witAuthorities, parsed.WITAuthorities())
+	require.True(t, bundle.Equal(parsed))
+}
+
+// requireMLDSAAuthoritiesEqual checks that actual holds the same ML-DSA keys
+// under the same key IDs as expected.
+func requireMLDSAAuthoritiesEqual(t *testing.T, expected, actual map[string]crypto.PublicKey) {
+	t.Helper()
+	require.Len(t, actual, len(expected))
+	for kid, want := range expected {
+		got, ok := actual[kid]
+		require.True(t, ok, "missing authority %q", kid)
+		equal, err := cryptoutil.PublicKeyEqual(want, got)
+		require.NoError(t, err)
+		require.True(t, equal, "authority %q does not match", kid)
+	}
 }
