@@ -20,8 +20,8 @@
         },
         {
             "use": "jwt-svid",
-            "kty": "FUTURE",
-            "kid": "future-key",
+            "kty": "UNKNOWN",
+            "kid": "unknown-kty-key",
             "x": "!!!"
         },
         {

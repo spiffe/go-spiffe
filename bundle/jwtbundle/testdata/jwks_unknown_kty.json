@@ -8,8 +8,8 @@
             "y": "tKbiDSUSsQ3F1P7wteeHNXIcU-cx6CgSbroeQrQHTLM"
         },
         {
-            "kty": "FUTURE",
-            "kid": "future-key",
+            "kty": "UNKNOWN",
+            "kid": "unknown-kty-key",
             "x": "!!!"
         }
     ]
