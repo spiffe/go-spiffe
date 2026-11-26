@@ -69,6 +69,13 @@ var (
 			keysCount: 1,
 		},
 		{
+			// Only a member named use in lower case is the use of a key.
+			// Members that differ from it in case don't replace it and don't
+			// stand in for it when it is missing.
+			filePath:  "testdata/spiffebundle_use_member_case.json",
+			keysCount: 1,
+		},
+		{
 			filePath:       "testdata/spiffebundle_valid_with_wit.json",
 			keysCount:      2,
 			witKeysCount:   2,
