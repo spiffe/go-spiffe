@@ -57,6 +57,7 @@ func TestParseInsecure(t *testing.T) {
 				assert.Equal(t, workload, svid.ID)
 				assert.Equal(t, kid, svid.KeyID)
 				assert.NotNil(t, svid.PublicKey)
+				assert.Equal(t, "ES256", svid.ConfirmationAlgorithm())
 				assert.NotZero(t, svid.Expiry)
 				assert.NotEmpty(t, svid.Marshal())
 			},
@@ -251,6 +252,7 @@ func TestParseAndValidate(t *testing.T) {
 		assert.Equal(t, workload, svid.ID)
 		assert.Equal(t, kid, svid.KeyID)
 		assert.NotNil(t, svid.PublicKey)
+		assert.Equal(t, "ES256", svid.ConfirmationAlgorithm())
 	})
 
 	t.Run("no bundle for trust domain", func(t *testing.T) {

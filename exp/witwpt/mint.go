@@ -1,5 +1,5 @@
 // Package witwpt implements the Workload Proof Token (WPT) proof-of-possession
-// protocol for WIT-SVIDs, as specified by draft-ietf-wimse-wpt-01. A workload
+// protocol for WIT-SVIDs, as specified by draft-ietf-wimse-wpt-02. A workload
 // mints a short-lived WPT signed with the private key matching the WIT-SVID's
 // cnf.jwk claim, binding the proof to the credential (wth) and to the request
 // target (aud).
@@ -21,14 +21,20 @@ import (
 	"github.com/spiffe/go-spiffe/v2/exp/svid/witsvid"
 )
 
-// DefaultProofLifetime is how far ahead a minted proof's exp is set. The draft
-// calls for a lifetime of "minutes or seconds".
-const DefaultProofLifetime = 60 * time.Second
+const (
+	// DefaultProofLifetime is how far ahead a minted proof's exp is set. The
+	// draft calls for a lifetime of "minutes or seconds".
+	DefaultProofLifetime = 60 * time.Second
 
-// proofType is the required typ header of a WPT (wpt-01 §2).
+	// MaxProofLifetime is the longest lifetime Mint accepts (wpt-02 §2: WPT
+	// lifetimes MUST be short).
+	MaxProofLifetime = 5 * time.Minute
+)
+
+// proofType is the required typ header of a WPT (wpt-02 §2).
 const proofType = "wpt+jwt"
 
-// jtiBytes gives each jti 128 random bits (wpt-01 §2).
+// jtiBytes gives each jti 128 random bits (wpt-02 §2).
 const jtiBytes = 16
 
 // MintOption configures Mint.
@@ -45,7 +51,8 @@ type mintOption func(*mintConfig)
 func (fn mintOption) configureMint(c *mintConfig) { fn(c) }
 
 // WithProofLifetime overrides DefaultProofLifetime for the minted proof's exp.
-// Mint rejects lifetimes under a second, since exp has whole-second precision.
+// Mint rejects lifetimes under a second, since exp has whole-second precision,
+// and over MaxProofLifetime.
 func WithProofLifetime(lifetime time.Duration) MintOption {
 	return mintOption(func(c *mintConfig) {
 		c.lifetime = lifetime
@@ -56,7 +63,7 @@ func WithProofLifetime(lifetime time.Duration) MintOption {
 // possession of svid's confirmation key, bound to svid and scoped to audience.
 //
 // audience should be the request target URI without query or fragment
-// (wpt-01 §2). A fresh proof should be minted per request.
+// (wpt-02 §2). A fresh proof should be minted per request.
 func Mint(svid *witsvid.SVID, audience string, opts ...MintOption) (string, error) {
 	if svid == nil {
 		return "", wrapErr(errors.New("no WIT-SVID provided"))
@@ -76,12 +83,6 @@ func Mint(svid *witsvid.SVID, audience string, opts ...MintOption) (string, erro
 		return "", wrapErr(fmt.Errorf("WIT-SVID expired at %s", svid.Expiry.UTC().Format(time.RFC3339)))
 	}
 
-	// wpt-01 §2 requires the proof's alg to string-equal the WIT's cnf.jwk.alg.
-	alg, err := confirmationAlgorithm(svid)
-	if err != nil {
-		return "", err
-	}
-
 	if err := checkKeyMatches(svid); err != nil {
 		return "", err
 	}
@@ -90,8 +91,9 @@ func Mint(svid *witsvid.SVID, audience string, opts ...MintOption) (string, erro
 	for _, opt := range opts {
 		opt.configureMint(config)
 	}
-	if config.lifetime < time.Second {
-		return "", wrapErr(fmt.Errorf("proof lifetime must be at least 1s, got %s", config.lifetime))
+	if config.lifetime < time.Second || config.lifetime > MaxProofLifetime {
+		return "", wrapErr(fmt.Errorf("proof lifetime must be between 1s and %s, got %s",
+			MaxProofLifetime, config.lifetime))
 	}
 
 	jti, err := newJTI()
@@ -99,6 +101,8 @@ func Mint(svid *witsvid.SVID, audience string, opts ...MintOption) (string, erro
 		return "", err
 	}
 
+	// wpt-02 §2 requires the proof's alg to string-equal the WIT's cnf.jwk.alg.
+	alg := jose.SignatureAlgorithm(svid.ConfirmationAlgorithm())
 	signer, err := jose.NewSigner(
 		jose.SigningKey{Algorithm: alg, Key: svid.PrivateKey},
 		(&jose.SignerOptions{}).WithType(proofType),
@@ -113,7 +117,7 @@ func Mint(svid *witsvid.SVID, audience string, opts ...MintOption) (string, erro
 		"exp": jwt.NewNumericDate(now.Add(config.lifetime)),
 		"iat": jwt.NewNumericDate(now),
 		"jti": jti,
-		"wth": WITThumbprint(witToken),
+		"wth": WITHash(witToken),
 	}).Serialize()
 	if err != nil {
 		return "", wrapErr(fmt.Errorf("unable to sign proof: %w", err))
@@ -121,28 +125,11 @@ func Mint(svid *witsvid.SVID, audience string, opts ...MintOption) (string, erro
 	return proof, nil
 }
 
-// WITThumbprint returns the wth claim for a WIT-SVID token:
-// base64url(SHA-256(token)) over its compact serialization (wpt-01 §2).
-func WITThumbprint(witToken string) string {
+// WITHash returns the wth claim for a WIT-SVID token: base64url(SHA-256(token))
+// over its compact serialization (wpt-02 §2).
+func WITHash(witToken string) string {
 	sum := sha256.Sum256([]byte(witToken))
 	return base64.RawURLEncoding.EncodeToString(sum[:])
-}
-
-// confirmationAlgorithm reads cnf.jwk.alg from the credential's claims.
-func confirmationAlgorithm(svid *witsvid.SVID) (jose.SignatureAlgorithm, error) {
-	cnf, ok := svid.Claims["cnf"].(map[string]any)
-	if !ok {
-		return "", wrapErr(errors.New("WIT-SVID claims have no cnf object"))
-	}
-	jwk, ok := cnf["jwk"].(map[string]any)
-	if !ok {
-		return "", wrapErr(errors.New("WIT-SVID cnf claim has no jwk object"))
-	}
-	alg, ok := jwk["alg"].(string)
-	if !ok || alg == "" {
-		return "", wrapErr(errors.New("WIT-SVID cnf.jwk has no alg"))
-	}
-	return jose.SignatureAlgorithm(alg), nil
 }
 
 // checkKeyMatches verifies that the private key pairs with the cnf.jwk public key.

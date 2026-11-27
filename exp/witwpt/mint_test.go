@@ -155,25 +155,21 @@ func TestMintJTIIsUniqueAndAtLeast128Bits(t *testing.T) {
 }
 
 func TestMintWithProofLifetime(t *testing.T) {
-	svid := fixtureSVID(t)
+	for _, lifetime := range []time.Duration{time.Second, 5 * time.Second, witwpt.MaxProofLifetime} {
+		t.Run(lifetime.String(), func(t *testing.T) {
+			svid := fixtureSVID(t)
 
-	before := time.Now()
-	proof, err := witwpt.Mint(svid, testAudience, witwpt.WithProofLifetime(5*time.Second))
-	require.NoError(t, err)
+			proof, err := witwpt.Mint(svid, testAudience, witwpt.WithProofLifetime(lifetime))
+			require.NoError(t, err)
 
-	exp := numericDate(t, parseProofClaims(t, proof, svid.PublicKey)["exp"])
-	assert.WithinDuration(t, before.Add(5*time.Second), exp, 2*time.Second)
+			claims := parseProofClaims(t, proof, svid.PublicKey)
+			iat := numericDate(t, claims["iat"])
+			assert.Equal(t, iat.Add(lifetime), numericDate(t, claims["exp"]))
+		})
+	}
 }
 
 func TestMintErrors(t *testing.T) {
-	withClaims := func(edit func(claims map[string]any)) func(*testing.T) *witsvid.SVID {
-		return func(t *testing.T) *witsvid.SVID {
-			svid := fixtureSVID(t)
-			edit(svid.Claims)
-			return svid
-		}
-	}
-
 	tests := []struct {
 		name string
 		svid func(*testing.T) *witsvid.SVID
@@ -222,26 +218,6 @@ func TestMintErrors(t *testing.T) {
 			err: "witwpt: WIT-SVID expired at 2020-01-01T00:00:00Z",
 		},
 		{
-			name: "missing cnf",
-			svid: withClaims(func(claims map[string]any) { delete(claims, "cnf") }),
-			aud:  testAudience,
-			err:  "witwpt: WIT-SVID claims have no cnf object",
-		},
-		{
-			name: "missing cnf.jwk",
-			svid: withClaims(func(claims map[string]any) { claims["cnf"] = map[string]any{} }),
-			aud:  testAudience,
-			err:  "witwpt: WIT-SVID cnf claim has no jwk object",
-		},
-		{
-			name: "missing cnf.jwk.alg",
-			svid: withClaims(func(claims map[string]any) {
-				delete(claims["cnf"].(map[string]any)["jwk"].(map[string]any), "alg")
-			}),
-			aud: testAudience,
-			err: "witwpt: WIT-SVID cnf.jwk has no alg",
-		},
-		{
 			name: "private key is not a signer",
 			svid: func(t *testing.T) *witsvid.SVID {
 				svid := fixtureSVID(t)
@@ -266,21 +242,28 @@ func TestMintErrors(t *testing.T) {
 			svid: fixtureSVID,
 			aud:  testAudience,
 			opts: []witwpt.MintOption{witwpt.WithProofLifetime(0)},
-			err:  "witwpt: proof lifetime must be at least 1s, got 0s",
+			err:  "witwpt: proof lifetime must be between 1s and 5m0s, got 0s",
 		},
 		{
 			name: "negative proof lifetime",
 			svid: fixtureSVID,
 			aud:  testAudience,
 			opts: []witwpt.MintOption{witwpt.WithProofLifetime(-time.Second)},
-			err:  "witwpt: proof lifetime must be at least 1s, got -1s",
+			err:  "witwpt: proof lifetime must be between 1s and 5m0s, got -1s",
 		},
 		{
 			name: "sub-second proof lifetime",
 			svid: fixtureSVID,
 			aud:  testAudience,
 			opts: []witwpt.MintOption{witwpt.WithProofLifetime(100 * time.Millisecond)},
-			err:  "witwpt: proof lifetime must be at least 1s, got 100ms",
+			err:  "witwpt: proof lifetime must be between 1s and 5m0s, got 100ms",
+		},
+		{
+			name: "proof lifetime over the maximum",
+			svid: fixtureSVID,
+			aud:  testAudience,
+			opts: []witwpt.MintOption{witwpt.WithProofLifetime(witwpt.MaxProofLifetime + time.Second)},
+			err:  "witwpt: proof lifetime must be between 1s and 5m0s, got 5m1s",
 		},
 	}
 
