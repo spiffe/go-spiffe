@@ -14,7 +14,7 @@
 ### Changed
 
 - Minimum Go version is now go1.26.0, following our support policy (#440, #447)
-- The `tlsconfig` Hook functions now also set `VerifyConnection`, and the mTLS server ones set `WrapSession` and `UnwrapSession`. Existing callbacks are wrapped, so they must be set before hooking, and a configuration should be hooked only once. Session ticket keys must be set on the hooked configuration (#447)
+- The `tlsconfig` Hook functions that verify the peer X509-SVID (`HookTLSClientConfig`, `HookMTLSClientConfig`, `HookMTLSServerConfig` and `HookMTLSWebServerConfig`) now also set `VerifyConnection`, and the two server ones also set `WrapSession` and `UnwrapSession`. Existing callbacks are wrapped, so they must be set before hooking, and a configuration should be hooked only once. Session ticket keys must be set on the hooked configuration (#447)
 - `spiffetls.WithDialTLSConfigBase` and `spiffetls.WithListenTLSConfigBase` now clone the base TLS configuration instead of modifying it (#447)
 - `jwtsvid.ParseAndValidate` and `jwtsvid.ParseInsecure` now reject tokens with a missing `aud` claim or an empty `aud` value (#442)
 - Bundle marshaling in `bundle/jwtbundle`, `bundle/spiffebundle` and `exp/bundle/witbundle` is now deterministic, with JWT and WIT authorities emitted in sorted key ID order (#433)
@@ -23,7 +23,7 @@
 
 ### Fixed
 
-- The TLS configurations built by `spiffetls/tlsconfig` now verify and authorize the peer on resumed sessions, which Go does not pass to `VerifyPeerCertificate`. Authorizers are now also called on resumed handshakes, and mTLS servers fall back to a full handshake when the client certificate of a session no longer verifies (#447)
+- The TLS configurations built by `spiffetls/tlsconfig` that verify the peer X509-SVID now also verify and authorize it on resumed sessions, which Go does not pass to `VerifyPeerCertificate`. Authorizers are now also called on resumed handshakes, and mTLS servers fall back to a full handshake when the client certificate of a session no longer verifies (#447)
 - Bundle parsing no longer fails on JWKS entries with an unsupported key type, or in `spiffebundle` a missing or unknown `use`. Those entries are now ignored, as the SPIFFE bundle specification requires (#444, #448)
 - The federation handler now sets the `Allow` header on 405 responses (#434)
 
