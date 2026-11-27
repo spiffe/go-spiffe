@@ -60,11 +60,19 @@ type SVID struct {
 
 	// token is the serialized JWS compact serialization.
 	token string
+
+	confirmationAlg string
 }
 
 // Marshal returns the WIT-SVID as a JWS compact serialization string.
 func (s *SVID) Marshal() string {
 	return s.token
+}
+
+// ConfirmationAlgorithm returns the alg of the cnf.jwk claim, validated at
+// parse time. A proof of possession must be signed with it.
+func (s *SVID) ConfirmationAlgorithm() string {
+	return s.confirmationAlg
 }
 
 // ParseAndValidate parses and validates a WIT-SVID token, verifying its
@@ -146,7 +154,7 @@ func parse(token string, verify verifyFn) (*SVID, error) {
 		return nil, wrapErr(fmt.Errorf("unable to parse claims: %v", err))
 	}
 
-	publicKey, err := extractCnfJWK(rawClaims)
+	publicKey, confirmationAlg, err := extractCnfJWK(rawClaims)
 	if err != nil {
 		return nil, err
 	}
@@ -175,58 +183,61 @@ func parse(token string, verify verifyFn) (*SVID, error) {
 		KeyID:     keyID,
 		Claims:    rawClaims,
 		token:     token,
+
+		confirmationAlg: confirmationAlg,
 	}, nil
 }
 
-// extractCnfJWK extracts and parses the public key from the cnf.jwk claim.
-func extractCnfJWK(claims map[string]any) (crypto.PublicKey, error) {
+// extractCnfJWK extracts and parses the public key and its alg from the cnf.jwk
+// claim.
+func extractCnfJWK(claims map[string]any) (crypto.PublicKey, string, error) {
 	cnfRaw, ok := claims["cnf"]
 	if !ok {
-		return nil, wrapErr(errors.New("token missing cnf claim"))
+		return nil, "", wrapErr(errors.New("token missing cnf claim"))
 	}
 
 	cnfMap, ok := cnfRaw.(map[string]any)
 	if !ok {
-		return nil, wrapErr(errors.New("cnf claim is not an object"))
+		return nil, "", wrapErr(errors.New("cnf claim is not an object"))
 	}
 
 	jwkRaw, ok := cnfMap["jwk"]
 	if !ok {
-		return nil, wrapErr(errors.New("cnf claim missing jwk field"))
+		return nil, "", wrapErr(errors.New("cnf claim missing jwk field"))
 	}
 
 	jwkMap, ok := jwkRaw.(map[string]any)
 	if !ok {
-		return nil, wrapErr(errors.New("cnf.jwk is not an object"))
+		return nil, "", wrapErr(errors.New("cnf.jwk is not an object"))
 	}
 
 	algRaw, ok := jwkMap["alg"]
 	if !ok {
-		return nil, wrapErr(errors.New("cnf.jwk missing alg field"))
+		return nil, "", wrapErr(errors.New("cnf.jwk missing alg field"))
 	}
 	algStr, ok := algRaw.(string)
 	if !ok {
-		return nil, wrapErr(errors.New("cnf.jwk alg field is not a string"))
+		return nil, "", wrapErr(errors.New("cnf.jwk alg field is not a string"))
 	}
 	if !slices.Contains(allowedSignatureAlgorithms, jose.SignatureAlgorithm(algStr)) {
-		return nil, wrapErr(fmt.Errorf("cnf.jwk alg %q is not supported", algStr))
+		return nil, "", wrapErr(fmt.Errorf("cnf.jwk alg %q is not supported", algStr))
 	}
 
 	data, err := json.Marshal(jwkMap)
 	if err != nil {
-		return nil, wrapErr(fmt.Errorf("unable to marshal cnf.jwk: %v", err))
+		return nil, "", wrapErr(fmt.Errorf("unable to marshal cnf.jwk: %v", err))
 	}
 
 	var jwk jose.JSONWebKey
 	if err := jwk.UnmarshalJSON(data); err != nil {
-		return nil, wrapErr(fmt.Errorf("unable to parse cnf.jwk: %v", err))
+		return nil, "", wrapErr(fmt.Errorf("unable to parse cnf.jwk: %v", err))
 	}
 
 	if !jwk.IsPublic() {
-		return nil, wrapErr(errors.New("cnf.jwk must be a public key"))
+		return nil, "", wrapErr(errors.New("cnf.jwk must be a public key"))
 	}
 
-	return jwk.Key, nil
+	return jwk.Key, algStr, nil
 }
 
 func wrapErr(err error) error {
