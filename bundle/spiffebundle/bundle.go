@@ -452,7 +452,11 @@ func (b *Bundle) Marshal() ([]byte, error) {
 	b.mtx.RLock()
 	defer b.mtx.RUnlock()
 
-	jwks := bundleDoc{}
+	jwks := bundleDoc{
+		JSONWebKeySet: jose.JSONWebKeySet{
+			Keys: make([]jose.JSONWebKey, 0, len(b.x509Authorities)+len(b.jwtAuthorities)+len(b.witAuthorities)),
+		},
+	}
 	if b.refreshHint != nil {
 		tr := int64((*b.refreshHint + (time.Second - 1)) / time.Second)
 		jwks.RefreshHint = &tr
