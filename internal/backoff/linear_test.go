@@ -1,4 +1,4 @@
-package workloadapi
+package backoff
 
 import (
 	"testing"
@@ -8,7 +8,7 @@ import (
 )
 
 func TestLinearBackoff(t *testing.T) {
-	testUntilMax := func(t *testing.T, b *linearBackoff) {
+	testUntilMax := func(t *testing.T, b *Linear) {
 		for i := 1; i < 30; i++ {
 			require.Equal(t, time.Duration(i)*time.Second, b.Next())
 		}
@@ -20,14 +20,14 @@ func TestLinearBackoff(t *testing.T) {
 	t.Run("test max", func(t *testing.T) {
 		t.Parallel()
 
-		b := newLinearBackoff()
+		b := NewLinear()
 		testUntilMax(t, b)
 	})
 
 	t.Run("test reset", func(t *testing.T) {
 		t.Parallel()
 
-		b := newLinearBackoff()
+		b := NewLinear()
 		testUntilMax(t, b)
 
 		b.Reset()
