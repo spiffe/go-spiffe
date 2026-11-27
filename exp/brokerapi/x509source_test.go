@@ -2,6 +2,7 @@ package brokerapi_test
 
 import (
 	"context"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -114,6 +115,84 @@ func TestX509SourceExposesWatchTermination(t *testing.T) {
 
 	require.Equal(t, codes.InvalidArgument, status.Code(source.Err()))
 	require.ErrorContains(t, source.Err(), "terminal error")
+}
+
+func TestX509SourceClearsErrAfterRecovery(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+
+	api := fakebrokerapi.New(t)
+	defer api.Stop()
+	client := newTestClient(t, api)
+
+	td := spiffeid.RequireTrustDomainFromString("domain.test")
+	ca := test.NewCA(t, td)
+	svid := ca.CreateX509SVID(spiffeid.RequireFromPath(td, "/workload"))
+	api.SetX509SVIDResponse(makeX509SVIDResponse(t, ca.X509Bundle(), []*x509svid.SVID{svid}))
+
+	source, err := brokerapi.NewX509Source(ctx, client, workloadReference())
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, source.Close())
+	}()
+
+	api.SetX509SVIDResponse(nil)
+	require.Eventually(t, func() bool {
+		return source.Err() != nil
+	}, 5*time.Second, 10*time.Millisecond)
+
+	api.SetX509SVIDResponse(makeX509SVIDResponse(t, ca.X509Bundle(), []*x509svid.SVID{svid}))
+	require.Eventually(t, func() bool {
+		return source.Err() == nil
+	}, 5*time.Second, 10*time.Millisecond)
+
+	requireX509SVID(t, source, svid)
+}
+
+func TestX509SourceKeepsLastSVIDIfPickerReturnsNilAfterStartup(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+
+	api := fakebrokerapi.New(t)
+	defer api.Stop()
+	client := newTestClient(t, api)
+
+	td := spiffeid.RequireTrustDomainFromString("domain.test")
+	ca := test.NewCA(t, td)
+	svid1 := ca.CreateX509SVID(spiffeid.RequireFromPath(td, "/workload1"))
+	svid2 := ca.CreateX509SVID(spiffeid.RequireFromPath(td, "/workload2"))
+	api.SetX509SVIDResponse(makeX509SVIDResponse(t, ca.X509Bundle(), []*x509svid.SVID{svid1}))
+
+	var returnNil atomic.Bool
+	source, err := brokerapi.NewX509Source(ctx, client, workloadReference(),
+		brokerapi.WithDefaultX509SVIDPicker(func(svids []*x509svid.SVID) *x509svid.SVID {
+			if returnNil.Load() {
+				return nil
+			}
+			return svids[0]
+		}),
+	)
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, source.Close())
+	}()
+	requireX509SVID(t, source, svid1)
+
+	returnNil.Store(true)
+	api.SetX509SVIDResponse(makeX509SVIDResponse(t, ca.X509Bundle(), []*x509svid.SVID{svid2}))
+
+	require.Eventually(t, func() bool {
+		return source.Err() != nil
+	}, 5*time.Second, 10*time.Millisecond)
+	require.ErrorContains(t, source.Err(), "picker returned nil")
+
+	select {
+	case <-source.Done():
+		require.FailNow(t, "source stopped watching")
+	default:
+	}
+
+	requireX509SVID(t, source, svid1)
 }
 
 func TestX509SourceWaitsForInitialUpdate(t *testing.T) {

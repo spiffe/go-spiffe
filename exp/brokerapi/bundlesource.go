@@ -56,7 +56,7 @@ func NewBundleSource(ctx context.Context, client *Client, workloadReference prot
 	}
 
 	s := &BundleSource{
-		sourceBase:     newSourceBase(2),
+		sourceBase:     newSourceBase(),
 		client:         client,
 		reference:      reference,
 		x509Bundles:    x509bundle.NewSet(),
@@ -174,16 +174,16 @@ func (s *BundleSource) Updated() <-chan struct{} {
 	return s.updated()
 }
 
-// Done returns a channel that is closed when the source stops watching for
-// updates, either because it was closed or because a watch terminated.
+// Done returns a channel that is closed when the source is closed or when
+// either of its watches stops.
 //
 // Experimental: subject to change.
 func (s *BundleSource) Done() <-chan struct{} {
 	return s.done()
 }
 
-// Err returns the most recent error encountered while watching for updates, or
-// nil if no error has occurred.
+// Err returns the error from the most recent failed update, or nil if the last
+// update on every watched stream succeeded.
 //
 // Experimental: subject to change.
 func (s *BundleSource) Err() error {
@@ -192,7 +192,11 @@ func (s *BundleSource) Err() error {
 
 func (s *BundleSource) watchX509Bundles(ctx context.Context) error {
 	defer s.markWatchDone()
-	return watch(ctx, s.client.config.log, s.client.config.backoffStrategy, "X.509 bundles", s.openX509Bundles, s.updateX509Bundles, s.clearX509Bundles, s.recordWatchError)
+	return watch(ctx, s.client.config.log, s.client.config.backoffStrategy, x509BundlesWatchName, s.openX509Bundles, s.updateX509Bundles, s.clearX509Bundles, s.recordX509BundlesWatchError)
+}
+
+func (s *BundleSource) recordX509BundlesWatchError(err error) {
+	s.setWatchError(x509BundlesWatchName, err)
 }
 
 func (s *BundleSource) openX509Bundles(ctx context.Context) (recvFunc[*brokerpb.SubscribeToX509BundlesResponse], error) {
@@ -215,6 +219,7 @@ func (s *BundleSource) updateX509Bundles(response *brokerpb.SubscribeToX509Bundl
 	s.x509Bundles = bundles
 	s.mtx.Unlock()
 
+	s.clearWatchError(x509BundlesWatchName)
 	s.triggerUpdated()
 	s.x509BundlesSetOnce.Do(func() {
 		close(s.x509BundlesSet)
@@ -232,7 +237,11 @@ func (s *BundleSource) clearX509Bundles() {
 
 func (s *BundleSource) watchJWTBundles(ctx context.Context) error {
 	defer s.markWatchDone()
-	return watch(ctx, s.client.config.log, s.client.config.backoffStrategy, "JWT bundles", s.openJWTBundles, s.updateJWTBundles, s.clearJWTBundles, s.recordWatchError)
+	return watch(ctx, s.client.config.log, s.client.config.backoffStrategy, jwtBundlesWatchName, s.openJWTBundles, s.updateJWTBundles, s.clearJWTBundles, s.recordJWTBundlesWatchError)
+}
+
+func (s *BundleSource) recordJWTBundlesWatchError(err error) {
+	s.setWatchError(jwtBundlesWatchName, err)
 }
 
 func (s *BundleSource) openJWTBundles(ctx context.Context) (recvFunc[*brokerpb.SubscribeToJWTBundlesResponse], error) {
@@ -255,6 +264,7 @@ func (s *BundleSource) updateJWTBundles(response *brokerpb.SubscribeToJWTBundles
 	s.jwtBundles = bundles
 	s.mtx.Unlock()
 
+	s.clearWatchError(jwtBundlesWatchName)
 	s.triggerUpdated()
 	s.jwtBundlesSetOnce.Do(func() {
 		close(s.jwtBundlesSet)

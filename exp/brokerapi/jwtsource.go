@@ -59,7 +59,7 @@ func NewJWTSource(ctx context.Context, client *Client, workloadReference proto.M
 	}
 
 	s := &JWTSource{
-		sourceBase:    newSourceBase(1),
+		sourceBase:    newSourceBase(),
 		client:        client,
 		reference:     reference,
 		picker:        config.picker,
@@ -186,8 +186,8 @@ func (s *JWTSource) Done() <-chan struct{} {
 	return s.done()
 }
 
-// Err returns the most recent error encountered while watching for updates, or
-// nil if no error has occurred.
+// Err returns the error from the most recent failed update, or nil if the last
+// update succeeded.
 //
 // Experimental: subject to change.
 func (s *JWTSource) Err() error {
@@ -196,7 +196,11 @@ func (s *JWTSource) Err() error {
 
 func (s *JWTSource) watch(ctx context.Context) error {
 	defer s.markWatchDone()
-	return watch(ctx, s.client.config.log, s.client.config.backoffStrategy, "JWT bundles", s.open, s.update, s.clear, s.recordWatchError)
+	return watch(ctx, s.client.config.log, s.client.config.backoffStrategy, jwtBundlesWatchName, s.open, s.update, s.clear, s.recordWatchError)
+}
+
+func (s *JWTSource) recordWatchError(err error) {
+	s.setWatchError(jwtBundlesWatchName, err)
 }
 
 func (s *JWTSource) open(ctx context.Context) (recvFunc[*brokerpb.SubscribeToJWTBundlesResponse], error) {
@@ -219,6 +223,7 @@ func (s *JWTSource) update(response *brokerpb.SubscribeToJWTBundlesResponse) err
 	s.bundles = bundles
 	s.mtx.Unlock()
 
+	s.clearWatchError(jwtBundlesWatchName)
 	s.triggerUpdated()
 	s.jwtBundlesSetOnce.Do(func() {
 		close(s.jwtBundlesSet)

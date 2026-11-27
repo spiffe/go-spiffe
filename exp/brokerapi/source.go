@@ -6,6 +6,12 @@ import (
 	"sync"
 )
 
+const (
+	x509SVIDWatchName    = "X.509-SVIDs"
+	x509BundlesWatchName = "X.509 bundles"
+	jwtBundlesWatchName  = "JWT bundles"
+)
+
 // sourceBase holds the goroutine lifecycle and update-notification machinery
 // shared by all sources.
 type sourceBase struct {
@@ -21,20 +27,18 @@ type sourceBase struct {
 	doneCh    chan struct{}
 	doneOnce  sync.Once
 
-	watchMtx   sync.Mutex
-	watchCount int
-	errMtx     sync.Mutex
-	watchErr   error
+	errMtx    sync.Mutex
+	watchErrs map[string]error
 }
 
-func newSourceBase(watchCount int) sourceBase {
+func newSourceBase() sourceBase {
 	ctx, cancel := context.WithCancel(context.Background())
 	return sourceBase{
-		ctx:        ctx,
-		cancel:     cancel,
-		updatedCh:  make(chan struct{}, 1),
-		doneCh:     make(chan struct{}),
-		watchCount: watchCount,
+		ctx:       ctx,
+		cancel:    cancel,
+		updatedCh: make(chan struct{}, 1),
+		doneCh:    make(chan struct{}),
+		watchErrs: make(map[string]error),
 	}
 }
 
@@ -69,35 +73,46 @@ func (b *sourceBase) done() <-chan struct{} {
 	return b.doneCh
 }
 
-func (b *sourceBase) recordWatchError(err error) {
+func (b *sourceBase) setWatchError(name string, err error) {
 	if err == nil {
 		return
 	}
 
 	b.errMtx.Lock()
-	b.watchErr = err
+	b.watchErrs[name] = err
+	b.errMtx.Unlock()
+}
+
+func (b *sourceBase) clearWatchError(name string) {
+	b.errMtx.Lock()
+	delete(b.watchErrs, name)
 	b.errMtx.Unlock()
 }
 
 func (b *sourceBase) lastWatchError() error {
 	b.errMtx.Lock()
 	defer b.errMtx.Unlock()
-	return b.watchErr
+
+	switch len(b.watchErrs) {
+	case 0:
+		return nil
+	case 1:
+		for _, err := range b.watchErrs {
+			return err
+		}
+	}
+
+	errs := make([]error, 0, len(b.watchErrs))
+	for _, err := range b.watchErrs {
+		errs = append(errs, err)
+	}
+	return errors.Join(errs...)
 }
 
 func (b *sourceBase) markWatchDone() {
-	b.watchMtx.Lock()
-	if b.watchCount > 0 {
-		b.watchCount--
-	}
-	done := b.watchCount == 0
-	b.watchMtx.Unlock()
-
-	if done {
-		b.doneOnce.Do(func() {
-			close(b.doneCh)
-		})
-	}
+	b.doneOnce.Do(func() {
+		close(b.doneCh)
+	})
 }
 
 // close cancels the background goroutines and waits for them to exit. It is

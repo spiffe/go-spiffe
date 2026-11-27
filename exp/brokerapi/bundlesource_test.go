@@ -12,6 +12,8 @@ import (
 	"github.com/spiffe/go-spiffe/v2/internal/test/fakebrokerapi"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestBundleSource(t *testing.T) {
@@ -50,6 +52,41 @@ func TestBundleSource(t *testing.T) {
 	require.NoError(t, source.WaitUntilUpdated(ctx))
 	requireJWTBundle(t, source, td, ca.JWTBundle())
 	requireJWTBundle(t, source, federatedTD, federatedCA.JWTBundle())
+}
+
+func TestBundleSourceExposesWatchTermination(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+
+	api := fakebrokerapi.New(t)
+	defer api.Stop()
+	client := newTestClient(t, api)
+
+	td := spiffeid.RequireTrustDomainFromString("domain.test")
+	ca := test.NewCA(t, td)
+	api.SetX509BundlesResponse(makeX509BundlesResponse(t, ca.X509Bundle()))
+	api.SetJWTBundlesResponse(makeJWTBundlesResponse(t, ca.JWTBundle()))
+
+	source, err := brokerapi.NewBundleSource(ctx, client, workloadReference())
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, source.Close())
+	}()
+
+	api.SetX509BundlesError(status.Error(codes.InvalidArgument, "terminal error"))
+	api.SetX509BundlesResponse(nil)
+
+	select {
+	case <-source.Done():
+	case <-ctx.Done():
+		require.FailNow(t, "timed out waiting for the source to stop watching")
+	}
+
+	require.Equal(t, codes.InvalidArgument, status.Code(source.Err()))
+	require.ErrorContains(t, source.Err(), "terminal error")
+
+	// The JWT bundle watch is unaffected.
+	requireJWTBundle(t, source, td, ca.JWTBundle())
 }
 
 func TestBundleSourceWaitsForInitialUpdates(t *testing.T) {

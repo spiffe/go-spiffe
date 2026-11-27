@@ -31,14 +31,6 @@ func parseX509Context(response *brokerpb.SubscribeToX509SVIDResponse) ([]*x509sv
 	return svids, bundles, nil
 }
 
-func parseX509SVIDs(response *brokerpb.SubscribeToX509SVIDResponse) ([]*x509svid.SVID, error) {
-	pbSVIDs := uniqueX509SVIDs(response.Svids)
-	if len(pbSVIDs) == 0 {
-		return nil, errors.New("no X.509-SVIDs in response")
-	}
-	return parseX509SVIDsFromProto(pbSVIDs)
-}
-
 func uniqueX509SVIDs(pbSVIDs []*brokerpb.X509SVID) []*brokerpb.X509SVID {
 	hints := make(map[string]struct{}, len(pbSVIDs))
 	unique := make([]*brokerpb.X509SVID, 0, len(pbSVIDs))

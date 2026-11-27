@@ -60,7 +60,7 @@ func NewX509Source(ctx context.Context, client *Client, workloadReference proto.
 	}
 
 	s := &X509Source{
-		sourceBase:     newSourceBase(1),
+		sourceBase:     newSourceBase(),
 		client:         client,
 		reference:      reference,
 		picker:         config.picker,
@@ -170,8 +170,8 @@ func (s *X509Source) Done() <-chan struct{} {
 	return s.done()
 }
 
-// Err returns the most recent error encountered while watching for updates, or
-// nil if no error has occurred.
+// Err returns the error from the most recent failed update, or nil if the last
+// update succeeded.
 //
 // Experimental: subject to change.
 func (s *X509Source) Err() error {
@@ -180,7 +180,11 @@ func (s *X509Source) Err() error {
 
 func (s *X509Source) watch(ctx context.Context) error {
 	defer s.markWatchDone()
-	return watch(ctx, s.client.config.log, s.client.config.backoffStrategy, "X.509-SVIDs", s.open, s.update, s.clear, s.recordWatchError)
+	return watch(ctx, s.client.config.log, s.client.config.backoffStrategy, x509SVIDWatchName, s.open, s.update, s.clear, s.recordWatchError)
+}
+
+func (s *X509Source) recordWatchError(err error) {
+	s.setWatchError(x509SVIDWatchName, err)
 }
 
 func (s *X509Source) open(ctx context.Context) (recvFunc[*brokerpb.SubscribeToX509SVIDResponse], error) {
@@ -205,7 +209,11 @@ func (s *X509Source) update(response *brokerpb.SubscribeToX509SVIDResponse) erro
 	} else {
 		svid = s.picker(svids)
 		if svid == nil {
-			return newWatchTerminalError(errors.New("X509-SVID picker returned nil"))
+			err := errors.New("X509-SVID picker returned nil")
+			if s.hasX509Context() {
+				return err
+			}
+			return newWatchTerminalError(err)
 		}
 	}
 
@@ -214,11 +222,21 @@ func (s *X509Source) update(response *brokerpb.SubscribeToX509SVIDResponse) erro
 	s.bundles = bundles
 	s.mtx.Unlock()
 
+	s.clearWatchError(x509SVIDWatchName)
 	s.triggerUpdated()
 	s.x509ContextSetOnce.Do(func() {
 		close(s.x509ContextSet)
 	})
 	return nil
+}
+
+func (s *X509Source) hasX509Context() bool {
+	select {
+	case <-s.x509ContextSet:
+		return true
+	default:
+		return false
+	}
 }
 
 func (s *X509Source) clear() {

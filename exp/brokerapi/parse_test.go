@@ -47,17 +47,18 @@ func TestParseX509SVIDs(t *testing.T) {
 				response.Svids = append(response.Svids, pbSVID)
 			}
 
-			svids, err := parseX509SVIDs(response)
+			svids, err := parseX509SVIDsFromProto(uniqueX509SVIDs(response.Svids))
 			require.NoError(t, err)
 			require.Equal(t, testCase.wantIDs, svidIDs(svids))
 		})
 	}
 }
 
-func TestParseX509SVIDsRequiresSVIDs(t *testing.T) {
-	svids, err := parseX509SVIDs(&brokerpb.SubscribeToX509SVIDResponse{})
+func TestParseX509ContextRequiresSVIDs(t *testing.T) {
+	svids, bundles, err := parseX509Context(&brokerpb.SubscribeToX509SVIDResponse{})
 	require.EqualError(t, err, "no X.509-SVIDs in response")
 	require.Nil(t, svids)
+	require.Nil(t, bundles)
 }
 
 func TestParseJWTSVIDs(t *testing.T) {
