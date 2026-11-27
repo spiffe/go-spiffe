@@ -23,24 +23,16 @@ const (
 	DefaultMaxLifetime = MaxProofLifetime
 )
 
-// allowedProofAlgorithms mirrors the asymmetric algorithms witsvid permits for a
-// confirmation key. wpt-02 §2 requires "none" and symmetric algorithms be
-// rejected.
-var allowedProofAlgorithms = []jose.SignatureAlgorithm{
-	jose.RS256, jose.RS384, jose.RS512,
-	jose.ES256, jose.ES384, jose.ES512,
-	jose.PS256, jose.PS384, jose.PS512,
-}
-
 // VerifyOption configures a Verifier.
 type VerifyOption interface {
 	configureVerify(*verifyConfig)
 }
 
 type verifyConfig struct {
-	replayCache ReplayCache
-	leeway      time.Duration
-	maxLifetime time.Duration
+	replayCache    ReplayCache
+	useReplayCache bool
+	leeway         time.Duration
+	maxLifetime    time.Duration
 }
 
 type verifyOption func(*verifyConfig)
@@ -52,39 +44,35 @@ func (fn verifyOption) configureVerify(c *verifyConfig) { fn(c) }
 // rebuilding the verifier per request.
 func Verify(ctx context.Context, witToken, wptToken string, bundles witbundle.Source,
 	audience AudienceMatcher) (*witsvid.SVID, error) {
-	return NewVerifier(bundles).Verify(ctx, witToken, wptToken, audience)
+	verifier, err := NewVerifier(bundles)
+	if err != nil {
+		return nil, err
+	}
+	return verifier.Verify(ctx, witToken, wptToken, audience)
 }
 
 // WithReplayCache rejects a proof whose jti was already recorded for the same
 // identity. It is off by default because an in-memory default would not cover
-// replicas. It panics if cache is nil.
+// replicas. NewVerifier fails if cache is nil.
 func WithReplayCache(cache ReplayCache) VerifyOption {
-	if cache == nil {
-		panic("witwpt: WithReplayCache called with a nil cache")
-	}
 	return verifyOption(func(c *verifyConfig) {
 		c.replayCache = cache
+		c.useReplayCache = true
 	})
 }
 
 // WithLeeway sets the clock-skew tolerance applied to a proof's exp, nbf, and
 // iat, overriding DefaultLeeway. Widening it lengthens the window in which a
-// captured proof stays usable. It panics if leeway is negative.
+// captured proof stays usable. NewVerifier fails if leeway is negative.
 func WithLeeway(leeway time.Duration) VerifyOption {
-	if leeway < 0 {
-		panic("witwpt: WithLeeway called with a negative leeway")
-	}
 	return verifyOption(func(c *verifyConfig) {
 		c.leeway = leeway
 	})
 }
 
 // WithMaxProofLifetime sets how far into the future a proof's exp may sit,
-// overriding DefaultMaxLifetime. It panics if maxLifetime is not positive.
+// overriding DefaultMaxLifetime. NewVerifier fails if maxLifetime is not positive.
 func WithMaxProofLifetime(maxLifetime time.Duration) VerifyOption {
-	if maxLifetime <= 0 {
-		panic("witwpt: WithMaxProofLifetime called with a non-positive lifetime")
-	}
 	return verifyOption(func(c *verifyConfig) {
 		c.maxLifetime = maxLifetime
 	})
@@ -97,11 +85,11 @@ type Verifier struct {
 	config  verifyConfig
 }
 
-// NewVerifier returns a Verifier validating WIT-SVIDs against bundles. It
-// panics if bundles is nil.
-func NewVerifier(bundles witbundle.Source, opts ...VerifyOption) *Verifier {
+// NewVerifier returns a Verifier validating WIT-SVIDs against bundles. It fails
+// if bundles is nil or an option holds an invalid value.
+func NewVerifier(bundles witbundle.Source, opts ...VerifyOption) (*Verifier, error) {
 	if bundles == nil {
-		panic("witwpt: NewVerifier called with a nil bundle source")
+		return nil, wrapErr(errors.New("no bundle source provided"))
 	}
 	config := verifyConfig{
 		leeway:      DefaultLeeway,
@@ -110,7 +98,15 @@ func NewVerifier(bundles witbundle.Source, opts ...VerifyOption) *Verifier {
 	for _, opt := range opts {
 		opt.configureVerify(&config)
 	}
-	return &Verifier{bundles: bundles, config: config}
+	switch {
+	case config.useReplayCache && config.replayCache == nil:
+		return nil, wrapErr(errors.New("replay cache must not be nil"))
+	case config.leeway < 0:
+		return nil, wrapErr(fmt.Errorf("leeway must not be negative, got %s", config.leeway))
+	case config.maxLifetime <= 0:
+		return nil, wrapErr(fmt.Errorf("max proof lifetime must be positive, got %s", config.maxLifetime))
+	}
+	return &Verifier{bundles: bundles, config: config}, nil
 }
 
 // Verify authenticates a peer from its raw WIT and WPT tokens, validating the
@@ -169,9 +165,13 @@ func (v *Verifier) verifyProof(witToken, wptToken string, svid *witsvid.SVID) (p
 		return out, errors.New("no proof token presented")
 	}
 
-	tok, err := jwt.ParseSigned(wptToken, allowedProofAlgorithms)
+	// alg MUST string-equal the WIT's cnf.jwk.alg (wpt-02 §2), so it is the only
+	// algorithm accepted. witsvid has already refused "none" and symmetric ones.
+	expectedAlg := svid.ConfirmationAlgorithm()
+	tok, err := jwt.ParseSigned(wptToken, []jose.SignatureAlgorithm{jose.SignatureAlgorithm(expectedAlg)})
 	if err != nil {
-		return out, fmt.Errorf("unable to parse proof token: %w", err)
+		return out, fmt.Errorf("unable to parse proof token as %s, the WIT-SVID's cnf.jwk alg: %w",
+			expectedAlg, err)
 	}
 
 	header := tok.Headers[0]
@@ -180,14 +180,6 @@ func (v *Verifier) verifyProof(witToken, wptToken string, svid *witsvid.SVID) (p
 	// as a proof.
 	if typ, _ := header.ExtraHeaders[jose.HeaderType].(string); typ != proofType {
 		return out, fmt.Errorf("proof header type must be %q, got %q", proofType, typ)
-	}
-
-	// alg MUST string-equal the WIT's cnf.jwk.alg (wpt-02 §2), so the presenter
-	// cannot choose it.
-	expectedAlg := svid.ConfirmationAlgorithm()
-	if header.Algorithm != expectedAlg {
-		return out, fmt.Errorf("proof alg %q does not match the WIT-SVID's cnf.jwk alg %q",
-			header.Algorithm, expectedAlg)
 	}
 
 	// Proof of possession: the signature must verify under the cnf key.
@@ -261,7 +253,7 @@ func (v *Verifier) verifyProof(witToken, wptToken string, svid *witsvid.SVID) (p
 
 // bindingClaims are the WPT claims that bind a proof to some other credential
 // travelling with the request: a Txn-Token or another token (wpt-02 §2), and an
-// OAuth access token (ath, defined only in wpt-02).
+// OAuth access token (ath, defined only before wpt-02).
 var bindingClaims = []string{"ath", "tth", "oth"}
 
 // rejectTokenBindings fails closed on bindings this package does not enforce,

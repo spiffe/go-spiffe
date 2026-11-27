@@ -203,3 +203,66 @@ func TestAcceptAudienceRejectsBadConfiguration(t *testing.T) {
 		})
 	}
 }
+
+func TestAcceptTargetURI(t *testing.T) {
+	tests := []struct {
+		name     string
+		accepted string
+		aud      string
+		err      string
+	}{
+		{
+			name:     "same route",
+			accepted: "https://server.example.org/v2/orders",
+			aud:      "https://server.example.org/v2/orders",
+		},
+		{
+			name:     "query and fragment are ignored",
+			accepted: "https://server.example.org/v2/orders",
+			aud:      "https://server.example.org:443/v2/orders?page=2#top",
+		},
+		{
+			name:     "empty path is the root path",
+			accepted: "https://Server.Example.org/",
+			aud:      "https://server.example.org",
+		},
+		{
+			name:     "another route on the same host is rejected",
+			accepted: "https://server.example.org/v2/orders",
+			aud:      "https://server.example.org/v2/admin",
+			err: `proof audience "https://server.example.org/v2/admin" is not accepted here ` +
+				`(expected one of ["https://server.example.org/v2/orders"])`,
+		},
+		{
+			name:     "path compares case-sensitively",
+			accepted: "https://server.example.org/v2/orders",
+			aud:      "https://server.example.org/V2/Orders",
+			err: `proof audience "https://server.example.org/V2/Orders" is not accepted here ` +
+				`(expected one of ["https://server.example.org/v2/orders"])`,
+		},
+		{
+			name:     "trailing slash names another route",
+			accepted: "https://server.example.org/v2/orders",
+			aud:      "https://server.example.org/v2/orders/",
+			err: `proof audience "https://server.example.org/v2/orders/" is not accepted here ` +
+				`(expected one of ["https://server.example.org/v2/orders"])`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			matcher, err := witwpt.AcceptTargetURI(tt.accepted)
+			require.NoError(t, err)
+
+			err = matcher(tt.aud)
+			if tt.err != "" {
+				require.EqualError(t, err, tt.err)
+				return
+			}
+			require.NoError(t, err)
+		})
+	}
+
+	_, err := witwpt.AcceptTargetURI()
+	require.EqualError(t, err, "witwpt: no audiences provided")
+}

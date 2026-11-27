@@ -6,6 +6,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/rsa"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -16,6 +17,7 @@ import (
 	"github.com/go-jose/go-jose/v4"
 	"github.com/go-jose/go-jose/v4/jwt"
 	"github.com/spiffe/go-spiffe/v2/exp/bundle/witbundle"
+	"github.com/spiffe/go-spiffe/v2/exp/svid/witsvid"
 	"github.com/spiffe/go-spiffe/v2/exp/witwpt"
 	"github.com/spiffe/go-spiffe/v2/internal/test"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
@@ -37,6 +39,63 @@ func TestVerifyAcceptsAValidPair(t *testing.T) {
 	assert.Equal(t, f.id, svid.ID, "the identity comes from the WIT-SVID's sub claim")
 	assert.Equal(t, f.witToken, svid.Marshal())
 	assert.Contains(t, svid.Claims, "cnf")
+}
+
+// TestMintVerifyRoundTrip keeps the algorithms Verify accepts in step with the
+// confirmation keys witsvid accepts and Mint signs with.
+func TestMintVerifyRoundTrip(t *testing.T) {
+	ecKey := func(curve elliptic.Curve) func(*testing.T) crypto.Signer {
+		return func(t *testing.T) crypto.Signer {
+			key, err := ecdsa.GenerateKey(curve, rand.Reader)
+			require.NoError(t, err)
+			return key
+		}
+	}
+	rsaKey := func(t *testing.T) crypto.Signer {
+		key, err := rsa.GenerateKey(rand.Reader, 2048)
+		require.NoError(t, err)
+		return key
+	}
+	mldsaKey := func(params string) func(*testing.T) crypto.Signer {
+		return func(t *testing.T) crypto.Signer { return test.NewMLDSAKey(t, params) }
+	}
+
+	tests := []struct {
+		alg jose.SignatureAlgorithm
+		key func(*testing.T) crypto.Signer
+	}{
+		{jose.ES256, ecKey(elliptic.P256())},
+		{jose.ES384, ecKey(elliptic.P384())},
+		{jose.ES512, ecKey(elliptic.P521())},
+		{jose.RS256, rsaKey},
+		{jose.RS384, rsaKey},
+		{jose.RS512, rsaKey},
+		{jose.PS256, rsaKey},
+		{jose.PS384, rsaKey},
+		{jose.PS512, rsaKey},
+		{jose.MLDSA44, mldsaKey("ML-DSA-44")},
+		{jose.MLDSA65, mldsaKey("ML-DSA-65")},
+		{jose.MLDSA87, mldsaKey("ML-DSA-87")},
+	}
+
+	for _, tt := range tests {
+		t.Run(string(tt.alg), func(t *testing.T) {
+			f := newVerifyFixture(t)
+			key := tt.key(t)
+			witToken := makeWIT(t, f.authority, "authority-1", f.id, key.Public(), tt.alg,
+				time.Now().Add(time.Hour))
+			svid, err := witsvid.ParseAndValidate(witToken, f.bundle)
+			require.NoError(t, err)
+			svid.PrivateKey = key
+
+			proof, err := witwpt.Mint(svid, verifyAudience)
+			require.NoError(t, err)
+
+			got, err := witwpt.Verify(t.Context(), witToken, proof, f.bundle, serverAudience(t))
+			require.NoError(t, err)
+			assert.Equal(t, f.id, got.ID)
+		})
+	}
 }
 
 func TestVerifyRejections(t *testing.T) {
@@ -81,7 +140,7 @@ func TestVerifyRejections(t *testing.T) {
 				return makeWIT(t, f.authority, "authority-1", f.id, f.cnfKey.Public(),
 					jose.ES512, time.Now().Add(time.Hour))
 			},
-			errPart: `proof alg "ES256" does not match the WIT-SVID's cnf.jwk alg "ES512"`,
+			errPart: "unable to parse proof token as ES512, the WIT-SVID's cnf.jwk alg",
 		},
 		{
 			name:  "proof signed with a different algorithm than cnf.jwk.alg",
@@ -92,7 +151,7 @@ func TestVerifyRejections(t *testing.T) {
 				require.NoError(t, err)
 				return makeWPT(t, key, jose.ES384, "wpt+jwt", f.validProofClaims())
 			},
-			errPart: "does not match",
+			errPart: "unable to parse proof token as ES256, the WIT-SVID's cnf.jwk alg",
 		},
 		{
 			name:  "WIT kid names an authority the bundle does not hold",
@@ -372,7 +431,7 @@ func TestVerifyReplayCache(t *testing.T) {
 	audience := serverAudience(t)
 
 	t.Run("without a cache a proof may be presented twice", func(t *testing.T) {
-		verifier := witwpt.NewVerifier(f.bundle)
+		verifier := mustNewVerifier(t, f.bundle)
 		_, err := verifier.Verify(t.Context(), f.witToken, proof, audience)
 		require.NoError(t, err)
 		_, err = verifier.Verify(t.Context(), f.witToken, proof, audience)
@@ -380,7 +439,7 @@ func TestVerifyReplayCache(t *testing.T) {
 	})
 
 	t.Run("with a cache the second presentation is rejected", func(t *testing.T) {
-		verifier := witwpt.NewVerifier(f.bundle,
+		verifier := mustNewVerifier(t, f.bundle,
 			witwpt.WithReplayCache(witwpt.NewMemoryReplayCache()))
 
 		_, err := verifier.Verify(t.Context(), f.witToken, proof, audience)
@@ -396,7 +455,7 @@ func TestVerifyReplayCache(t *testing.T) {
 
 	t.Run("a proof still inside the leeway window cannot be replayed", func(t *testing.T) {
 		// The record must last while the proof is acceptable: exp plus leeway.
-		verifier := witwpt.NewVerifier(f.bundle, witwpt.WithLeeway(time.Minute),
+		verifier := mustNewVerifier(t, f.bundle, witwpt.WithLeeway(time.Minute),
 			witwpt.WithReplayCache(witwpt.NewMemoryReplayCache()))
 
 		claims := f.validProofClaims()
@@ -417,7 +476,7 @@ func TestVerifyReplayCache(t *testing.T) {
 
 func TestVerifyRejectedProofDoesNotConsumeItsJTI(t *testing.T) {
 	f := newVerifyFixture(t)
-	verifier := witwpt.NewVerifier(f.bundle,
+	verifier := mustNewVerifier(t, f.bundle,
 		witwpt.WithReplayCache(witwpt.NewMemoryReplayCache()))
 
 	wrongTarget := f.validProofClaims()
@@ -435,7 +494,7 @@ func TestVerifyReplayCacheFailureHasItsOwnStage(t *testing.T) {
 	f := newVerifyFixture(t)
 	proof := makeWPT(t, f.cnfKey, jose.ES256, "wpt+jwt", f.validProofClaims())
 	outage := errors.New("connection refused")
-	verifier := witwpt.NewVerifier(f.bundle, witwpt.WithReplayCache(failingCache{err: outage}))
+	verifier := mustNewVerifier(t, f.bundle, witwpt.WithReplayCache(failingCache{err: outage}))
 
 	_, err := verifier.Verify(t.Context(), f.witToken, proof, serverAudience(t))
 
@@ -449,7 +508,7 @@ func TestVerifyReplayCacheWrappedReplayIsAReplay(t *testing.T) {
 	f := newVerifyFixture(t)
 	proof := makeWPT(t, f.cnfKey, jose.ES256, "wpt+jwt", f.validProofClaims())
 	cache := failingCache{err: fmt.Errorf("redis: %w", witwpt.ErrReplayed)}
-	verifier := witwpt.NewVerifier(f.bundle, witwpt.WithReplayCache(cache))
+	verifier := mustNewVerifier(t, f.bundle, witwpt.WithReplayCache(cache))
 
 	_, err := verifier.Verify(t.Context(), f.witToken, proof, serverAudience(t))
 
@@ -458,12 +517,26 @@ func TestVerifyReplayCacheWrappedReplayIsAReplay(t *testing.T) {
 	assert.Equal(t, witwpt.StageReplay, verr.Stage)
 }
 
-func TestVerifierOptionsRejectInvalidValues(t *testing.T) {
-	assert.Panics(t, func() { witwpt.NewVerifier(nil) })
-	assert.Panics(t, func() { witwpt.WithReplayCache(nil) })
-	assert.Panics(t, func() { witwpt.WithLeeway(-time.Second) })
-	assert.Panics(t, func() { witwpt.WithMaxProofLifetime(0) })
-	assert.NotPanics(t, func() { witwpt.WithLeeway(0) })
+func TestNewVerifierRejectsInvalidValues(t *testing.T) {
+	f := newVerifyFixture(t)
+
+	_, err := witwpt.NewVerifier(nil)
+	require.EqualError(t, err, "witwpt: no bundle source provided")
+
+	_, err = witwpt.NewVerifier(f.bundle, witwpt.WithReplayCache(nil))
+	require.EqualError(t, err, "witwpt: replay cache must not be nil")
+
+	_, err = witwpt.NewVerifier(f.bundle, witwpt.WithLeeway(-time.Second))
+	require.EqualError(t, err, "witwpt: leeway must not be negative, got -1s")
+
+	_, err = witwpt.NewVerifier(f.bundle, witwpt.WithMaxProofLifetime(0))
+	require.EqualError(t, err, "witwpt: max proof lifetime must be positive, got 0s")
+
+	_, err = witwpt.NewVerifier(f.bundle, witwpt.WithLeeway(0))
+	require.NoError(t, err)
+
+	_, err = witwpt.Verify(t.Context(), f.witToken, "proof", nil, serverAudience(t))
+	require.EqualError(t, err, "witwpt: no bundle source provided")
 }
 
 func TestVerifyWithMaxProofLifetime(t *testing.T) {
@@ -475,12 +548,12 @@ func TestVerifyWithMaxProofLifetime(t *testing.T) {
 	proof := makeWPT(t, f.cnfKey, jose.ES256, "wpt+jwt", claims)
 
 	t.Run("rejected under the default maximum", func(t *testing.T) {
-		_, err := witwpt.NewVerifier(f.bundle).Verify(t.Context(), f.witToken, proof, audience)
+		_, err := mustNewVerifier(t, f.bundle).Verify(t.Context(), f.witToken, proof, audience)
 		require.ErrorContains(t, err, "too far in the future")
 	})
 
 	t.Run("accepted when the operator raises the maximum", func(t *testing.T) {
-		verifier := witwpt.NewVerifier(f.bundle, witwpt.WithMaxProofLifetime(time.Hour))
+		verifier := mustNewVerifier(t, f.bundle, witwpt.WithMaxProofLifetime(time.Hour))
 		_, err := verifier.Verify(t.Context(), f.witToken, proof, audience)
 		require.NoError(t, err)
 	})
@@ -496,12 +569,12 @@ func TestVerifyWithLeeway(t *testing.T) {
 	proof := makeWPT(t, f.cnfKey, jose.ES256, "wpt+jwt", claims)
 
 	t.Run("rejected under the default leeway", func(t *testing.T) {
-		_, err := witwpt.NewVerifier(f.bundle).Verify(t.Context(), f.witToken, proof, audience)
+		_, err := mustNewVerifier(t, f.bundle).Verify(t.Context(), f.witToken, proof, audience)
 		require.ErrorContains(t, err, "expired")
 	})
 
 	t.Run("accepted when the operator widens the leeway", func(t *testing.T) {
-		verifier := witwpt.NewVerifier(f.bundle, witwpt.WithLeeway(60*time.Second))
+		verifier := mustNewVerifier(t, f.bundle, witwpt.WithLeeway(60*time.Second))
 		_, err := verifier.Verify(t.Context(), f.witToken, proof, audience)
 		require.NoError(t, err)
 	})
@@ -656,4 +729,11 @@ func (f *verifyFixture) validProofClaims() map[string]any {
 		"jti": "jti-fixture-0001",
 		"wth": witwpt.WITHash(f.witToken),
 	}
+}
+
+func mustNewVerifier(t *testing.T, bundles witbundle.Source, opts ...witwpt.VerifyOption) *witwpt.Verifier {
+	t.Helper()
+	verifier, err := witwpt.NewVerifier(bundles, opts...)
+	require.NoError(t, err)
+	return verifier
 }
