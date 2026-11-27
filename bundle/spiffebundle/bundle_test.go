@@ -307,6 +307,29 @@ func TestMarshal(t *testing.T) {
 	assert.Equal(t, bundleParsed, bundle)
 }
 
+func TestMarshalEmpty(t *testing.T) {
+	bundle := spiffebundle.New(td)
+
+	data, err := bundle.Marshal()
+	require.NoError(t, err)
+	require.Equal(t, `{"keys":[]}`, string(data))
+
+	parsed, err := spiffebundle.Parse(td, data)
+	require.NoError(t, err)
+	assert.True(t, bundle.Equal(parsed))
+
+	bundle.SetRefreshHint(60 * time.Second)
+	bundle.SetSequenceNumber(1)
+
+	data, err = bundle.Marshal()
+	require.NoError(t, err)
+	require.Equal(t, `{"keys":[],"spiffe_sequence":1,"spiffe_refresh_hint":60}`, string(data))
+
+	parsed, err = spiffebundle.Parse(td, data)
+	require.NoError(t, err)
+	assert.True(t, bundle.Equal(parsed))
+}
+
 func TestX509Bundle(t *testing.T) {
 	sb := spiffebundle.New(td)
 	sb.AddX509Authority(x509Cert1)
