@@ -47,7 +47,8 @@ func FromSegments(td TrustDomain, segments ...string) (ID, error) {
 	return makeID(td, path)
 }
 
-// FromString parses a SPIFFE ID from a string.
+// FromString parses a SPIFFE ID from a string. ASCII letters in the trust
+// domain are normalized to lowercase.
 func FromString(id string) (ID, error) {
 	switch {
 	case id == "":
@@ -67,11 +68,9 @@ func FromString(id string) (ID, error) {
 		return ID{}, errMissingTrustDomain
 	}
 
-	tdNorm := strings.ToLower(id[schemePrefixLen:pathidx])
-	for i := 0; i < len(tdNorm); i++ {
-		if !isValidTrustDomainChar(tdNorm[i]) {
-			return ID{}, errBadTrustDomainChar
-		}
+	name, err := normalizeTrustDomainName(id[schemePrefixLen:pathidx])
+	if err != nil {
+		return ID{}, err
 	}
 
 	if err := ValidatePath(id[pathidx:]); err != nil {
@@ -79,7 +78,7 @@ func FromString(id string) (ID, error) {
 	}
 
 	return ID{
-		id:      schemePrefix + tdNorm + id[pathidx:],
+		id:      schemePrefix + name + id[pathidx:],
 		pathidx: pathidx,
 	}, nil
 }

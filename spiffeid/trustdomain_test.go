@@ -58,6 +58,9 @@ func TestTrustDomainFromString(t *testing.T) {
 		assertOK(t, "spiffe://TrUsTdOmAiN/path", td)
 		assertOK(t, "TrUsTdOmAiN", td)
 	})
+	t.Run("reject non-ASCII trust domain before normalization", func(t *testing.T) {
+		assertFail(t, "\u212A.example", "trust domain characters are limited to lowercase letters, numbers, dots, dashes, and underscores")
+	})
 
 	t.Run("allow ipv4 trust domain", func(t *testing.T) {
 		expected := spiffeid.RequireTrustDomainFromString("1.2.3.4")

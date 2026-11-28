@@ -119,6 +119,9 @@ func TestFromString(t *testing.T) {
 		assertOK(t, "spiffe://TrUsTdOmAiN/path", td, "/path")
 		assertOK(t, "SpIfFe://TrUsTdOmAiN/path", td, "/path")
 	})
+	t.Run("reject non-ASCII trust domain before normalization", func(t *testing.T) {
+		assertFail(t, "spiffe://\u212A.example/path", "trust domain characters are limited to lowercase letters, numbers, dots, dashes, and underscores")
+	})
 
 	t.Run("reject missing trust domain", func(t *testing.T) {
 		assertFail(t, "spiffe://", "trust domain is missing")

@@ -14,6 +14,7 @@ type TrustDomain struct {
 // TrustDomainFromString returns a new TrustDomain from a string. The string
 // can either be a trust domain name (e.g. example.org), or a valid SPIFFE ID
 // URI (e.g. spiffe://example.org), otherwise an error is returned.
+// ASCII letters in the trust domain are normalized to lowercase.
 // See https://github.com/spiffe/spiffe/blob/main/standards/SPIFFE-ID.md#21-trust-domain.
 func TrustDomainFromString(idOrName string) (TrustDomain, error) {
 	switch {
@@ -29,11 +30,9 @@ func TrustDomainFromString(idOrName string) (TrustDomain, error) {
 		}
 		return id.TrustDomain(), nil
 	default:
-		name := strings.ToLower(idOrName)
-		for i := 0; i < len(name); i++ {
-			if !isValidTrustDomainChar(name[i]) {
-				return TrustDomain{}, errBadTrustDomainChar
-			}
+		name, err := normalizeTrustDomainName(idOrName)
+		if err != nil {
+			return TrustDomain{}, err
 		}
 		return TrustDomain{name: name}, nil
 	}
@@ -112,9 +111,22 @@ func (td *TrustDomain) UnmarshalText(text []byte) error {
 	return nil
 }
 
+func normalizeTrustDomainName(name string) (string, error) {
+	// Validate the original bytes because Unicode lowercasing can map some
+	// non-ASCII characters to ASCII.
+	for i := 0; i < len(name); i++ {
+		if !isValidTrustDomainChar(name[i]) {
+			return "", errBadTrustDomainChar
+		}
+	}
+	return strings.ToLower(name), nil
+}
+
 func isValidTrustDomainChar(c uint8) bool {
 	switch {
 	case c >= 'a' && c <= 'z':
+		return true
+	case c >= 'A' && c <= 'Z':
 		return true
 	case c >= '0' && c <= '9':
 		return true
